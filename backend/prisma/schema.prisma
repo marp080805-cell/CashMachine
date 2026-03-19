@@ -1,0 +1,460 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── USUÁRIOS E EQUIPES ───────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  avatarUrl     String?
+  passwordHash  String
+  role          UserRole  @default(SDR)
+  isActive      Boolean   @default(true)
+  teamId        String?
+  team          Team?     @relation(fields: [teamId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignedDeals     Deal[]         @relation("AssignedDeals")
+  createdLeads      Lead[]         @relation("CreatedLeads")
+  activities        Activity[]
+  tasks             Task[]
+  whatsappNumbers   WhatsappNumber[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  GESTOR
+  SDR
+  CLOSER
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  users     User[]
+  createdAt DateTime @default(now())
+
+  @@map("teams")
+}
+
+// ─── FUNIS ───────────────────────────────────────────────────────
+
+model Funnel {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  type        FunnelType    @default(SALES)
+  isActive    Boolean       @default(true)
+  position    Int           @default(0)
+  stages      FunnelStage[]
+  deals       Deal[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("funnels")
+}
+
+enum FunnelType {
+  PROSPECTING
+  SALES
+  POST_SALES
+  CUSTOM
+}
+
+model FunnelStage {
+  id         String   @id @default(uuid())
+  name       String
+  position   Int
+  color      String   @default("#6366f1")
+  funnelId   String
+  funnel     Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  deals      Deal[]
+  createdAt  DateTime @default(now())
+
+  @@map("funnel_stages")
+}
+
+// ─── LEADS E EMPRESAS ────────────────────────────────────────────
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  cnpj        String?  @unique
+  website     String?
+  segment     String?
+  city        String?
+  state       String?
+  leads       Lead[]
+  deals       Deal[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("companies")
+}
+
+model Lead {
+  id            String        @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?
+  whatsapp      String?
+  position      String?
+  companyId     String?
+  company       Company?      @relation(fields: [companyId], references: [id])
+  channelId     String?
+  channel       Channel?      @relation(fields: [channelId], references: [id])
+  status        LeadStatus    @default(NEW)
+  tags          String[]
+  notes         String?
+  customFields  Json?
+  createdById   String
+  createdBy     User          @relation("CreatedLeads", fields: [createdById], references: [id])
+  deals         Deal[]
+  activities    Activity[]
+  tasks         Task[]
+  conversations WhatsappConversation[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([channelId])
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CUSTOMER
+  LOST
+}
+
+// ─── NEGÓCIOS (DEALS) ────────────────────────────────────────────
+
+model Deal {
+  id            String       @id @default(uuid())
+  title         String
+  value         Float?
+  probability   Int?         @default(50)
+  expectedClose DateTime?
+  status        DealStatus   @default(OPEN)
+  lossReason    String?
+  notes         String?
+  customFields  Json?
+  isFrozen      Boolean      @default(false)
+  funnelId      String
+  funnel        Funnel       @relation(fields: [funnelId], references: [id])
+  stageId       String
+  stage         FunnelStage  @relation(fields: [stageId], references: [id])
+  leadId        String?
+  lead          Lead?        @relation(fields: [leadId], references: [id])
+  companyId     String?
+  company       Company?     @relation(fields: [companyId], references: [id])
+  assignedToId  String
+  assignedTo    User         @relation("AssignedDeals", fields: [assignedToId], references: [id])
+  activities    Activity[]
+  tasks         Task[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([stageId])
+  @@index([assignedToId])
+  @@index([funnelId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("deals")
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  FROZEN
+}
+
+// ─── ATIVIDADES E TAREFAS ────────────────────────────────────────
+
+model Activity {
+  id          String       @id @default(uuid())
+  type        ActivityType
+  description String
+  metadata    Json?
+  leadId      String?
+  lead        Lead?        @relation(fields: [leadId], references: [id])
+  dealId      String?
+  deal        Deal?        @relation(fields: [dealId], references: [id])
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@index([leadId])
+  @@index([dealId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activities")
+}
+
+enum ActivityType {
+  NOTE
+  EMAIL
+  CALL
+  MEETING
+  WHATSAPP_MESSAGE
+  DEAL_MOVED
+  DEAL_CREATED
+  DEAL_WON
+  DEAL_LOST
+  TASK_COMPLETED
+  FILE_UPLOADED
+  AI_SUGGESTION
+}
+
+model Task {
+  id           String     @id @default(uuid())
+  title        String
+  description  String?
+  type         TaskType   @default(CALL)
+  dueDate      DateTime
+  isCompleted  Boolean    @default(false)
+  completedAt  DateTime?
+  leadId       String?
+  lead         Lead?      @relation(fields: [leadId], references: [id])
+  dealId       String?
+  deal         Deal?      @relation(fields: [dealId], references: [id])
+  assignedToId String
+  assignedTo   User       @relation(fields: [assignedToId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([assignedToId])
+  @@index([dueDate])
+  @@index([isCompleted])
+  @@map("tasks")
+}
+
+enum TaskType {
+  CALL
+  EMAIL
+  MEETING
+  VISIT
+  PROPOSAL
+  FOLLOW_UP
+  OTHER
+}
+
+// ─── CANAIS DE AQUISIÇÃO ─────────────────────────────────────────
+
+model Channel {
+  id                  String          @id @default(uuid())
+  name                String
+  type                ChannelType
+  status              ChannelStatus   @default(ACTIVE)
+  priority            Int             @default(3)
+  cplTarget           Float?
+  cacTarget           Float?
+  leadToCallRate      Float           @default(0.2)
+  callToContractRate  Float           @default(0.25)
+  leads               Lead[]
+  metrics             ChannelMetric[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@map("channels")
+}
+
+enum ChannelType {
+  ONLINE_PAID
+  ONLINE_ORGANIC
+  PRESENTIAL_EVENT
+  PRESENTIAL_COMMUNITY
+  OFFLINE_REFERRAL_PARTNER
+  OFFLINE_REFERRAL_CLIENT
+  OUTBOUND
+  CUSTOM
+}
+
+enum ChannelStatus {
+  ACTIVE
+  PAUSED
+  TESTING
+  INACTIVE
+}
+
+model ChannelMetric {
+  id                  String   @id @default(uuid())
+  channelId           String
+  channel             Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  month               Int
+  year                Int
+  leadsGoal           Int      @default(0)
+  leadsGenerated      Int      @default(0)
+  totalCost           Float    @default(0)
+  callsReal           Int      @default(0)
+  contractsReal       Int      @default(0)
+  callsEstimated      Float    @default(0)
+  contractsEstimated  Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([channelId, month, year])
+  @@index([channelId])
+  @@index([month, year])
+  @@map("channel_metrics")
+}
+
+// ─── WHATSAPP ────────────────────────────────────────────────────
+
+model WhatsappNumber {
+  id              String                @id @default(uuid())
+  phone           String                @unique
+  instanceName    String                @unique
+  status          WhatsappStatus        @default(DISCONNECTED)
+  userId          String
+  user            User                  @relation(fields: [userId], references: [id])
+  conversations   WhatsappConversation[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([userId])
+  @@map("whatsapp_numbers")
+}
+
+enum WhatsappStatus {
+  CONNECTED
+  DISCONNECTED
+  CONNECTING
+  ERROR
+}
+
+model WhatsappConversation {
+  id              String             @id @default(uuid())
+  remoteJid       String
+  remotePhone     String
+  remoteName      String?
+  remoteAvatar    String?
+  numberId        String
+  number          WhatsappNumber     @relation(fields: [numberId], references: [id])
+  leadId          String?
+  lead            Lead?              @relation(fields: [leadId], references: [id])
+  lastMessage     String?
+  lastMessageAt   DateTime?
+  unreadCount     Int                @default(0)
+  isArchived      Boolean            @default(false)
+  messages        WhatsappMessage[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([numberId, remoteJid])
+  @@index([numberId])
+  @@index([leadId])
+  @@index([lastMessageAt])
+  @@map("whatsapp_conversations")
+}
+
+model WhatsappMessage {
+  id               String               @id @default(uuid())
+  remoteId         String               @unique
+  conversationId   String
+  conversation     WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  content          String?
+  type             MessageType          @default(TEXT)
+  mediaUrl         String?
+  fromMe           Boolean              @default(false)
+  status           MessageStatus        @default(SENT)
+  aiSuggestion     String?
+  aiSuggestionUsed Boolean              @default(false)
+  timestamp        DateTime
+  createdAt        DateTime             @default(now())
+
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("whatsapp_messages")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  STICKER
+  LOCATION
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ─── IA — TRANSCRIÇÕES ───────────────────────────────────────────
+
+model CallTranscription {
+  id            String               @id @default(uuid())
+  title         String
+  audioUrl      String?
+  transcript    String?
+  duration      Int?
+  leadId        String?
+  dealId        String?
+  analysis      Json?
+  status        TranscriptionStatus  @default(PENDING)
+  uploadedById  String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([uploadedById])
+  @@index([status])
+  @@map("call_transcriptions")
+}
+
+enum TranscriptionStatus {
+  PENDING
+  PROCESSING
+  DONE
+  ERROR
+}
+
+// ─── NOTIFICAÇÕES ────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TASK_DUE
+  DEAL_ASSIGNED
+  WHATSAPP_MESSAGE
+  AI_SUGGESTION
+  REPORT_READY
+  SYSTEM
+}

@@ -1,0 +1,63 @@
+import { Worker } from 'bullmq'
+import { env } from '../config/env'
+import { prisma } from '../lib/prisma'
+import { generateWhatsappSuggestion } from '../modules/ai/ai.service'
+
+const connection = { url: env.REDIS_URL }
+
+export function startAiSuggestionWorker(io: { to: (room: string) => { emit: (event: string, data: unknown) => void } }) {
+  const worker = new Worker(
+    'ai-suggestions',
+    async (job) => {
+      const { conversationId, incomingMessage, leadId } = job.data as {
+        conversationId: string
+        incomingMessage: string
+        leadId?: string
+      }
+
+      const conversation = await prisma.whatsappConversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          messages: { orderBy: { timestamp: 'desc' }, take: 10 },
+        },
+      })
+
+      if (!conversation) return
+
+      let leadContext: string | null = null
+      if (leadId) {
+        const lead = await prisma.lead.findUnique({
+          where: { id: leadId },
+          select: { name: true, status: true, position: true, company: { select: { name: true } } },
+        })
+        if (lead) {
+          leadContext = `Nome: ${lead.name}, Empresa: ${lead.company?.name ?? 'N/A'}, Cargo: ${lead.position ?? 'N/A'}, Status: ${lead.status}`
+        }
+      }
+
+      const history = conversation.messages.reverse().map((m) => ({
+        content: m.content ?? '',
+        fromMe: m.fromMe,
+        timestamp: m.timestamp.toISOString(),
+      }))
+
+      const suggestion = await generateWhatsappSuggestion(history, leadContext, incomingMessage)
+
+      const lastMessage = conversation.messages[conversation.messages.length - 1]
+      if (lastMessage) {
+        await prisma.whatsappMessage.update({
+          where: { id: lastMessage.id },
+          data: { aiSuggestion: suggestion },
+        })
+      }
+
+      io.to(`conversation:${conversationId}`).emit('ai:suggestion', {
+        conversationId,
+        suggestion,
+      })
+    },
+    { connection }
+  )
+
+  return worker
+}

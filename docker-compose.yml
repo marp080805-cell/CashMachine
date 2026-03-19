@@ -1,0 +1,61 @@
+version: "3.9"
+
+networks:
+  cashmachine_network:
+    driver: bridge
+    name: cashmachine_network
+
+services:
+  cashmachine_redis:
+    image: redis:7-alpine
+    container_name: cashmachine_redis
+    restart: unless-stopped
+    networks:
+      - cashmachine_network
+    volumes:
+      - cashmachine_redis_data:/data
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  cashmachine_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cashmachine_api
+    restart: unless-stopped
+    networks:
+      - cashmachine_network
+    env_file: .env
+    depends_on:
+      - cashmachine_redis
+    ports:
+      - "127.0.0.1:3011:3011"
+
+  cashmachine_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cashmachine_frontend
+    restart: unless-stopped
+    networks:
+      - cashmachine_network
+    env_file: .env
+    depends_on:
+      - cashmachine_api
+    ports:
+      - "127.0.0.1:3010:3000"
+
+  cashmachine_evolution:
+    image: atendai/evolution-api:latest
+    container_name: cashmachine_evolution
+    restart: unless-stopped
+    networks:
+      - cashmachine_network
+    env_file: .env
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - cashmachine_evolution_data:/evolution/instances
+
+volumes:
+  cashmachine_redis_data:
+  cashmachine_evolution_data:
