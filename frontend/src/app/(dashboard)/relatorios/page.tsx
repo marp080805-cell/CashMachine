@@ -113,7 +113,7 @@ export default function RelatoriosPage() {
               <Card>
                 <CardContent className="p-0">
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b bg-slate-50 text-xs text-muted-foreground"><th className="px-4 py-3 text-left">Canal</th><th className="px-4 py-3 text-right">Meta</th><th className="px-4 py-3 text-right">Leads</th><th className="px-4 py-3 text-right">% Meta</th><th className="px-4 py-3 text-right">Custo</th><th className="px-4 py-3 text-right">CPL</th><th className="px-4 py-3 text-right">Contratos</th></tr></thead>
+                    <thead><tr className="border-b bg-muted text-xs text-muted-foreground"><th className="px-4 py-3 text-left">Canal</th><th className="px-4 py-3 text-right">Meta</th><th className="px-4 py-3 text-right">Leads</th><th className="px-4 py-3 text-right">% Meta</th><th className="px-4 py-3 text-right">Custo</th><th className="px-4 py-3 text-right">CPL</th><th className="px-4 py-3 text-right">Contratos</th></tr></thead>
                     <tbody>
                       {(channelReport?.report ?? []).map((ch) => (
                         <tr key={ch.channelId} className="border-b">
@@ -155,9 +155,9 @@ export default function RelatoriosPage() {
 
         <TabsContent value="team" className="mt-4">
           {teamLoading ? <Skeleton className="h-64" /> : (
-            <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="rounded-lg border bg-card overflow-hidden">
               <table className="w-full text-sm">
-                <thead><tr className="border-b bg-slate-50 text-xs text-muted-foreground"><th className="px-4 py-3 text-left">Usuário</th><th className="px-4 py-3 text-right">Leads</th><th className="px-4 py-3 text-right">Deals</th><th className="px-4 py-3 text-right">Ganhos</th><th className="px-4 py-3 text-right">Receita</th><th className="px-4 py-3 text-right">Tarefas</th></tr></thead>
+                <thead><tr className="border-b bg-muted text-xs text-muted-foreground"><th className="px-4 py-3 text-left">Usuário</th><th className="px-4 py-3 text-right">Leads</th><th className="px-4 py-3 text-right">Deals</th><th className="px-4 py-3 text-right">Ganhos</th><th className="px-4 py-3 text-right">Receita</th><th className="px-4 py-3 text-right">Tarefas</th></tr></thead>
                 <tbody>
                   {(teamReport?.report ?? []).map((u) => (
                     <tr key={u.userId} className="border-b">

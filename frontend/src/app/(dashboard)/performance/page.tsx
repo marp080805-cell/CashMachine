@@ -74,7 +74,7 @@ export default function PerformancePage() {
                       {MEDAL_LABELS[idx]}
                     </span>
                   </div>
-                  <p className="font-semibold text-gray-900">{member.userName}</p>
+                  <p className="font-semibold text-foreground">{member.userName}</p>
                   <p className="text-2xl font-bold text-primary mt-1">{formatCurrency(member.revenueWon)}</p>
                   <p className="text-xs text-muted-foreground mt-1">Receita gerada</p>
                   <div className="grid grid-cols-3 gap-2 mt-4 border-t pt-4 text-center">
@@ -135,7 +135,7 @@ export default function PerformancePage() {
               <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-slate-50 text-xs text-muted-foreground">
+                    <tr className="border-b bg-muted text-xs text-muted-foreground">
                       <th className="px-4 py-3 text-left">#</th>
                       <th className="px-4 py-3 text-left">Usuário</th>
                       <th className="px-4 py-3 text-right">Leads</th>

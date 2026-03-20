@@ -51,7 +51,7 @@ export function RecentActivities({ activities }: RecentActivitiesProps) {
           <div className="space-y-4">
             {activities.map((activity) => {
               const Icon = activityIcons[activity.type] ?? FileText
-              const colorClass = activityColors[activity.type] ?? 'text-gray-500 bg-gray-50'
+              const colorClass = activityColors[activity.type] ?? 'text-muted-foreground bg-muted'
 
               return (
                 <div key={activity.id} className="flex items-start gap-3">

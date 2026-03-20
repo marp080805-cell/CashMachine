@@ -129,7 +129,7 @@ export default function PlanejamentoPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-slate-50 text-xs text-muted-foreground">
+                <tr className="border-b bg-muted text-xs text-muted-foreground">
                   <th className="px-4 py-3 text-left font-medium">Canal</th>
                   <th className="px-4 py-3 text-right font-medium">Meta</th>
                   <th className="px-4 py-3 text-right font-medium">Leads Reais</th>
@@ -185,7 +185,7 @@ export default function PlanejamentoPage() {
                     }
 
                     return (
-                      <tr key={channel.id} className="border-b hover:bg-slate-50">
+                      <tr key={channel.id} className="border-b hover:bg-muted">
                         <td className="px-4 py-3 font-medium">{channel.name}</td>
                         <td className="px-4 py-3 text-right"><EditableCell field="leadsGoal" value={goal} /></td>
                         <td className="px-4 py-3 text-right"><EditableCell field="leadsGenerated" value={leads} /></td>
@@ -203,7 +203,7 @@ export default function PlanejamentoPage() {
                     )
                   })
                 )}
-                <tr className="bg-slate-50 font-semibold text-xs border-t-2">
+                <tr className="bg-muted font-semibold text-xs border-t-2">
                   <td className="px-4 py-3">TOTAL</td>
                   <td className="px-4 py-3 text-right">{totals.leadsGoal}</td>
                   <td className="px-4 py-3 text-right">{totals.leadsGenerated}</td>

@@ -46,7 +46,7 @@ export default function WhatsAppPage() {
       <div className="flex-1 flex flex-col">
         {activeConversationId ? (
           <>
-            <div className="flex h-16 items-center justify-between px-4 border-b bg-white">
+            <div className="flex h-16 items-center justify-between px-4 border-b bg-card">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
                   {(activeConversation?.remoteName ?? activeConversation?.remotePhone ?? '?')[0]?.toUpperCase()}

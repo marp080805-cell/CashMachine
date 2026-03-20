@@ -69,7 +69,7 @@ export default function TarefasPage() {
               className={cn(
                 'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
                 filter === tab.key
-                  ? 'bg-white shadow text-foreground'
+                  ? 'bg-card shadow text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -100,7 +100,7 @@ export default function TarefasPage() {
               <div
                 key={task.id}
                 className={cn(
-                  'flex items-center gap-4 rounded-lg border bg-white p-4',
+                  'flex items-center gap-4 rounded-lg border bg-card p-4',
                   task.isCompleted && 'opacity-60',
                   overdueTask && !task.isCompleted && 'border-red-200',
                   todayTask && !task.isCompleted && !overdueTask && 'border-amber-200'
@@ -119,7 +119,7 @@ export default function TarefasPage() {
                   {task.isCompleted && <CheckSquare className="h-3 w-3" />}
                 </button>
 
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
                   <Icon className="h-4 w-4 text-muted-foreground" />
                 </div>
 

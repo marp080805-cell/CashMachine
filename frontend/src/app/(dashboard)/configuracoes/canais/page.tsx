@@ -43,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-700',
   PAUSED: 'bg-amber-100 text-amber-700',
   TESTING: 'bg-blue-100 text-blue-700',
-  INACTIVE: 'bg-slate-100 text-slate-600',
+  INACTIVE: 'bg-muted text-muted-foreground',
 }
 
 const channelSchema = z.object({
@@ -121,10 +121,10 @@ export default function CanaisPage() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16" />)}
         </div>
       ) : (
-        <div className="rounded-lg border bg-white overflow-hidden">
+        <div className="rounded-lg border bg-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50 text-xs text-muted-foreground">
+              <tr className="border-b bg-muted text-xs text-muted-foreground">
                 <th className="px-4 py-3 text-left">Canal</th>
                 <th className="px-4 py-3 text-left">Tipo</th>
                 <th className="px-4 py-3 text-right">CPL Alvo</th>

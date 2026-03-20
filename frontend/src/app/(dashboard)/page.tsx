@@ -167,7 +167,7 @@ export default function DashboardPage() {
                       isOverdue(task.dueDate) ? 'border-red-200 bg-red-50' : isToday(task.dueDate) ? 'border-amber-200 bg-amber-50' : ''
                     )}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
                         <p className="text-xs text-muted-foreground">
                           {task.lead?.name ?? task.deal?.title ?? 'Sem vínculo'} · {formatDate(task.dueDate)}
                         </p>
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                         {member.userName[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{member.userName}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{member.userName}</p>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span>{member.leadsCreated} leads</span>
                           <span>·</span>

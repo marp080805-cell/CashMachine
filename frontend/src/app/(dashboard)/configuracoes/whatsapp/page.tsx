@@ -16,7 +16,7 @@ import type { WhatsappNumber } from '@/types'
 
 const STATUS_CONFIG = {
   CONNECTED: { label: 'Conectado', color: 'bg-green-100 text-green-700', icon: Wifi },
-  DISCONNECTED: { label: 'Desconectado', color: 'bg-slate-100 text-slate-600', icon: WifiOff },
+  DISCONNECTED: { label: 'Desconectado', color: 'bg-muted text-muted-foreground', icon: WifiOff },
   CONNECTING: { label: 'Conectando...', color: 'bg-blue-100 text-blue-700', icon: Loader2 },
   ERROR: { label: 'Erro', color: 'bg-red-100 text-red-700', icon: WifiOff },
 }
@@ -85,7 +85,7 @@ export default function WhatsappConfigPage() {
           {[1, 2].map((i) => <Skeleton key={i} className="h-20" />)}
         </div>
       ) : numbers.length === 0 ? (
-        <div className="rounded-lg border bg-white p-10 text-center">
+        <div className="rounded-lg border bg-card p-10 text-center">
           <QrCode className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="font-medium text-muted-foreground">Nenhum número conectado</p>
           <p className="text-sm text-muted-foreground mt-1">Conecte um número WhatsApp para começar</p>
@@ -100,7 +100,7 @@ export default function WhatsappConfigPage() {
             const cfg = STATUS_CONFIG[number.status] ?? STATUS_CONFIG.DISCONNECTED
             const Icon = cfg.icon
             return (
-              <div key={number.id} className="rounded-lg border bg-white p-4 flex items-center gap-4">
+              <div key={number.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
                   <Icon className={cn('h-5 w-5 text-green-600', number.status === 'CONNECTING' && 'animate-spin')} />
                 </div>
@@ -158,7 +158,7 @@ export default function WhatsappConfigPage() {
               </>
             ) : (
               <>
-                <div className="rounded-lg border p-3 bg-white">
+                <div className="rounded-lg border p-3 bg-card">
                   <img src={qrCode} alt="QR Code WhatsApp" className="w-56 h-56" />
                 </div>
                 <p className="text-sm text-center text-muted-foreground">

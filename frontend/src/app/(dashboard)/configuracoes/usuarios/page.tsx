@@ -86,10 +86,10 @@ export default function UsuariosPage() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16" />)}
         </div>
       ) : (
-        <div className="rounded-lg border bg-white overflow-hidden">
+        <div className="rounded-lg border bg-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50 text-xs text-muted-foreground">
+              <tr className="border-b bg-muted text-xs text-muted-foreground">
                 <th className="px-4 py-3 text-left">Usuário</th>
                 <th className="px-4 py-3 text-left">E-mail</th>
                 <th className="px-4 py-3 text-left">Perfil</th>

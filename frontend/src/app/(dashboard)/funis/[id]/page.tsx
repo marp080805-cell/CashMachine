@@ -38,7 +38,7 @@ export default function FunnelKanbanPage() {
   return (
     <div>
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">{funnel.name}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{funnel.name}</h2>
         <p className="text-sm text-muted-foreground">
           {funnel.stages.length} etapas · {funnel.stages.reduce((sum, s) => sum + s.deals.length, 0)} deals em aberto
         </p>
