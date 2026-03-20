@@ -6,6 +6,7 @@ Central de gestão comercial com CRM Kanban, WhatsApp multi-número com sugestõ
 
 - Docker + Docker Compose v2
 - Conta [Supabase](https://supabase.com) (projeto criado)
+- **Evolution API** já instalada e rodando (externa a este projeto) — [docs](https://doc.evolution-api.com)
 - Chave API [OpenAI](https://platform.openai.com) (GPT-4o-mini + Whisper)
 - Chave API [Resend](https://resend.com) para e-mails
 - Domínio com SSL (Let's Encrypt) para produção
@@ -106,6 +107,20 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ## Configurar WhatsApp
+
+Este projeto usa sua **Evolution API existente** — não sobe uma instância própria.
+
+### Pré-requisito: configurar o webhook na Evolution
+
+Na sua instância Evolution, configure o webhook global (ou por instância) apontando para:
+
+```
+https://app.seudominio.com/api/whatsapp/webhook/{instanceName}
+```
+
+Eventos necessários: `messages.upsert`, `connection.update`
+
+### Conectar um número
 
 1. Acesse **Configurações → WhatsApp** no painel
 2. Clique em **Conectar Número**

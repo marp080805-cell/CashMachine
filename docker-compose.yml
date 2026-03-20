@@ -44,18 +44,5 @@ services:
     ports:
       - "127.0.0.1:3010:3000"
 
-  cashmachine_evolution:
-    image: atendai/evolution-api:latest
-    container_name: cashmachine_evolution
-    restart: unless-stopped
-    networks:
-      - cashmachine_network
-    env_file: .env
-    ports:
-      - "127.0.0.1:8080:8080"
-    volumes:
-      - cashmachine_evolution_data:/evolution/instances
-
 volumes:
   cashmachine_redis_data:
-  cashmachine_evolution_data:
