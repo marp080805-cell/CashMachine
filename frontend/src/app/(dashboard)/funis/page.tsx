@@ -54,7 +54,8 @@ export default function FunisPage() {
     mutationFn: async (body: { name: string; description: string; type: string }) => {
       const funnel = await api.post<Funnel>('/funnels', body)
       // Create default stages
-      for (const [i, stage] of form.stages.entries()) {
+      for (let i = 0; i < form.stages.length; i++) {
+        const stage = form.stages[i]
         await api.post(`/funnels/${funnel.id}/stages`, { name: stage.name, color: stage.color, position: i })
       }
       return funnel
