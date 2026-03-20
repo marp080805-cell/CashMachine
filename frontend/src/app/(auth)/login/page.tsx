@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Brain } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,10 +69,12 @@ export default function LoginPage() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center pb-2">
         <div className="mb-4">
-          <h1 className="text-3xl font-bold">
-            <span className="text-foreground">Cash</span>
-            <span className="text-primary">Mind</span>
-          </h1>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Brain className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">
+              <span className="text-foreground">Cash</span><span className="text-primary">Mind</span>
+            </h1>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Plataforma Comercial B2B</p>
         </div>
         <h2 className="text-xl font-semibold text-foreground">Entrar na plataforma</h2>

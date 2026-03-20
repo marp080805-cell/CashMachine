@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Lead, Activity, Channel } from '@/types'
+import type { Lead, Activity, Channel, CustomFieldDefinition } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -55,6 +55,13 @@ export default function LeadDetailPage() {
     queryKey: ['channels'],
     queryFn: () => api.get<{ channels: Channel[] }>('/channels'),
   })
+
+  const { data: customFieldDefs } = useQuery({
+    queryKey: ['custom-fields', 'lead'],
+    queryFn: () => api.get<{ fields: CustomFieldDefinition[] }>('/settings/custom-fields?entity=lead'),
+  })
+
+  const fieldDefs = customFieldDefs?.fields ?? []
 
   const updateMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/leads/${id}`, body),
@@ -201,18 +208,29 @@ export default function LeadDetailPage() {
           </CardContent>
         </Card>
 
-        {customFields && Object.keys(customFields).length > 0 && (
+        {(fieldDefs.length > 0 || (customFields && Object.keys(customFields).length > 0)) && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Campos adicionais</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-4">
-              {Object.entries(customFields).map(([key, value]) => (
-                <div key={key}>
-                  <p className="text-xs text-muted-foreground capitalize">{key}</p>
-                  <p className="text-sm">{String(value)}</p>
-                </div>
-              ))}
+              {fieldDefs.length > 0
+                ? fieldDefs.map((def) => {
+                    const val = customFields?.[def.name]
+                    return (
+                      <div key={def.id}>
+                        <p className="text-xs text-muted-foreground">{def.label}</p>
+                        <p className="text-sm">{val !== undefined && val !== null ? String(val) : '—'}</p>
+                      </div>
+                    )
+                  })
+                : customFields && Object.entries(customFields).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="text-xs text-muted-foreground capitalize">{key}</p>
+                      <p className="text-sm">{String(value)}</p>
+                    </div>
+                  ))
+              }
             </CardContent>
           </Card>
         )}
@@ -310,40 +328,92 @@ export default function LeadDetailPage() {
                 </div>
               </div>
 
-              {/* Custom Fields */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+              {/* Custom Fields from definitions */}
+              {fieldDefs.length > 0 && (
+                <div className="space-y-3">
                   <Label className="text-sm font-medium">Campos adicionais</Label>
-                  <Button type="button" size="sm" variant="outline" onClick={addCustomField}>
-                    <Plus className="h-3.5 w-3.5 mr-1" />Adicionar
-                  </Button>
+                  {fieldDefs.map((def) => {
+                    const currentVal = editForm.customFields.find((cf) => cf.key === def.name)?.value ?? ''
+                    const setValue = (val: string) => {
+                      setEditForm((f) => {
+                        if (!f) return f
+                        const exists = f.customFields.find((cf) => cf.key === def.name)
+                        if (exists) {
+                          return { ...f, customFields: f.customFields.map((cf) => cf.key === def.name ? { ...cf, value: val } : cf) }
+                        }
+                        return { ...f, customFields: [...f.customFields, { key: def.name, value: val }] }
+                      })
+                    }
+                    return (
+                      <div key={def.id} className="space-y-1.5">
+                        <Label>{def.label}{def.required && <span className="text-red-500 ml-1">*</span>}</Label>
+                        {def.type === 'BOOLEAN' ? (
+                          <Select value={currentVal || 'false'} onValueChange={setValue}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Sim</SelectItem>
+                              <SelectItem value="false">Não</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : def.type === 'SELECT' || def.type === 'MULTI_SELECT' ? (
+                          <Select value={currentVal} onValueChange={setValue}>
+                            <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                            <SelectContent>
+                              {(def.options ?? []).map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type={def.type === 'NUMBER' ? 'number' : def.type === 'DATE' ? 'date' : def.type === 'URL' ? 'url' : 'text'}
+                            value={currentVal}
+                            onChange={(e) => setValue(e.target.value)}
+                            required={def.required}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
-                {editForm.customFields.map((cf, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Campo"
-                      value={cf.key}
-                      onChange={(e) => updateCustomField(idx, 'key', e.target.value)}
-                      className="flex-1"
-                    />
-                    <Input
-                      placeholder="Valor"
-                      value={cf.value}
-                      onChange={(e) => updateCustomField(idx, 'value', e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => removeCustomField(idx)}
-                      className="text-red-500 hover:text-red-600 shrink-0"
-                    >
-                      <X className="h-4 w-4" />
+              )}
+
+              {/* Legacy free-form custom fields (shown only if no definitions configured) */}
+              {fieldDefs.length === 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Campos adicionais</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addCustomField}>
+                      <Plus className="h-3.5 w-3.5 mr-1" />Adicionar
                     </Button>
                   </div>
-                ))}
-              </div>
+                  {editForm.customFields.map((cf, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="Campo"
+                        value={cf.key}
+                        onChange={(e) => updateCustomField(idx, 'key', e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Valor"
+                        value={cf.value}
+                        onChange={(e) => updateCustomField(idx, 'value', e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeCustomField(idx)}
+                        className="text-red-500 hover:text-red-600 shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>

@@ -315,3 +315,50 @@ export interface ApiError {
   error: string
   details?: unknown
 }
+
+// ─── PERSONALIZAÇÃO ──────────────────────────────────────────────
+
+export type CustomFieldType = 'TEXT' | 'NUMBER' | 'SELECT' | 'MULTI_SELECT' | 'DATE' | 'BOOLEAN' | 'URL'
+export type GoalPeriod = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL'
+
+export interface CustomFieldOption {
+  label: string
+  value: string
+}
+
+export interface CustomFieldDefinition {
+  id: string
+  name: string
+  label: string
+  type: CustomFieldType
+  entity: string
+  options: CustomFieldOption[] | null
+  required: boolean
+  position: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DashboardWidget {
+  id: string
+  type: 'kpi' | 'chart' | 'table' | 'list'
+  label: string
+  enabled: boolean
+  position: number
+}
+
+export interface Goal {
+  id: string
+  name: string
+  metric: string
+  target: number
+  period: GoalPeriod
+  month: number | null
+  year: number
+  channelId: string | null
+  channel: Pick<Channel, 'id' | 'name'> | null
+  createdById: string
+  createdAt: string
+  updatedAt: string
+}

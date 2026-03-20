@@ -23,6 +23,9 @@ import aiRoutes from './modules/ai/ai.routes'
 import reportsRoutes from './modules/reports/reports.routes'
 import dashboardRoutes from './modules/dashboard/dashboard.routes'
 import notificationsRoutes from './modules/notifications/notifications.routes'
+import customFieldsRoutes from './modules/settings/custom-fields.routes'
+import dashboardConfigRoutes from './modules/settings/dashboard-config.routes'
+import goalsRoutes from './modules/settings/goals.routes'
 
 import { startAiSuggestionWorker } from './queues/ai-suggestion.queue'
 import { startNotificationWorker } from './queues/notification.queue'
@@ -71,6 +74,9 @@ async function bootstrap() {
   await app.register(reportsRoutes)
   await app.register(dashboardRoutes)
   await app.register(notificationsRoutes)
+  await app.register(customFieldsRoutes)
+  await app.register(dashboardConfigRoutes)
+  await app.register(goalsRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 

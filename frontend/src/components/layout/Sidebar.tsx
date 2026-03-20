@@ -14,6 +14,7 @@ import {
   Mic,
   Settings,
   LogOut,
+  Brain,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -52,9 +53,11 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-1 text-xl font-bold">
-          <span className="text-sidebar-active">Cash</span>
-          <span className="text-primary-light opacity-70">Mind</span>
+        <Link href="/" className="flex items-center gap-2 text-xl font-bold">
+          <Brain className="h-6 w-6 text-primary-light" />
+          <span>
+            <span className="text-sidebar-active">Cash</span><span className="text-primary-light opacity-70">Mind</span>
+          </span>
         </Link>
       </div>
 

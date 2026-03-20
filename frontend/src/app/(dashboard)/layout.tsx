@@ -21,6 +21,9 @@ const pageTitles: Record<string, string> = {
   '/configuracoes/usuarios': 'Usuários',
   '/configuracoes/canais': 'Canais',
   '/configuracoes/whatsapp': 'WhatsApp — Números',
+  '/configuracoes/campos-leads': 'Campos de Leads',
+  '/configuracoes/metas': 'Metas',
+  '/configuracoes/dashboard': 'Configurar Dashboard',
 }
 
 function getTitle(pathname: string): string {

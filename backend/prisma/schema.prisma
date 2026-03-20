@@ -30,6 +30,8 @@ model User {
   tasks             Task[]
   whatsappNumbers   WhatsappNumber[]
   notifications     Notification[]
+  dashboardConfig   DashboardConfig?
+  createdGoals      Goal[]         @relation("CreatedGoals")
 
   @@map("users")
 }
@@ -272,6 +274,7 @@ model Channel {
   callToContractRate  Float           @default(0.25)
   leads               Lead[]
   metrics             ChannelMetric[]
+  goals               Goal[]
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -433,6 +436,70 @@ enum TranscriptionStatus {
   PROCESSING
   DONE
   ERROR
+}
+
+// ─── PERSONALIZAÇÃO ──────────────────────────────────────────────
+
+model CustomFieldDefinition {
+  id        String          @id @default(uuid())
+  name      String
+  label     String
+  type      CustomFieldType
+  entity    String          @default("lead")
+  options   Json?
+  required  Boolean         @default(false)
+  position  Int             @default(0)
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([name, entity])
+  @@map("custom_field_definitions")
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  SELECT
+  MULTI_SELECT
+  DATE
+  BOOLEAN
+  URL
+}
+
+model DashboardConfig {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widgets   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("dashboard_configs")
+}
+
+model Goal {
+  id          String     @id @default(uuid())
+  name        String
+  metric      String
+  target      Float
+  period      GoalPeriod @default(MONTHLY)
+  month       Int?
+  year        Int
+  channelId   String?
+  channel     Channel?   @relation(fields: [channelId], references: [id])
+  createdById String
+  createdBy   User       @relation("CreatedGoals", fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("goals")
+}
+
+enum GoalPeriod {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
 }
 
 // ─── NOTIFICAÇÕES ────────────────────────────────────────────────
