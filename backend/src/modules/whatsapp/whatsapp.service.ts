@@ -63,13 +63,28 @@ export async function handleIncomingWebhook(
       },
     })
 
+    let leadId = leadMatch?.id
+
+    if (!leadId && !parsed.fromMe) {
+      const newLead = await prisma.lead.create({
+        data: {
+          name: parsed.remoteName ?? remotePhone,
+          whatsapp: remotePhone,
+          phone: remotePhone,
+          status: 'NEW',
+          createdById: whatsappNumber.userId,
+        },
+      })
+      leadId = newLead.id
+    }
+
     conversation = await prisma.whatsappConversation.create({
       data: {
         remoteJid: parsed.remoteJid,
         remotePhone,
         remoteName: parsed.remoteName,
         numberId: whatsappNumber.id,
-        leadId: leadMatch?.id,
+        leadId,
         lastMessage: parsed.content,
         lastMessageAt: parsed.timestamp,
         unreadCount: parsed.fromMe ? 0 : 1,

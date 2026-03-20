@@ -1,20 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { WhatsappConversation } from '@/types'
 import { ConversationList } from '@/components/whatsapp/ConversationList'
 import { ChatWindow } from '@/components/whatsapp/ChatWindow'
 import { ContactInfo } from '@/components/whatsapp/ContactInfo'
 import { useWhatsappStore } from '@/stores/whatsappStore'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { getSocket } from '@/lib/socket'
 
 export default function WhatsAppPage() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [showContactInfo, setShowContactInfo] = useState(false)
-  const { setConversations, updateConversation } = useWhatsappStore()
+  const { setConversations } = useWhatsappStore()
+  const queryClient = useQueryClient()
 
   const { data } = useQuery({
     queryKey: ['whatsapp-conversations', search],
@@ -28,6 +31,21 @@ export default function WhatsAppPage() {
     },
     refetchInterval: 30000,
   })
+
+  useEffect(() => {
+    const socket = getSocket()
+
+    const handleNotification = (data: { type: string; conversationId: string }) => {
+      if (data.type === 'WHATSAPP_MESSAGE') {
+        void queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] })
+      }
+    }
+
+    socket.on('notification:new', handleNotification)
+    return () => {
+      socket.off('notification:new', handleNotification)
+    }
+  }, [queryClient])
 
   const conversations = data?.conversations ?? []
   const activeConversation = conversations.find((c) => c.id === activeConversationId)
@@ -56,6 +74,14 @@ export default function WhatsAppPage() {
                   <p className="text-xs text-muted-foreground">{activeConversation?.remotePhone}</p>
                 </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowContactInfo((v) => !v)}
+                className={showContactInfo ? 'text-primary' : ''}
+              >
+                <Info className="h-5 w-5" />
+              </Button>
             </div>
             <div className="flex-1 overflow-hidden">
               <ChatWindow conversationId={activeConversationId} />
