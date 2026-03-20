@@ -1,8 +1,14 @@
 import fp from 'fastify-plugin'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import fastifyCookie from '@fastify/cookie'
 import { env } from '../config/env'
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+  }
+}
 
 export default fp(async function authPlugin(app: FastifyInstance) {
   await app.register(fastifyCookie)

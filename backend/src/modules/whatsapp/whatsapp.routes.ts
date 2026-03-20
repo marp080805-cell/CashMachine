@@ -9,6 +9,7 @@ import {
 } from './evolution.client'
 import { handleIncomingWebhook } from './whatsapp.service'
 import type { UserRole } from '@prisma/client'
+import type { EvolutionWebhookPayload } from './evolution.client'
 
 export default async function whatsappRoutes(app: FastifyInstance) {
   app.get(

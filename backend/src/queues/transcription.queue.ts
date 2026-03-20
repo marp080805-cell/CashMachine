@@ -1,4 +1,5 @@
 import { Worker } from 'bullmq'
+import { Prisma } from '@prisma/client'
 import { env } from '../config/env'
 import { prisma } from '../lib/prisma'
 import { transcribeAudio } from '../modules/ai/transcription.service'
@@ -38,7 +39,7 @@ export function startTranscriptionWorker() {
 
       await prisma.callTranscription.update({
         where: { id: transcriptionId },
-        data: { transcript, analysis, status: 'DONE' },
+        data: { transcript, analysis: analysis as Prisma.InputJsonValue, status: 'DONE' },
       })
     },
     {
