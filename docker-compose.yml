@@ -41,8 +41,20 @@ services:
     env_file: .env
     depends_on:
       - cashmachine_api
+
+  cashmachine_nginx:
+    image: nginx:alpine
+    container_name: cashmachine_nginx
+    restart: unless-stopped
+    networks:
+      - cashmachine_network
     ports:
-      - "127.0.0.1:3010:3000"
+      - "0.0.0.0:8002:80"
+    volumes:
+      - ./nginx/cashmachine.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - cashmachine_frontend
+      - cashmachine_api
 
 volumes:
   cashmachine_redis_data:
