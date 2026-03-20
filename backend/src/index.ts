@@ -2,6 +2,7 @@ import './config/env'
 import Fastify from 'fastify'
 import { env } from './config/env'
 
+import multipart from '@fastify/multipart'
 import authPlugin from './plugins/auth'
 import corsPlugin from './plugins/cors'
 import socketPlugin from './plugins/socket'
@@ -34,6 +35,7 @@ async function bootstrap() {
   await app.register(corsPlugin)
   await app.register(authPlugin)
   await app.register(socketPlugin)
+  await app.register(multipart, { limits: { fileSize: 100 * 1024 * 1024 } })
 
   app.setErrorHandler((error, _request, reply) => {
     if (error.name === 'ZodError') {

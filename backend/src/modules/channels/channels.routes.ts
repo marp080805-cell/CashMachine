@@ -35,7 +35,7 @@ export default async function channelsRoutes(app: FastifyInstance) {
           _count: { select: { leads: true } },
         },
       })
-      return reply.send(channels)
+      return reply.send({ channels })
     }
   )
 

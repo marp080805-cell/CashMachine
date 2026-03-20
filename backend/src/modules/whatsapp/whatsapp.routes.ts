@@ -24,7 +24,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'desc' },
       })
 
-      return reply.send(numbers)
+      return reply.send({ numbers })
     }
   )
 
@@ -32,22 +32,22 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     '/whatsapp/numbers',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const { phone, userId } = z.object({
-        phone: z.string().min(10),
+      const { userId } = z.object({
         userId: z.string().uuid().optional(),
-      }).parse(request.body)
+        phone: z.string().optional(),
+      }).parse(request.body ?? {})
 
       const user = request.user as { id: string }
       const ownerId = userId ?? user.id
 
-      const instanceName = `cashmachine_${phone.replace(/\D/g, '')}`
+      const instanceName = `cashmachine_${ownerId.replace(/-/g, '').slice(0, 12)}_${Date.now()}`
 
       await createInstance(instanceName)
       const { qrcode } = await getQRCode(instanceName)
 
       const number = await prisma.whatsappNumber.create({
         data: {
-          phone,
+          phone: `pending_${instanceName}`,
           instanceName,
           userId: ownerId,
           status: 'CONNECTING',
@@ -55,8 +55,6 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       })
 
       return reply.status(201).send({ ...number, qrcode })
-    }
-  )
 
   app.get(
     '/whatsapp/numbers/:id/qrcode',

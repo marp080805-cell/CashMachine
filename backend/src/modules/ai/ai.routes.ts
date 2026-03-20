@@ -18,7 +18,7 @@ export default async function aiRoutes(app: FastifyInstance) {
         take: 50,
       })
 
-      return reply.send(transcriptions)
+      return reply.send({ transcriptions })
     }
   )
 
@@ -36,28 +36,61 @@ export default async function aiRoutes(app: FastifyInstance) {
     '/transcriptions',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const input = z.object({
-        title: z.string().min(1),
-        audioUrl: z.string().url(),
-        leadId: z.string().uuid().optional(),
-        dealId: z.string().uuid().optional(),
-      }).parse(request.body)
-
       const user = request.user as { id: string }
+
+      const data = await request.file()
+
+      let audioUrl: string | null = null
+      let title = `Gravação ${new Date().toLocaleDateString('pt-BR')}`
+
+      if (data) {
+        const { createClient } = await import('@supabase/supabase-js')
+        const { env } = await import('../../config/env')
+        const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+
+        const chunks: Buffer[] = []
+        for await (const chunk of data.file) {
+          chunks.push(chunk as Buffer)
+        }
+        const buffer = Buffer.concat(chunks)
+        const fileName = `transcriptions/${user.id}/${Date.now()}-${data.filename}`
+
+        const { data: uploadData, error } = await supabase.storage
+          .from('cashmachine')
+          .upload(fileName, buffer, { contentType: data.mimetype, upsert: false })
+
+        if (!error && uploadData) {
+          const { data: urlData } = supabase.storage.from('cashmachine').getPublicUrl(uploadData.path)
+          audioUrl = urlData.publicUrl
+          title = data.filename.replace(/\.[^/.]+$/, '') || title
+        }
+      } else {
+        const input = z.object({
+          title: z.string().min(1).optional(),
+          audioUrl: z.string().url(),
+          leadId: z.string().uuid().optional(),
+          dealId: z.string().uuid().optional(),
+        }).parse(request.body)
+        audioUrl = input.audioUrl
+        if (input.title) title = input.title
+      }
 
       const transcription = await prisma.callTranscription.create({
         data: {
-          ...input,
+          title,
+          audioUrl,
           uploadedById: user.id,
           status: 'PENDING',
         },
       })
 
-      await transcriptionQueue.add('transcribe', {
-        transcriptionId: transcription.id,
-        audioUrl: input.audioUrl,
-        dealId: input.dealId,
-      })
+      if (audioUrl) {
+        await transcriptionQueue.add('transcribe', {
+          transcriptionId: transcription.id,
+          audioUrl,
+          dealId: null,
+        })
+      }
 
       return reply.status(201).send(transcription)
     }

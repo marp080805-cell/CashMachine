@@ -21,9 +21,9 @@ export default function PlanejamentoPage() {
   const [editValue, setEditValue] = useState('')
   const queryClient = useQueryClient()
 
-  const { data: channels, isLoading: channelsLoading } = useQuery({
+  const { data: channelsData, isLoading: channelsLoading } = useQuery({
     queryKey: ['channels'],
-    queryFn: () => api.get<Channel[]>('/channels'),
+    queryFn: () => api.get<{ channels: Channel[] }>('/channels'),
   })
 
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
@@ -50,7 +50,7 @@ export default function PlanejamentoPage() {
     (metricsData?.report ?? []).map((m) => [m.channelId, m])
   )
 
-  const rows = (channels ?? []).map((ch) => ({
+  const rows = (channelsData?.channels ?? []).map((ch) => ({
     channel: ch,
     metric: metricsMap.get(ch.id) ?? null,
   }))

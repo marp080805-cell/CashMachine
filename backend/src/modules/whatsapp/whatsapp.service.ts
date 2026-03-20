@@ -10,6 +10,33 @@ export async function handleIncomingWebhook(
   instanceName: string,
   payload: EvolutionWebhookPayload
 ): Promise<void> {
+  if (payload.event === 'connection.update') {
+    const state = (payload.data as { state?: string; instance?: { profileJid?: string } })
+    const status = state?.state === 'open' ? 'CONNECTED'
+      : state?.state === 'close' ? 'DISCONNECTED'
+      : state?.state === 'connecting' ? 'CONNECTING'
+      : null
+
+    if (status) {
+      const phone = (state as { instance?: { profileJid?: string } }).instance?.profileJid
+        ?.replace('@s.whatsapp.net', '') ?? undefined
+
+      await prisma.whatsappNumber.updateMany({
+        where: { instanceName },
+        data: {
+          status: status as 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING',
+          ...(phone ? { phone } : {}),
+        },
+      })
+
+      const number = await prisma.whatsappNumber.findUnique({ where: { instanceName } })
+      if (number) {
+        app.io.to(`user:${number.userId}`).emit('whatsapp:status', { instanceName, status })
+      }
+    }
+    return
+  }
+
   if (payload.event !== 'messages.upsert') return
 
   const parsed = parseWebhookMessage(payload)

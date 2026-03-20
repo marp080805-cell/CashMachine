@@ -3,17 +3,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAuthStore } from '@/stores/authStore'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog'
+import { FileUpload } from '@/components/shared/FileUpload'
 import { Upload, Mic, FileAudio, Clock, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 
 interface CallTranscription {
   id: string
@@ -154,8 +155,8 @@ function TranscriptionDetail({ item }: { item: CallTranscription }) {
 export default function TranscricoesPage() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
   const queryClient = useQueryClient()
+  const token = useAuthStore((s) => s.token)
 
   const { data, isLoading } = useQuery({
     queryKey: ['transcriptions'],
@@ -170,9 +171,7 @@ export default function TranscricoesPage() {
       formData.append('audio', selectedFile)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/transcriptions`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cashmachine-auth') ?? '{}')?.state?.token ?? '' : ''}`,
-        },
+        headers: { Authorization: `Bearer ${token ?? ''}` },
         body: formData,
       })
       if (!response.ok) throw new Error('Upload failed')
@@ -261,48 +260,15 @@ export default function TranscricoesPage() {
             <DialogTitle>Enviar Áudio para Transcrição</DialogTitle>
           </DialogHeader>
 
-          <div
-            className={cn(
-              'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
-              isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
-              selectedFile ? 'border-green-400 bg-green-50' : ''
-            )}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setIsDragging(false)
-              const file = e.dataTransfer.files[0]
-              if (file) setSelectedFile(file)
-            }}
-          >
-            {selectedFile ? (
-              <div className="flex flex-col items-center gap-2">
-                <FileAudio className="h-10 w-10 text-green-500" />
-                <p className="text-sm font-medium text-green-700">{selectedFile.name}</p>
-                <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                <Button size="sm" variant="ghost" onClick={() => setSelectedFile(null)}>Remover</Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Upload className="h-10 w-10 text-muted-foreground/50" />
-                <p className="text-sm font-medium">Arraste um arquivo de áudio</p>
-                <p className="text-xs text-muted-foreground">MP3, MP4, WAV, M4A, OGG até 100MB</p>
-                <label className="mt-2 cursor-pointer">
-                  <span className="text-sm text-primary underline">ou selecione um arquivo</span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="audio/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) setSelectedFile(file)
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-          </div>
+          <FileUpload
+            accept="audio/*"
+            maxSizeMb={100}
+            selectedFile={selectedFile}
+            onFileSelected={setSelectedFile}
+            onClear={() => setSelectedFile(null)}
+            label="Arraste um arquivo de áudio"
+            hint="MP3, MP4, WAV, M4A, OGG até 100MB"
+          />
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setUploadOpen(false); setSelectedFile(null) }}>
