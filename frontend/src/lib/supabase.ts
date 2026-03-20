@@ -11,20 +11,22 @@ export function getSupabase(): SupabaseClient | null {
   return _client
 }
 
-// Chainable noop for when Supabase env vars are not configured
-const noopChannel: {
-  on: (...args: unknown[]) => typeof noopChannel
-  subscribe: () => { unsubscribe: () => void }
-} = {
-  on: () => noopChannel,
-  subscribe: () => ({ unsubscribe: () => {} }),
+// Chainable noop returned when Supabase env vars are absent
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeNoopChannel(): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ch: Record<string, any> = {
+    subscribe: () => ({ unsubscribe: () => {} }),
+  }
+  ch['on'] = () => ch
+  return ch
 }
 
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
     const client = getSupabase()
     if (!client) {
-      if (prop === 'channel') return () => noopChannel
+      if (prop === 'channel') return () => makeNoopChannel()
       if (prop === 'removeChannel') return () => Promise.resolve()
       return () => {}
     }
