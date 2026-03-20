@@ -11,7 +11,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import { Loader2, Plus, Trash2, RefreshCw, Wifi, WifiOff, Eye, EyeOff, MessageSquare, Webhook } from 'lucide-react'
+import {
+  Loader2, Plus, Trash2, RefreshCw, Wifi, WifiOff,
+  Eye, EyeOff, MessageSquare, Webhook, Copy, Check,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { WhatsappNumber } from '@/types'
@@ -30,6 +33,24 @@ interface ConnectForm {
   phone: string
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copiar URL"
+      className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  )
+}
+
 export default function WhatsappConfigPage() {
   const [connectModalOpen, setConnectModalOpen] = useState(false)
   const [showToken, setShowToken] = useState(false)
@@ -40,6 +61,8 @@ export default function WhatsappConfigPage() {
     phone: '',
   })
   const queryClient = useQueryClient()
+
+  const appUrl = process.env['NEXT_PUBLIC_APP_URL'] ?? (typeof window !== 'undefined' ? window.location.origin : '')
 
   const { data, isLoading } = useQuery({
     queryKey: ['whatsapp-numbers'],
@@ -68,15 +91,18 @@ export default function WhatsappConfigPage() {
       toast.success('Status atualizado')
       void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })
     },
-    onError: () => toast.error('Erro ao verificar'),
+    onError: (err: unknown) => {
+      const msg = (err as { message?: string })?.message ?? 'Erro ao verificar'
+      toast.error(msg)
+    },
   })
 
   const setupWebhookMutation = useMutation({
     mutationFn: (id: string) => api.post<{ ok: boolean; webhookUrl: string }>(`/whatsapp/numbers/${id}/setup-webhook`),
-    onSuccess: (data) => toast.success(`Webhook configurado: ${data.webhookUrl}`),
+    onSuccess: (data) => toast.success(`Webhook configurado! URL: ${data.webhookUrl}`),
     onError: (err: unknown) => {
       const msg = (err as { message?: string })?.message ?? 'Erro ao configurar webhook'
-      toast.error(msg)
+      toast.error(msg, { duration: 8000 })
     },
   })
 
@@ -112,7 +138,7 @@ export default function WhatsappConfigPage() {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2].map((i) => <Skeleton key={i} className="h-20" />)}
+          {[1, 2].map((i) => <Skeleton key={i} className="h-24" />)}
         </div>
       ) : numbers.length === 0 ? (
         <div className="rounded-lg border bg-card p-10 text-center">
@@ -131,52 +157,67 @@ export default function WhatsappConfigPage() {
           {numbers.map((number) => {
             const cfg = STATUS_CONFIG[number.status] ?? STATUS_CONFIG.DISCONNECTED
             const Icon = cfg.icon
+            const num = number as WhatsappNumber & { apiUrl?: string; instanceName: string }
+            const webhookUrl = `${appUrl}/api/whatsapp/webhook/${num.instanceName}`
+
             return (
-              <div key={number.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                  <Icon className={cn('h-5 w-5 text-green-600', number.status === 'CONNECTING' && 'animate-spin')} />
+              <div key={number.id} className="rounded-lg border bg-card p-4 space-y-3">
+                {/* Top row */}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 flex-shrink-0">
+                    <Icon className={cn('h-5 w-5 text-green-600', number.status === 'CONNECTING' && 'animate-spin')} />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{number.phone}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{num.instanceName}</p>
+                    {num.apiUrl && (
+                      <p className="text-xs text-muted-foreground truncate">{num.apiUrl}</p>
+                    )}
+                  </div>
+
+                  <Badge className={cn(cfg.color, 'flex-shrink-0')}>
+                    <Icon className={cn('h-3 w-3 mr-1', number.status === 'CONNECTING' && 'animate-spin')} />
+                    {cfg.label}
+                  </Badge>
+
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title="Verificar status"
+                      onClick={() => verifyMutation.mutate(number.id)}
+                      disabled={verifyMutation.isPending}
+                    >
+                      <RefreshCw className={cn('h-4 w-4', verifyMutation.isPending && 'animate-spin')} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title="Configurar webhook automaticamente"
+                      onClick={() => setupWebhookMutation.mutate(number.id)}
+                      disabled={setupWebhookMutation.isPending}
+                    >
+                      <Webhook className={cn('h-4 w-4', setupWebhookMutation.isPending && 'animate-spin')} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => disconnectMutation.mutate(number.id)}
+                      disabled={disconnectMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{number.phone}</p>
-                  <p className="text-xs text-muted-foreground font-mono">{number.instanceName}</p>
-                  {(number as WhatsappNumber & { apiUrl?: string }).apiUrl && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {(number as WhatsappNumber & { apiUrl?: string }).apiUrl}
-                    </p>
-                  )}
-                </div>
-                <Badge className={cfg.color}>
-                  <Icon className={cn('h-3 w-3 mr-1', number.status === 'CONNECTING' && 'animate-spin')} />
-                  {cfg.label}
-                </Badge>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title="Verificar status"
-                    onClick={() => verifyMutation.mutate(number.id)}
-                    disabled={verifyMutation.isPending}
-                  >
-                    <RefreshCw className={cn('h-4 w-4', verifyMutation.isPending && 'animate-spin')} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title="Reconfigurar webhook (necessário para receber mensagens)"
-                    onClick={() => setupWebhookMutation.mutate(number.id)}
-                    disabled={setupWebhookMutation.isPending}
-                  >
-                    <Webhook className={cn('h-4 w-4', setupWebhookMutation.isPending && 'animate-spin')} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => disconnectMutation.mutate(number.id)}
-                    disabled={disconnectMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+
+                {/* Webhook URL row */}
+                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+                  <Webhook className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground flex-shrink-0">Webhook:</span>
+                  <span className="text-xs font-mono text-foreground/80 truncate flex-1">{webhookUrl}</span>
+                  <CopyButton text={webhookUrl} />
                 </div>
               </div>
             )
@@ -233,6 +274,20 @@ export default function WhatsappConfigPage() {
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               />
             </div>
+
+            {/* Webhook URL preview */}
+            {form.instanceName && (
+              <div className="rounded-md bg-muted p-3 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">URL do webhook que será configurada:</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-xs font-mono break-all flex-1">
+                    {appUrl}/api/whatsapp/webhook/{form.instanceName}
+                  </p>
+                  <CopyButton text={`${appUrl}/api/whatsapp/webhook/${form.instanceName}`} />
+                </div>
+              </div>
+            )}
+
             <Button type="submit" className="w-full" disabled={connectMutation.isPending}>
               {connectMutation.isPending ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verificando...</>

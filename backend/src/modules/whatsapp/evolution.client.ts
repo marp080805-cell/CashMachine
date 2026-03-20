@@ -97,14 +97,25 @@ export async function getConnectionState(instanceName: string, creds?: Evolution
 }
 
 export async function setWebhook(instanceName: string, webhookUrl: string, creds?: EvolutionCredentials): Promise<void> {
-  // Evolution API v2 format (no outer "webhook" wrapper)
-  await apiRequest('POST', `/webhook/set/${instanceName}`, {
+  const body = {
     enabled: true,
     url: webhookUrl,
     webhookByEvents: false,
     webhookBase64: false,
     events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
-  }, creds)
+  }
+  try {
+    // Try Evolution API v2 format first (flat body, no outer wrapper)
+    await apiRequest('POST', `/webhook/set/${instanceName}`, body, creds)
+  } catch (errV2) {
+    // Fall back to v1 format (wrapped in "webhook" key)
+    try {
+      await apiRequest('POST', `/webhook/set/${instanceName}`, { webhook: body }, creds)
+    } catch (errV1) {
+      // Re-throw the original v2 error so the caller sees it
+      throw errV2
+    }
+  }
 }
 
 export async function deleteInstance(instanceName: string, creds?: EvolutionCredentials): Promise<void> {
