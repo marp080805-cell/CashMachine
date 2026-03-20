@@ -71,7 +71,7 @@ export default function LoginPage() {
         <div className="mb-4">
           <h1 className="text-3xl font-bold">
             <span className="text-foreground">Cash</span>
-            <span className="text-primary">Machine</span>
+            <span className="text-primary">Mind</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Plataforma Comercial B2B</p>
         </div>
