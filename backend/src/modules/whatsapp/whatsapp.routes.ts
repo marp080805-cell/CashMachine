@@ -133,22 +133,30 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     '/whatsapp/numbers/:id/verify',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const { id } = request.params as { id: string }
-      const number = await prisma.whatsappNumber.findUniqueOrThrow({ where: { id } })
+      try {
+        const { id } = request.params as { id: string }
+        const number = await prisma.whatsappNumber.findUnique({ where: { id } })
+        if (!number) return reply.status(404).send({ error: 'Número não encontrado' })
 
-      const creds = number.apiUrl && number.apiKey
-        ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
-        : undefined
+        const creds = number.apiUrl && number.apiKey
+          ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+          : undefined
 
-      const state = await getConnectionState(number.instanceName, creds)
-      const isConnected = state === 'open' || state === 'CONNECTED'
+        const state = await getConnectionState(number.instanceName, creds)
+        const isConnected = state === 'open' || state === 'CONNECTED' || state === 'connecting'
 
-      const updated = await prisma.whatsappNumber.update({
-        where: { id },
-        data: { status: isConnected ? 'CONNECTED' : 'DISCONNECTED' },
-      })
+        const updated = await prisma.whatsappNumber.update({
+          where: { id },
+          data: { status: isConnected ? 'CONNECTED' : 'DISCONNECTED' },
+        })
 
-      return reply.send(updated)
+        // Don't expose apiKey in response
+        const { apiKey: _k, ...safe } = updated as typeof updated & { apiKey?: string }
+        return reply.send(safe)
+      } catch (err) {
+        app.log.error(`verify error: ${String(err)}`)
+        return reply.status(500).send({ error: 'Erro ao verificar status' })
+      }
     }
   )
 
@@ -331,19 +339,33 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     '/whatsapp/conversations/start',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const { leadId, numberId, text } = z.object({
-        leadId: z.string(),
-        numberId: z.string(),
-        text: z.string().min(1),
-      }).parse(request.body)
+      let leadId: string, numberId: string, text: string
+      try {
+        const parsed = z.object({
+          leadId: z.string(),
+          numberId: z.string(),
+          text: z.string().min(1),
+        }).parse(request.body)
+        leadId = parsed.leadId
+        numberId = parsed.numberId
+        text = parsed.text
+      } catch {
+        return reply.status(400).send({ error: 'Dados inválidos' })
+      }
 
       const [lead, number] = await Promise.all([
         prisma.lead.findUniqueOrThrow({ where: { id: leadId } }),
         prisma.whatsappNumber.findUniqueOrThrow({ where: { id: numberId } }),
       ])
 
-      const phone = (lead.whatsapp ?? lead.phone ?? '').replace(/\D/g, '')
-      if (!phone) return reply.status(400).send({ error: 'Lead sem número de WhatsApp ou telefone' })
+      const rawPhone = (lead.whatsapp ?? lead.phone ?? '').replace(/\D/g, '')
+      if (!rawPhone) return reply.status(400).send({ error: 'Lead sem número de WhatsApp ou telefone' })
+
+      // Normalize to include Brazil country code (55) if missing
+      let phone = rawPhone
+      if (!phone.startsWith('55') && phone.length <= 11) {
+        phone = `55${phone}`
+      }
 
       const remoteJid = `${phone}@s.whatsapp.net`
 
@@ -351,7 +373,13 @@ export default async function whatsappRoutes(app: FastifyInstance) {
         ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
         : undefined
 
-      const remoteId = await sendTextMessage(number.instanceName, remoteJid, text, creds)
+      let remoteId: string
+      try {
+        remoteId = await sendTextMessage(number.instanceName, remoteJid, text, creds)
+      } catch (err) {
+        app.log.error(`sendTextMessage error: ${String(err)}`)
+        return reply.status(502).send({ error: `Erro ao enviar via Evolution API: ${String(err)}` })
+      }
 
       // Find or create conversation
       let conversation = await prisma.whatsappConversation.findUnique({
