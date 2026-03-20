@@ -61,7 +61,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
 
       // Register webhook
       try {
-        const webhookBase = env.WEBHOOK_BASE_URL ?? env.API_URL
+        const webhookBase = env.WEBHOOK_BASE_URL ?? `${env.NEXT_PUBLIC_APP_URL}/api`
         const webhookUrl = `${webhookBase}/whatsapp/webhook/${instanceName}`
         await setWebhook(instanceName, webhookUrl, creds)
       } catch (e) {
@@ -134,20 +134,26 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     '/whatsapp/numbers/:id/setup-webhook',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const { id } = request.params as { id: string }
-      const number = await prisma.whatsappNumber.findUnique({ where: { id } })
-      if (!number) return reply.status(404).send({ error: 'Número não encontrado' })
+      try {
+        const { id } = request.params as { id: string }
+        const number = await prisma.whatsappNumber.findUnique({ where: { id } })
+        if (!number) return reply.status(404).send({ error: 'Número não encontrado' })
 
-      const creds = number.apiUrl && number.apiKey
-        ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
-        : undefined
+        const creds = number.apiUrl && number.apiKey
+          ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+          : undefined
 
-      const webhookBase = env.WEBHOOK_BASE_URL ?? env.API_URL
-      const webhookUrl = `${webhookBase}/whatsapp/webhook/${number.instanceName}`
+        const webhookBase = env.WEBHOOK_BASE_URL ?? `${env.NEXT_PUBLIC_APP_URL}/api`
+        const webhookUrl = `${webhookBase}/whatsapp/webhook/${number.instanceName}`
 
-      await setWebhook(number.instanceName, webhookUrl, creds)
+        await setWebhook(number.instanceName, webhookUrl, creds)
 
-      return reply.send({ ok: true, webhookUrl })
+        return reply.send({ ok: true, webhookUrl })
+      } catch (err) {
+        const msg = String(err)
+        app.log.error(`setup-webhook error: ${msg}`)
+        return reply.status(500).send({ error: msg })
+      }
     }
   )
 

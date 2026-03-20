@@ -73,8 +73,11 @@ export default function WhatsappConfigPage() {
 
   const setupWebhookMutation = useMutation({
     mutationFn: (id: string) => api.post<{ ok: boolean; webhookUrl: string }>(`/whatsapp/numbers/${id}/setup-webhook`),
-    onSuccess: (data) => toast.success(`Webhook atualizado: ${data.webhookUrl}`),
-    onError: () => toast.error('Erro ao configurar webhook'),
+    onSuccess: (data) => toast.success(`Webhook configurado: ${data.webhookUrl}`),
+    onError: (err: unknown) => {
+      const msg = (err as { message?: string })?.message ?? 'Erro ao configurar webhook'
+      toast.error(msg)
+    },
   })
 
   const disconnectMutation = useMutation({

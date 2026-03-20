@@ -97,14 +97,13 @@ export async function getConnectionState(instanceName: string, creds?: Evolution
 }
 
 export async function setWebhook(instanceName: string, webhookUrl: string, creds?: EvolutionCredentials): Promise<void> {
+  // Evolution API v2 format (no outer "webhook" wrapper)
   await apiRequest('POST', `/webhook/set/${instanceName}`, {
-    webhook: {
-      enabled: true,
-      url: webhookUrl,
-      webhookByEvents: false,
-      webhookBase64: false,
-      events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
-    },
+    enabled: true,
+    url: webhookUrl,
+    webhookByEvents: false,
+    webhookBase64: false,
+    events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
   }, creds)
 }
 

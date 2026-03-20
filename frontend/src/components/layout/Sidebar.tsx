@@ -15,6 +15,7 @@ import {
   Mic,
   Settings,
   LogOut,
+  Brain,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -52,16 +53,23 @@ export function Sidebar({ className, onClose }: SidebarProps) {
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/logo-branco.png"
-            alt="Logo"
-            width={140}
-            height={40}
-            className="h-8 w-auto object-contain"
-            priority
-          />
+      <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 flex-shrink-0">
+            <Brain className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="font-bold text-sm text-white leading-none">CashMind</span>
+            <span className="text-sidebar-text/60 text-xs leading-none">by</span>
+            <Image
+              src="/logo-branco.png"
+              alt="Logo"
+              width={72}
+              height={20}
+              className="h-4 w-auto object-contain flex-shrink-0"
+              priority
+            />
+          </div>
         </Link>
       </div>
 
