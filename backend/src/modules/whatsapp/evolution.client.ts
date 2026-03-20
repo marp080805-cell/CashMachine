@@ -38,16 +38,25 @@ export type EvolutionWebhookPayload = {
   }
 }
 
+export interface EvolutionCredentials {
+  baseUrl?: string
+  apiKey?: string
+}
+
 async function apiRequest<T>(
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  creds?: EvolutionCredentials
 ): Promise<T> {
-  const response = await fetch(`${env.EVOLUTION_API_URL}${path}`, {
+  const baseUrl = creds?.baseUrl ?? env.EVOLUTION_API_URL
+  const apiKey = creds?.apiKey ?? env.EVOLUTION_API_KEY
+
+  const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      apikey: env.EVOLUTION_API_KEY,
+      apikey: apiKey,
     },
     body: body ? JSON.stringify(body) : undefined,
   })
@@ -60,37 +69,59 @@ async function apiRequest<T>(
   return response.json() as Promise<T>
 }
 
-export async function createInstance(instanceName: string): Promise<EvolutionInstance> {
+export async function createInstance(instanceName: string, creds?: EvolutionCredentials): Promise<EvolutionInstance> {
   return apiRequest<EvolutionInstance>('POST', '/instance/create', {
     instanceName,
     qrcode: true,
     integration: 'WHATSAPP-BAILEYS',
-  })
+  }, creds)
 }
 
-export async function getQRCode(instanceName: string): Promise<{ qrcode: string }> {
-  const data = await apiRequest<QRCodeResponse>('GET', `/instance/connect/${instanceName}`)
+export async function getQRCode(instanceName: string, creds?: EvolutionCredentials): Promise<{ qrcode: string }> {
+  const data = await apiRequest<QRCodeResponse>('GET', `/instance/connect/${instanceName}`, undefined, creds)
   return { qrcode: data.qrcode.base64 }
 }
 
-export async function getInstanceStatus(instanceName: string): Promise<string> {
-  const data = await apiRequest<{ instance: { state: string } }>('GET', `/instance/fetchInstances/${instanceName}`)
+export async function getInstanceStatus(instanceName: string, creds?: EvolutionCredentials): Promise<string> {
+  const data = await apiRequest<{ instance: { state: string } }>('GET', `/instance/fetchInstances/${instanceName}`, undefined, creds)
   return data.instance.state
 }
 
-export async function deleteInstance(instanceName: string): Promise<void> {
-  await apiRequest('DELETE', `/instance/delete/${instanceName}`)
+export async function getConnectionState(instanceName: string, creds?: EvolutionCredentials): Promise<string> {
+  try {
+    const data = await apiRequest<{ instance: { state: string } }>('GET', `/instance/connectionState/${instanceName}`, undefined, creds)
+    return data.instance?.state ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+export async function setWebhook(instanceName: string, webhookUrl: string, creds?: EvolutionCredentials): Promise<void> {
+  await apiRequest('POST', `/webhook/set/${instanceName}`, {
+    webhook: {
+      enabled: true,
+      url: webhookUrl,
+      webhookByEvents: false,
+      webhookBase64: false,
+      events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+    },
+  }, creds)
+}
+
+export async function deleteInstance(instanceName: string, creds?: EvolutionCredentials): Promise<void> {
+  await apiRequest('DELETE', `/instance/delete/${instanceName}`, undefined, creds)
 }
 
 export async function sendTextMessage(
   instanceName: string,
   to: string,
-  text: string
+  text: string,
+  creds?: EvolutionCredentials
 ): Promise<string> {
   const data = await apiRequest<SendMessageResponse>('POST', `/message/sendText/${instanceName}`, {
     number: to,
     text,
-  })
+  }, creds)
   return data.key.id
 }
 
@@ -98,14 +129,15 @@ export async function sendMedia(
   instanceName: string,
   to: string,
   mediaUrl: string,
-  caption?: string
+  caption?: string,
+  creds?: EvolutionCredentials
 ): Promise<string> {
   const data = await apiRequest<SendMessageResponse>('POST', `/message/sendMedia/${instanceName}`, {
     number: to,
     mediatype: 'image',
     media: mediaUrl,
     caption,
-  })
+  }, creds)
   return data.key.id
 }
 
@@ -119,7 +151,7 @@ export function parseWebhookMessage(payload: EvolutionWebhookPayload): {
   timestamp: Date
   remoteName: string | null
 } {
-  const { key, message, messageType, messageTimestamp, pushName } = payload.data
+  const { key, message, messageTimestamp, pushName } = payload.data
 
   let content: string | null = null
   let mediaUrl: string | null = null

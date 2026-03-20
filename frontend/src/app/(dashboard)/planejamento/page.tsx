@@ -1,16 +1,60 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import type { Channel, ChannelMetric } from '@/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn, formatCurrency, formatPercent, getAttainmentColor, getAttainmentBg } from '@/lib/utils'
+import { cn, formatCurrency, formatPercent, getAttainmentColor } from '@/lib/utils'
 
 interface ChannelWithMetric extends Channel {
   metric: ChannelMetric | null
+}
+
+// EditableCell is defined outside the render to prevent re-mount on each render
+interface EditableCellProps {
+  cellId: string
+  value: number
+  editing: boolean
+  editValue: string
+  onStartEdit: (cellId: string, value: number) => void
+  onChangeEdit: (val: string) => void
+  onCommit: () => void
+  onCancel: () => void
+  format?: (v: number) => string
+}
+
+function EditableCell({
+  cellId, value, editing, editValue,
+  onStartEdit, onChangeEdit, onCommit, onCancel, format,
+}: EditableCellProps) {
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        value={editValue}
+        onChange={(e) => onChangeEdit(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onCommit()
+          if (e.key === 'Escape') onCancel()
+        }}
+        className="w-24 border rounded px-1 py-0.5 text-right text-sm bg-background"
+      />
+    )
+  }
+  return (
+    <span
+      onClick={() => onStartEdit(cellId, value)}
+      className="cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5 select-none"
+      title="Clique para editar"
+    >
+      {format ? format(value) : value}
+    </span>
+  )
 }
 
 export default function PlanejamentoPage() {
@@ -66,18 +110,22 @@ export default function PlanejamentoPage() {
     { leadsGoal: 0, leadsGenerated: 0, totalCost: 0, callsReal: 0, contractsReal: 0 }
   )
 
-  function startEdit(cellId: string, value: number) {
+  const startEdit = useCallback((cellId: string, value: number) => {
     setEditingCell(cellId)
     setEditValue(String(value))
-  }
+  }, [])
 
-  function commitEdit(channelId: string, field: string) {
+  const changeEdit = useCallback((val: string) => setEditValue(val), [])
+
+  const cancelEdit = useCallback(() => setEditingCell(null), [])
+
+  const commitEdit = useCallback((channelId: string, field: string) => {
     const num = parseFloat(editValue)
     if (!isNaN(num)) {
       updateMetricMutation.mutate({ channelId, field, value: num })
     }
     setEditingCell(null)
-  }
+  }, [editValue, updateMetricMutation])
 
   const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -87,7 +135,7 @@ export default function PlanejamentoPage() {
         <select
           value={month}
           onChange={(e) => setMonth(parseInt(e.target.value, 10))}
-          className="border rounded-md px-3 py-2 text-sm"
+          className="border rounded-md px-3 py-2 text-sm bg-background"
         >
           {monthNames.map((m, i) => (
             <option key={i} value={i + 1}>{m}</option>
@@ -96,12 +144,13 @@ export default function PlanejamentoPage() {
         <select
           value={year}
           onChange={(e) => setYear(parseInt(e.target.value, 10))}
-          className="border rounded-md px-3 py-2 text-sm"
+          className="border rounded-md px-3 py-2 text-sm bg-background"
         >
           {[2024, 2025, 2026, 2027].map((y) => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
+        <p className="text-xs text-muted-foreground">Clique em qualquer número para editar</p>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
@@ -159,40 +208,71 @@ export default function PlanejamentoPage() {
                     const cpl = leads > 0 ? cost / leads : 0
                     const delta = leads - goal
 
-                    function EditableCell({ field, value }: { field: string; value: number }) {
-                      const cellId = `${channel.id}-${field}`
-                      return editingCell === cellId ? (
-                        <input
-                          autoFocus
-                          type="number"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => commitEdit(channel.id, field)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitEdit(channel.id, field)
-                            if (e.key === 'Escape') setEditingCell(null)
-                          }}
-                          className="w-20 border rounded px-1 py-0.5 text-right text-sm"
-                        />
-                      ) : (
-                        <span
-                          onClick={() => startEdit(cellId, value)}
-                          className="cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5"
-                        >
-                          {value}
-                        </span>
-                      )
-                    }
-
                     return (
-                      <tr key={channel.id} className="border-b hover:bg-muted">
+                      <tr key={channel.id} className="border-b hover:bg-muted/50">
                         <td className="px-4 py-3 font-medium">{channel.name}</td>
-                        <td className="px-4 py-3 text-right"><EditableCell field="leadsGoal" value={goal} /></td>
-                        <td className="px-4 py-3 text-right"><EditableCell field="leadsGenerated" value={leads} /></td>
-                        <td className="px-4 py-3 text-right"><EditableCell field="totalCost" value={cost} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <EditableCell
+                            cellId={`${channel.id}-leadsGoal`}
+                            value={goal}
+                            editing={editingCell === `${channel.id}-leadsGoal`}
+                            editValue={editValue}
+                            onStartEdit={startEdit}
+                            onChangeEdit={changeEdit}
+                            onCommit={() => commitEdit(channel.id, 'leadsGoal')}
+                            onCancel={cancelEdit}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <EditableCell
+                            cellId={`${channel.id}-leadsGenerated`}
+                            value={leads}
+                            editing={editingCell === `${channel.id}-leadsGenerated`}
+                            editValue={editValue}
+                            onStartEdit={startEdit}
+                            onChangeEdit={changeEdit}
+                            onCommit={() => commitEdit(channel.id, 'leadsGenerated')}
+                            onCancel={cancelEdit}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <EditableCell
+                            cellId={`${channel.id}-totalCost`}
+                            value={cost}
+                            editing={editingCell === `${channel.id}-totalCost`}
+                            editValue={editValue}
+                            onStartEdit={startEdit}
+                            onChangeEdit={changeEdit}
+                            onCommit={() => commitEdit(channel.id, 'totalCost')}
+                            onCancel={cancelEdit}
+                            format={formatCurrency}
+                          />
+                        </td>
                         <td className="px-4 py-3 text-right">{formatCurrency(cpl)}</td>
-                        <td className="px-4 py-3 text-right"><EditableCell field="callsReal" value={metric?.callsReal ?? 0} /></td>
-                        <td className="px-4 py-3 text-right"><EditableCell field="contractsReal" value={metric?.contractsReal ?? 0} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <EditableCell
+                            cellId={`${channel.id}-callsReal`}
+                            value={metric?.callsReal ?? 0}
+                            editing={editingCell === `${channel.id}-callsReal`}
+                            editValue={editValue}
+                            onStartEdit={startEdit}
+                            onChangeEdit={changeEdit}
+                            onCommit={() => commitEdit(channel.id, 'callsReal')}
+                            onCancel={cancelEdit}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <EditableCell
+                            cellId={`${channel.id}-contractsReal`}
+                            value={metric?.contractsReal ?? 0}
+                            editing={editingCell === `${channel.id}-contractsReal`}
+                            editValue={editValue}
+                            onStartEdit={startEdit}
+                            onChangeEdit={changeEdit}
+                            onCommit={() => commitEdit(channel.id, 'contractsReal')}
+                            onCancel={cancelEdit}
+                          />
+                        </td>
                         <td className={cn('px-4 py-3 text-right font-semibold', getAttainmentColor(attainment))}>
                           {formatPercent(attainment, 0)}
                         </td>

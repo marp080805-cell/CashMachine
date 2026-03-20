@@ -5,14 +5,16 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { KanbanCard } from './KanbanCard'
 import { formatCurrency } from '@/lib/utils'
 import type { Deal, FunnelStage } from '@/types'
+import { Plus } from 'lucide-react'
 
 interface KanbanColumnProps {
   stage: FunnelStage
   deals: Deal[]
   onDealClick: (deal: Deal) => void
+  onNewDeal?: () => void
 }
 
-export function KanbanColumn({ stage, deals, onDealClick }: KanbanColumnProps) {
+export function KanbanColumn({ stage, deals, onDealClick, onNewDeal }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
 
   const totalValue = deals.reduce((sum, d) => sum + (d.value ?? 0), 0)
@@ -30,9 +32,20 @@ export function KanbanColumn({ stage, deals, onDealClick }: KanbanColumnProps) {
             {deals.length}
           </span>
         </div>
-        {totalValue > 0 && (
-          <span className="text-xs text-muted-foreground">{formatCurrency(totalValue)}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {totalValue > 0 && (
+            <span className="text-xs text-muted-foreground">{formatCurrency(totalValue)}</span>
+          )}
+          {onNewDeal && (
+            <button
+              onClick={onNewDeal}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Novo deal nesta etapa"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div

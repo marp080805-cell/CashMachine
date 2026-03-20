@@ -4,7 +4,6 @@ import { useState } from 'react'
 import {
   DndContext,
   type DragEndEvent,
-  type DragOverEvent,
   DragOverlay,
   closestCorners,
   PointerSensor,
@@ -21,9 +20,10 @@ import { api } from '@/lib/api'
 
 interface KanbanBoardProps {
   funnel: Omit<Funnel, 'stages'> & { stages: Array<{ id: string; name: string; position: number; color: string; funnelId: string; createdAt: string; deals: Deal[] }> }
+  onNewDeal?: (stageId: string) => void
 }
 
-export function KanbanBoard({ funnel }: KanbanBoardProps) {
+export function KanbanBoard({ funnel, onNewDeal }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const queryClient = useQueryClient()
@@ -79,6 +79,7 @@ export function KanbanBoard({ funnel }: KanbanBoardProps) {
                 stage={stage}
                 deals={stage.deals}
                 onDealClick={setSelectedDeal}
+                onNewDeal={onNewDeal ? () => onNewDeal(stage.id) : undefined}
               />
             ))}
         </div>

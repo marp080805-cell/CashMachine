@@ -324,6 +324,8 @@ model WhatsappNumber {
   id              String                @id @default(uuid())
   phone           String                @unique
   instanceName    String                @unique
+  apiUrl          String?
+  apiKey          String?
   status          WhatsappStatus        @default(DISCONNECTED)
   userId          String
   user            User                  @relation(fields: [userId], references: [id])

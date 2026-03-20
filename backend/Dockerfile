@@ -27,4 +27,4 @@ COPY prisma ./prisma
 
 EXPOSE 3011
 
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "node prisma/apply-migrations.js && node dist/index.js"]

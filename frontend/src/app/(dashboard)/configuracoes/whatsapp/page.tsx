@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import { Loader2, Plus, Trash2, RefreshCw, Wifi, WifiOff, QrCode } from 'lucide-react'
+import { Loader2, Plus, Trash2, RefreshCw, Wifi, WifiOff, Eye, EyeOff, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { WhatsappNumber } from '@/types'
@@ -21,60 +23,79 @@ const STATUS_CONFIG = {
   ERROR: { label: 'Erro', color: 'bg-red-100 text-red-700', icon: WifiOff },
 }
 
+interface ConnectForm {
+  baseUrl: string
+  instanceName: string
+  apiKey: string
+  phone: string
+}
+
 export default function WhatsappConfigPage() {
-  const [qrModalOpen, setQrModalOpen] = useState(false)
-  const [qrCode, setQrCode] = useState<string | null>(null)
-  const [connecting, setConnecting] = useState(false)
+  const [connectModalOpen, setConnectModalOpen] = useState(false)
+  const [showToken, setShowToken] = useState(false)
+  const [form, setForm] = useState<ConnectForm>({
+    baseUrl: '',
+    instanceName: '',
+    apiKey: '',
+    phone: '',
+  })
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['whatsapp-numbers'],
     queryFn: () => api.get<{ numbers: WhatsappNumber[] }>('/whatsapp/numbers'),
-    refetchInterval: 10000,
+    refetchInterval: 15000,
   })
 
   const connectMutation = useMutation({
-    mutationFn: () => api.post<{ qrcode: string; instanceName: string }>('/whatsapp/numbers', {}),
-    onSuccess: (result) => {
-      setQrCode(result.qrcode)
-      setConnecting(true)
+    mutationFn: (body: ConnectForm) =>
+      api.post<WhatsappNumber>('/whatsapp/numbers/connect', body),
+    onSuccess: () => {
+      toast.success('Número conectado com sucesso!')
+      setConnectModalOpen(false)
+      setForm({ baseUrl: '', instanceName: '', apiKey: '', phone: '' })
+      void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })
     },
-    onError: () => toast.error('Erro ao iniciar conexão'),
+    onError: (err: unknown) => {
+      const msg = (err as { message?: string })?.message ?? 'Erro ao conectar'
+      toast.error(msg)
+    },
+  })
+
+  const verifyMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/whatsapp/numbers/${id}/verify`),
+    onSuccess: () => {
+      toast.success('Status atualizado')
+      void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })
+    },
+    onError: () => toast.error('Erro ao verificar'),
   })
 
   const disconnectMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/whatsapp/numbers/${id}`),
     onSuccess: () => {
-      toast.success('Número desconectado')
+      toast.success('Número removido')
       void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })
     },
-    onError: () => toast.error('Erro ao desconectar'),
+    onError: () => toast.error('Erro ao remover'),
   })
 
-  useEffect(() => {
-    if (!connecting) return
-    const interval = setInterval(async () => {
-      await queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })
-      const numbers = data?.numbers ?? []
-      const justConnected = numbers.find((n) => n.status === 'CONNECTED')
-      if (justConnected) {
-        setConnecting(false)
-        setQrModalOpen(false)
-        setQrCode(null)
-        toast.success('WhatsApp conectado com sucesso!')
-        clearInterval(interval)
-      }
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [connecting, data, queryClient])
-
   const numbers = data?.numbers ?? []
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.baseUrl || !form.instanceName || !form.apiKey || !form.phone) {
+      toast.error('Preencha todos os campos')
+      return
+    }
+    connectMutation.mutate(form)
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{numbers.length} número(s) cadastrado(s)</p>
-        <Button onClick={() => { setQrCode(null); setQrModalOpen(true) }}>
+        <Button onClick={() => setConnectModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Conectar Número
         </Button>
@@ -86,10 +107,12 @@ export default function WhatsappConfigPage() {
         </div>
       ) : numbers.length === 0 ? (
         <div className="rounded-lg border bg-card p-10 text-center">
-          <QrCode className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+          <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="font-medium text-muted-foreground">Nenhum número conectado</p>
-          <p className="text-sm text-muted-foreground mt-1">Conecte um número WhatsApp para começar</p>
-          <Button className="mt-4" onClick={() => setQrModalOpen(true)}>
+          <p className="text-sm text-muted-foreground mt-1">
+            Conecte sua instância Evolution API para começar
+          </p>
+          <Button className="mt-4" onClick={() => setConnectModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Conectar Número
           </Button>
@@ -107,6 +130,11 @@ export default function WhatsappConfigPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium">{number.phone}</p>
                   <p className="text-xs text-muted-foreground font-mono">{number.instanceName}</p>
+                  {(number as WhatsappNumber & { apiUrl?: string }).apiUrl && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {(number as WhatsappNumber & { apiUrl?: string }).apiUrl}
+                    </p>
+                  )}
                 </div>
                 <Badge className={cfg.color}>
                   <Icon className={cn('h-3 w-3 mr-1', number.status === 'CONNECTING' && 'animate-spin')} />
@@ -116,9 +144,11 @@ export default function WhatsappConfigPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })}
+                    title="Verificar status"
+                    onClick={() => verifyMutation.mutate(number.id)}
+                    disabled={verifyMutation.isPending}
                   >
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className={cn('h-4 w-4', verifyMutation.isPending && 'animate-spin')} />
                   </Button>
                   <Button
                     size="sm"
@@ -136,47 +166,63 @@ export default function WhatsappConfigPage() {
         </div>
       )}
 
-      <Dialog open={qrModalOpen} onOpenChange={(open) => { setQrModalOpen(open); if (!open) { setQrCode(null); setConnecting(false) } }}>
-        <DialogContent>
+      <Dialog open={connectModalOpen} onOpenChange={setConnectModalOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Conectar WhatsApp</DialogTitle>
+            <DialogTitle>Conectar WhatsApp API</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-4">
-            {!qrCode ? (
-              <>
-                <QrCode className="h-16 w-16 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground text-center">
-                  Clique em "Gerar QR Code" para iniciar a conexão com seu WhatsApp
-                </p>
-                <Button onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
-                  {connectMutation.isPending ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Gerando...</>
-                  ) : (
-                    <><QrCode className="h-4 w-4 mr-2" />Gerar QR Code</>
-                  )}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="rounded-lg border p-3 bg-card">
-                  <img src={qrCode} alt="QR Code WhatsApp" className="w-56 h-56" />
-                </div>
-                <p className="text-sm text-center text-muted-foreground">
-                  Abra o WhatsApp no celular → Dispositivos conectados → Conectar dispositivo → Escaneie o QR
-                </p>
-                {connecting && (
-                  <div className="flex items-center gap-2 text-sm text-blue-600">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Aguardando escaneamento...
-                  </div>
-                )}
-                <Button variant="outline" size="sm" onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                  Novo QR Code
-                </Button>
-              </>
-            )}
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>URL base da API</Label>
+              <Input
+                placeholder="https://evolution.exemplo.com"
+                value={form.baseUrl}
+                onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome da instância</Label>
+              <Input
+                placeholder="minha-instancia"
+                value={form.instanceName}
+                onChange={(e) => setForm((f) => ({ ...f, instanceName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Token de autenticação</Label>
+              <div className="relative">
+                <Input
+                  type={showToken ? 'text' : 'password'}
+                  placeholder="••••••••••••••••••••••••"
+                  value={form.apiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Número padrão (com DDI)</Label>
+              <Input
+                placeholder="5511999999999"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={connectMutation.isPending}>
+              {connectMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verificando...</>
+              ) : (
+                'Verificar e conectar'
+              )}
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

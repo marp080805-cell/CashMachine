@@ -6,10 +6,13 @@ import {
   getQRCode,
   sendTextMessage,
   deleteInstance,
+  getConnectionState,
+  setWebhook,
 } from './evolution.client'
 import { handleIncomingWebhook } from './whatsapp.service'
 import type { UserRole } from '@prisma/client'
 import type { EvolutionWebhookPayload } from './evolution.client'
+import { env } from '../../config/env'
 
 export default async function whatsappRoutes(app: FastifyInstance) {
   app.get(
@@ -29,6 +32,58 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     }
   )
 
+  // Connect via API credentials (no QR code needed)
+  app.post(
+    '/whatsapp/numbers/connect',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { baseUrl, instanceName, apiKey, phone } = z.object({
+        baseUrl: z.string().url(),
+        instanceName: z.string().min(1),
+        apiKey: z.string().min(1),
+        phone: z.string().min(1),
+        userId: z.string().uuid().optional(),
+      }).parse(request.body)
+
+      const user = request.user as { id: string }
+
+      // Check if instance already exists
+      const existing = await prisma.whatsappNumber.findUnique({ where: { instanceName } })
+      if (existing) {
+        return reply.status(409).send({ error: 'Instância já cadastrada' })
+      }
+
+      const creds = { baseUrl, apiKey }
+
+      // Verify instance connection state
+      const state = await getConnectionState(instanceName, creds)
+      const isConnected = state === 'open' || state === 'CONNECTED'
+
+      // Register webhook
+      try {
+        const webhookUrl = `${env.API_URL}/whatsapp/webhook/${instanceName}`
+        await setWebhook(instanceName, webhookUrl, creds)
+      } catch (e) {
+        // Non-fatal: webhook setup can fail if already set
+        app.log.warn(`Webhook setup warning for ${instanceName}: ${String(e)}`)
+      }
+
+      const number = await prisma.whatsappNumber.create({
+        data: {
+          phone,
+          instanceName,
+          apiUrl: baseUrl,
+          apiKey,
+          userId: user.id,
+          status: isConnected ? 'CONNECTED' : 'DISCONNECTED',
+        },
+      })
+
+      return reply.status(201).send(number)
+    }
+  )
+
+  // Legacy: create instance with QR code
   app.post(
     '/whatsapp/numbers',
     { preHandler: [app.authenticate] },
@@ -65,8 +120,35 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const number = await prisma.whatsappNumber.findUniqueOrThrow({ where: { id } })
-      const { qrcode } = await getQRCode(number.instanceName)
+      const creds = number.apiUrl && number.apiKey
+        ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+        : undefined
+      const { qrcode } = await getQRCode(number.instanceName, creds)
       return reply.send({ qrcode })
+    }
+  )
+
+  // Verify/refresh status of an existing API-connected number
+  app.post(
+    '/whatsapp/numbers/:id/verify',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const number = await prisma.whatsappNumber.findUniqueOrThrow({ where: { id } })
+
+      const creds = number.apiUrl && number.apiKey
+        ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+        : undefined
+
+      const state = await getConnectionState(number.instanceName, creds)
+      const isConnected = state === 'open' || state === 'CONNECTED'
+
+      const updated = await prisma.whatsappNumber.update({
+        where: { id },
+        data: { status: isConnected ? 'CONNECTED' : 'DISCONNECTED' },
+      })
+
+      return reply.send(updated)
     }
   )
 
@@ -78,7 +160,10 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       const number = await prisma.whatsappNumber.findUniqueOrThrow({ where: { id } })
 
       try {
-        await deleteInstance(number.instanceName)
+        const creds = number.apiUrl && number.apiKey
+          ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+          : undefined
+        await deleteInstance(number.instanceName, creds)
       } catch {
         // Instance may not exist on evolution API
       }
@@ -180,10 +265,15 @@ export default async function whatsappRoutes(app: FastifyInstance) {
         include: { number: true },
       })
 
+      const creds = conversation.number.apiUrl && conversation.number.apiKey
+        ? { baseUrl: conversation.number.apiUrl, apiKey: conversation.number.apiKey }
+        : undefined
+
       const remoteId = await sendTextMessage(
         conversation.number.instanceName,
         conversation.remoteJid,
-        text
+        text,
+        creds
       )
 
       const message = await prisma.whatsappMessage.create({

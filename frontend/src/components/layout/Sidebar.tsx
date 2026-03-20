@@ -54,7 +54,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
       <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-1 text-xl font-bold">
           <span className="text-sidebar-active">Cash</span>
-          <span className="text-primary-light opacity-70">Machine</span>
+          <span className="text-primary-light opacity-70">Mind</span>
         </Link>
       </div>
 
