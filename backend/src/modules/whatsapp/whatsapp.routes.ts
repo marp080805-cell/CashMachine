@@ -55,6 +55,8 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       })
 
       return reply.status(201).send({ ...number, qrcode })
+    }
+  )
 
   app.get(
     '/whatsapp/numbers/:id/qrcode',
