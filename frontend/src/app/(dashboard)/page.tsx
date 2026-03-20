@@ -163,7 +163,7 @@ export default function DashboardPage() {
                 {data?.upcomingTasks.map((task) => (
                   <Link key={task.id} href="/tarefas">
                     <div className={cn(
-                      'flex items-center gap-3 rounded-lg border p-3 hover:bg-slate-50 transition-colors',
+                      'flex items-center gap-3 rounded-lg border p-3 hover:bg-muted transition-colors',
                       isOverdue(task.dueDate) ? 'border-red-200 bg-red-50' : isToday(task.dueDate) ? 'border-amber-200 bg-amber-50' : ''
                     )}>
                       <div className="flex-1 min-w-0">

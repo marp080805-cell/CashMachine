@@ -70,12 +70,12 @@ export default function LoginPage() {
       <CardHeader className="text-center pb-2">
         <div className="mb-4">
           <h1 className="text-3xl font-bold">
-            <span className="text-slate-900">Cash</span>
+            <span className="text-foreground">Cash</span>
             <span className="text-primary">Machine</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Plataforma Comercial B2B</p>
         </div>
-        <h2 className="text-xl font-semibold text-slate-800">Entrar na plataforma</h2>
+        <h2 className="text-xl font-semibold text-foreground">Entrar na plataforma</h2>
       </CardHeader>
 
       <CardContent>

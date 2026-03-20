@@ -49,13 +49,13 @@ export function KanbanCard({ deal, onClick }: KanbanCardProps) {
       {...listeners}
       onClick={() => onClick(deal)}
       className={cn(
-        'rounded-lg border bg-white p-3 shadow-sm cursor-pointer hover:shadow-md transition-shadow',
+        'rounded-lg border bg-card p-3 shadow-sm cursor-pointer hover:shadow-md transition-shadow',
         overdueClass,
         deal.isFrozen && 'opacity-60'
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">{deal.title}</p>
+        <p className="text-sm font-medium text-foreground line-clamp-2 flex-1">{deal.title}</p>
         {deal.isFrozen && <Snowflake className="h-4 w-4 text-blue-400 shrink-0" />}
       </div>
 

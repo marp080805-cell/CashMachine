@@ -50,15 +50,17 @@ export function Sidebar({ className, onClose }: SidebarProps) {
         className
       )}
     >
-      <div className="flex h-16 items-center px-6 border-b border-slate-800">
+      {/* Logo */}
+      <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-1 text-xl font-bold">
-          <span className="text-white">Cash</span>
-          <span className="text-primary">Machine</span>
+          <span className="text-sidebar-active">Cash</span>
+          <span className="text-primary-light opacity-70">Machine</span>
         </Link>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
-        <ul className="space-y-1 px-3">
+        <ul className="space-y-0.5 px-3">
           {navItems.map((item) => {
             if (!can(item.permission)) return null
 
@@ -72,10 +74,10 @@ export function Sidebar({ className, onClose }: SidebarProps) {
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                    'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-150',
                     isActive
-                      ? 'bg-primary/10 text-primary border-l-2 border-primary pl-[10px]'
-                      : 'hover:bg-slate-800 hover:text-white'
+                      ? 'bg-white/15 text-sidebar-active border-l-2 border-sidebar-active pl-[10px]'
+                      : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active'
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
@@ -86,8 +88,9 @@ export function Sidebar({ className, onClose }: SidebarProps) {
           })}
         </ul>
 
+        {/* Settings section */}
         <div className="mt-4 px-3">
-          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-text/50">
             Sistema
           </p>
           {can('*') && (
@@ -95,10 +98,10 @@ export function Sidebar({ className, onClose }: SidebarProps) {
               href="/configuracoes"
               onClick={onClose}
               className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-150',
                 pathname.startsWith('/configuracoes')
-                  ? 'bg-primary/10 text-primary border-l-2 border-primary pl-[10px]'
-                  : 'hover:bg-slate-800 hover:text-white'
+                  ? 'bg-white/15 text-sidebar-active border-l-2 border-sidebar-active pl-[10px]'
+                  : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active'
               )}
             >
               <Settings className="h-4 w-4 shrink-0" />
@@ -108,21 +111,24 @@ export function Sidebar({ className, onClose }: SidebarProps) {
         </div>
       </nav>
 
-      <div className="border-t border-slate-800 p-4">
+      {/* User footer */}
+      <div className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3 mb-3">
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-8 w-8 ring-2 ring-sidebar-active/30">
             <AvatarImage src={user?.avatarUrl ?? undefined} />
-            <AvatarFallback className="text-xs">{user?.name ? getInitials(user.name) : 'U'}</AvatarFallback>
+            <AvatarFallback className="text-xs bg-sidebar-hover text-sidebar-active">
+              {user?.name ? getInitials(user.name) : 'U'}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{user?.role}</p>
+            <p className="text-sm font-medium text-sidebar-active truncate">{user?.name}</p>
+            <p className="text-xs text-sidebar-text/60 truncate">{user?.role}</p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800"
+          className="w-full justify-start text-sidebar-text/70 hover:text-sidebar-active hover:bg-sidebar-hover"
           onClick={() => void logout()}
         >
           <LogOut className="h-4 w-4 mr-2" />

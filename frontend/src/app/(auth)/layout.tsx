@@ -15,7 +15,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   }, [isAuthenticated, router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#176968] via-[#0f4e4d] to-[#0A1E1D] dark:from-[#0D0D0D] dark:via-[#0A1A19] dark:to-[#000000] flex items-center justify-center p-4">
       {children}
     </div>
   )

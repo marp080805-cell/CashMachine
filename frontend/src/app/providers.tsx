@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 function SocketProvider({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,16 @@ function SocketProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function ThemeInitializer() {
+  const initTheme = useThemeStore((state) => state.initTheme)
+
+  useEffect(() => {
+    initTheme()
+  }, [initTheme])
+
+  return null
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -36,6 +47,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeInitializer />
       <SocketProvider>
         {children}
         <Toaster

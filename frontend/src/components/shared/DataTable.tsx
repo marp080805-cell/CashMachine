@@ -35,15 +35,15 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-white overflow-hidden">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50">
+              <tr className="border-b bg-muted">
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-4 py-3 text-left font-medium text-slate-600 ${col.className ?? ''}`}
+                    className={`px-4 py-3 text-left font-medium text-muted-foreground ${col.className ?? ''}`}
                   >
                     {col.header}
                   </th>
@@ -69,7 +69,7 @@ export function DataTable<T>({
                 </tr>
               ) : (
                 data.map((row) => (
-                  <tr key={rowKey(row)} className="border-b hover:bg-slate-50 transition-colors">
+                  <tr key={rowKey(row)} className="border-b hover:bg-muted transition-colors">
                     {columns.map((col) => (
                       <td key={col.key} className={`px-4 py-3 ${col.className ?? ''}`}>
                         {col.render(row)}

@@ -12,12 +12,12 @@ interface ContactInfoProps {
 
 export function ContactInfo({ conversation }: ContactInfoProps) {
   return (
-    <div className="w-72 border-l bg-white p-4 overflow-y-auto">
+    <div className="w-72 border-l bg-card p-4 overflow-y-auto">
       <div className="text-center mb-6">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-xl font-bold mx-auto mb-3">
           {(conversation.remoteName ?? conversation.remotePhone)[0]?.toUpperCase()}
         </div>
-        <h3 className="font-semibold text-gray-900">{conversation.remoteName ?? 'Desconhecido'}</h3>
+        <h3 className="font-semibold text-foreground">{conversation.remoteName ?? 'Desconhecido'}</h3>
         <p className="text-sm text-muted-foreground">{conversation.remotePhone}</p>
       </div>
 

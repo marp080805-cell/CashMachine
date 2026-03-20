@@ -67,7 +67,7 @@ export function FunnelHealthChart({ leads, calls, contracts }: FunnelHealthChart
             const rate = prev && prev > 0 ? ((step.value / prev) * 100).toFixed(1) : null
             return (
               <div key={step.name}>
-                <div className="font-semibold text-sm text-gray-900">{step.value}</div>
+                <div className="font-semibold text-sm text-foreground">{step.value}</div>
                 <div>{step.name}</div>
                 {rate && <div className="text-primary">{rate}% conv.</div>}
               </div>

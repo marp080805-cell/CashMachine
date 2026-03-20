@@ -11,16 +11,17 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#6366f1',
-          hover: '#4f46e5',
-          light: '#eef2ff',
-          foreground: '#ffffff',
+          DEFAULT: 'hsl(var(--primary))',
+          hover: '#47847E',
+          light: '#D5D7C2',
+          foreground: 'hsl(var(--primary-foreground))',
         },
         sidebar: {
-          bg: '#0f172a',
-          text: '#94a3b8',
-          active: '#6366f1',
-          hover: '#1e293b',
+          bg: 'hsl(var(--sidebar-bg))',
+          text: 'hsl(var(--sidebar-text))',
+          active: 'hsl(var(--sidebar-active))',
+          hover: 'hsl(var(--sidebar-hover))',
+          border: 'hsl(var(--sidebar-border))',
         },
         success: '#22c55e',
         warning: '#f59e0b',

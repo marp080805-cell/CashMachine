@@ -30,7 +30,7 @@ const activityColors: Record<ActivityType, string> = {
   DEAL_WON: 'text-green-500 bg-green-50',
   DEAL_LOST: 'text-red-500 bg-red-50',
   TASK_COMPLETED: 'text-teal-500 bg-teal-50',
-  FILE_UPLOADED: 'text-gray-500 bg-gray-50',
+  FILE_UPLOADED: 'text-muted-foreground bg-muted',
   AI_SUGGESTION: 'text-violet-500 bg-violet-50',
 }
 
@@ -59,7 +59,7 @@ export function RecentActivities({ activities }: RecentActivitiesProps) {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 line-clamp-2">{activity.description}</p>
+                    <p className="text-sm text-foreground line-clamp-2">{activity.description}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Avatar className="h-4 w-4">
                         <AvatarImage src={activity.user.avatarUrl ?? undefined} />

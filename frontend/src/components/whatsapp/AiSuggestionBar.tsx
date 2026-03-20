@@ -29,7 +29,7 @@ export function AiSuggestionBar({ conversationId, suggestion, onUse }: AiSuggest
           <Sparkles className="h-4 w-4 text-violet-600" />
           <span className="text-xs font-semibold text-violet-600">Sugestão IA:</span>
         </div>
-        <p className="flex-1 text-sm text-gray-800 line-clamp-2">{suggestion}</p>
+        <p className="flex-1 text-sm text-foreground line-clamp-2">{suggestion}</p>
       </div>
       <div className="flex items-center gap-2 mt-2">
         <Button

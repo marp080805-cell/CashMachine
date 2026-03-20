@@ -47,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-background">
       <div className="hidden lg:flex lg:flex-shrink-0">
         <Sidebar />
       </div>

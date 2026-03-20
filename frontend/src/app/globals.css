@@ -4,26 +4,94 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* ── Backgrounds ── */
+    --background: 66 20% 94%;         /* #F2F3EC — warm sage cream */
+    --foreground: 0 0% 9%;            /* #161616 — near black */
+
+    /* ── Cards & Popovers ── */
+    --card: 0 0% 100%;                /* #FFFFFF */
+    --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 239 84% 67%;
+    --popover-foreground: 0 0% 9%;
+
+    /* ── Brand Primary — Pantone 4165 C ── */
+    --primary: 179 64% 25%;           /* #176968 — deep teal */
+    --primary-foreground: 0 0% 100%;  /* white */
+
+    /* ── Secondary — D5D7C2 sage ── */
+    --secondary: 66 21% 80%;          /* #D5D7C2 */
+    --secondary-foreground: 0 0% 9%;
+
+    /* ── Muted ── */
+    --muted: 66 18% 90%;              /* lighter sage */
+    --muted-foreground: 174 30% 40%;  /* #47847E */
+
+    /* ── Accent — A5BBAB soft sage ── */
+    --accent: 136 14% 69%;            /* #A5BBAB */
+    --accent-foreground: 0 0% 9%;
+
+    /* ── Destructive ── */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* ── Borders & Inputs ── */
+    --border: 66 15% 80%;             /* #CACDB9 */
+    --input: 66 21% 87%;
+    --ring: 179 64% 25%;              /* #176968 */
+
+    /* ── Radius ── */
     --radius: 0.5rem;
+
+    /* ── Sidebar ── */
+    --sidebar-bg: 179 64% 25%;        /* #176968 — deep teal */
+    --sidebar-text: 66 21% 80%;       /* #D5D7C2 */
+    --sidebar-active: 0 0% 100%;      /* white */
+    --sidebar-hover: 174 30% 40%;     /* #47847E */
+    --sidebar-border: 179 40% 20%;    /* darker teal */
+  }
+
+  .dark {
+    /* ── Backgrounds ── */
+    --background: 0 0% 9%;            /* #161616 */
+    --foreground: 66 21% 80%;         /* #D5D7C2 */
+
+    /* ── Cards & Popovers ── */
+    --card: 0 0% 11%;                 /* #1B1B1B */
+    --card-foreground: 66 21% 80%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 66 21% 80%;
+
+    /* ── Brand Primary (lighter teal for dark bg) ── */
+    --primary: 174 30% 40%;           /* #47847E */
+    --primary-foreground: 0 0% 100%;
+
+    /* ── Secondary ── */
+    --secondary: 174 20% 13%;         /* dark teal tinted */
+    --secondary-foreground: 136 14% 69%; /* #A5BBAB */
+
+    /* ── Muted ── */
+    --muted: 174 20% 13%;
+    --muted-foreground: 164 18% 55%;  /* #76A095 */
+
+    /* ── Accent ── */
+    --accent: 174 30% 40%;            /* #47847E */
+    --accent-foreground: 66 21% 80%;
+
+    /* ── Destructive ── */
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 66 21% 80%;
+
+    /* ── Borders & Inputs ── */
+    --border: 174 18% 16%;            /* #243330 */
+    --input: 174 20% 13%;
+    --ring: 174 30% 40%;              /* #47847E */
+
+    /* ── Sidebar ── */
+    --sidebar-bg: 0 0% 5%;            /* #0D0D0D — near black */
+    --sidebar-text: 164 18% 55%;      /* #76A095 */
+    --sidebar-active: 0 0% 100%;      /* white */
+    --sidebar-hover: 174 20% 13%;     /* #1F2A28 */
+    --sidebar-border: 174 18% 10%;
   }
 }
 
@@ -34,10 +102,11 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
-/* Scrollbar styling */
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -48,10 +117,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: hsl(var(--accent));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: hsl(var(--primary));
 }

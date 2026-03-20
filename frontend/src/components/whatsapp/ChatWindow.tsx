@@ -149,7 +149,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         />
       )}
 
-      <div className="border-t bg-white p-3">
+      <div className="border-t bg-card p-3">
         <div className="flex items-end gap-2">
           <Textarea
             value={text}

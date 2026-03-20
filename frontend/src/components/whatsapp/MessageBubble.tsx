@@ -34,7 +34,7 @@ export function MessageBubble({ message, showDate, dateLabel }: MessageBubblePro
             'max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm',
             message.fromMe
               ? 'bg-primary text-primary-foreground rounded-tr-sm'
-              : 'bg-white text-gray-900 rounded-tl-sm border'
+              : 'bg-card text-foreground rounded-tl-sm border'
           )}
         >
           {message.type === 'IMAGE' && (

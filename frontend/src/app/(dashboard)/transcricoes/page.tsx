@@ -35,7 +35,7 @@ interface CallTranscription {
 }
 
 const STATUS_CONFIG = {
-  PENDING: { label: 'Pendente', icon: Clock, className: 'bg-slate-100 text-slate-600' },
+  PENDING: { label: 'Pendente', icon: Clock, className: 'bg-muted text-muted-foreground' },
   PROCESSING: { label: 'Processando', icon: Loader2, className: 'bg-blue-100 text-blue-600' },
   DONE: { label: 'Concluído', icon: CheckCircle2, className: 'bg-green-100 text-green-600' },
   ERROR: { label: 'Erro', icon: XCircle, className: 'bg-red-100 text-red-600' },
@@ -89,7 +89,7 @@ function TranscriptionDetail({ item }: { item: CallTranscription }) {
             {item.analysis?.summary && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Resumo</p>
-                <p className="text-sm text-gray-700">{item.analysis.summary}</p>
+                <p className="text-sm text-foreground">{item.analysis.summary}</p>
               </div>
             )}
             {item.analysis?.sentiment && (
@@ -103,7 +103,7 @@ function TranscriptionDetail({ item }: { item: CallTranscription }) {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Pontos-chave</p>
                 <ul className="space-y-1">
                   {item.analysis.keyPoints.map((point, i) => (
-                    <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
+                    <li key={i} className="text-sm text-foreground flex items-start gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                       {point}
                     </li>
@@ -140,8 +140,8 @@ function TranscriptionDetail({ item }: { item: CallTranscription }) {
             {item.transcription && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Transcrição Completa</p>
-                <div className="rounded-md bg-slate-50 p-3 max-h-48 overflow-y-auto">
-                  <p className="text-xs text-gray-600 whitespace-pre-wrap">{item.transcription}</p>
+                <div className="rounded-md bg-muted p-3 max-h-48 overflow-y-auto">
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{item.transcription}</p>
                 </div>
               </div>
             )}
@@ -214,7 +214,7 @@ export default function TranscricoesPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: 'Total', value: transcriptions.length, color: 'text-gray-900' },
+          { label: 'Total', value: transcriptions.length, color: 'text-foreground' },
           { label: 'Processando', value: pending, color: 'text-blue-600' },
           { label: 'Concluídos', value: done, color: 'text-green-600' },
           { label: 'Erros', value: transcriptions.filter((t) => t.status === 'ERROR').length, color: 'text-red-600' },
