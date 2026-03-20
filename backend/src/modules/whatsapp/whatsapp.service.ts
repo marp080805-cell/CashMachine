@@ -37,6 +37,42 @@ export async function handleIncomingWebhook(
     return
   }
 
+  // Handle delivery/read status updates (double checkmarks)
+  if (payload.event === 'messages.update') {
+    const updates = Array.isArray(payload.data) ? payload.data : [payload.data]
+    for (const upd of updates as Array<{ key?: { id?: string }; update?: { status?: string } }>) {
+      const remoteId = upd.key?.id
+      const rawStatus = upd.update?.status
+      if (!remoteId || !rawStatus) continue
+
+      // Map Evolution API status to our enum
+      const statusMap: Record<string, string> = {
+        DELIVERY_ACK: 'DELIVERED',
+        READ: 'READ',
+        PLAYED: 'READ',
+        SERVER_ACK: 'SENT',
+        PENDING: 'PENDING',
+      }
+      const status = statusMap[rawStatus] ?? null
+      if (!status) continue
+
+      const msg = await prisma.whatsappMessage.findUnique({ where: { remoteId } })
+      if (!msg) continue
+
+      await prisma.whatsappMessage.update({
+        where: { remoteId },
+        data: { status: status as MessageStatus },
+      })
+
+      app.io.to(`conversation:${msg.conversationId}`).emit('message:status', {
+        conversationId: msg.conversationId,
+        remoteId,
+        status,
+      })
+    }
+    return
+  }
+
   if (payload.event !== 'messages.upsert') return
 
   // Skip delivery receipts / status-only updates that have no message body

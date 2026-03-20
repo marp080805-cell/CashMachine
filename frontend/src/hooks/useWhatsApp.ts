@@ -6,7 +6,7 @@ import { useWhatsappStore } from '@/stores/whatsappStore'
 import type { WhatsappMessage } from '@/types'
 
 export function useWhatsAppSocket(conversationId?: string) {
-  const { addMessage, setAiSuggestion, markAsRead, activeConversationId, updateConversation, conversations, incrementUnread } = useWhatsappStore()
+  const { addMessage, setAiSuggestion, markAsRead, activeConversationId, updateConversation, conversations, incrementUnread, updateMessageStatus } = useWhatsappStore()
 
   useEffect(() => {
     const socket = getSocket()
@@ -47,6 +47,10 @@ export function useWhatsAppSocket(conversationId?: string) {
       }
     }
 
+    const handleMessageStatus = (data: { conversationId: string; remoteId: string; status: string }) => {
+      updateMessageStatus(data.conversationId, data.remoteId, data.status)
+    }
+
     // Re-join conversation room on socket reconnect
     const handleConnect = () => {
       if (conversationId) {
@@ -55,6 +59,7 @@ export function useWhatsAppSocket(conversationId?: string) {
     }
 
     socket.on('message:new', handleNewMessage)
+    socket.on('message:status', handleMessageStatus)
     socket.on('ai:suggestion', handleAiSuggestion)
     socket.on('conversation:updated', handleConversationUpdated)
     socket.on('connect', handleConnect)
@@ -65,6 +70,7 @@ export function useWhatsAppSocket(conversationId?: string) {
 
     return () => {
       socket.off('message:new', handleNewMessage)
+      socket.off('message:status', handleMessageStatus)
       socket.off('ai:suggestion', handleAiSuggestion)
       socket.off('conversation:updated', handleConversationUpdated)
       socket.off('connect', handleConnect)
@@ -73,5 +79,5 @@ export function useWhatsAppSocket(conversationId?: string) {
         socket.emit('leave:conversation', conversationId)
       }
     }
-  }, [conversationId, addMessage, setAiSuggestion, markAsRead, updateConversation, conversations, incrementUnread, activeConversationId])
+  }, [conversationId, addMessage, setAiSuggestion, markAsRead, updateConversation, conversations, incrementUnread, activeConversationId, updateMessageStatus])
 }

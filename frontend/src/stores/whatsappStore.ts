@@ -16,6 +16,7 @@ interface WhatsappState {
   clearAiSuggestion: (conversationId: string) => void
   incrementUnread: (conversationId: string) => void
   markAsRead: (conversationId: string) => void
+  updateMessageStatus: (conversationId: string, remoteId: string, status: string) => void
 }
 
 export const useWhatsappStore = create<WhatsappState>((set, get) => ({
@@ -70,6 +71,16 @@ export const useWhatsappStore = create<WhatsappState>((set, get) => ({
       conversations.set(conversationId, { ...conv, unreadCount: conv.unreadCount + 1 })
       set({ conversations })
     }
+  },
+
+  updateMessageStatus: (conversationId, remoteId, status) => {
+    const messages = new Map(get().messages)
+    const msgs = messages.get(conversationId)
+    if (!msgs) return
+    messages.set(conversationId, msgs.map((m) =>
+      m.remoteId === remoteId ? { ...m, status: status as WhatsappMessage['status'] } : m
+    ))
+    set({ messages })
   },
 
   markAsRead: (conversationId) => {

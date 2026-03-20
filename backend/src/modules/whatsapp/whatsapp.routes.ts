@@ -61,7 +61,8 @@ export default async function whatsappRoutes(app: FastifyInstance) {
 
       // Register webhook
       try {
-        const webhookUrl = `${env.API_URL}/whatsapp/webhook/${instanceName}`
+        const webhookBase = env.WEBHOOK_BASE_URL ?? env.API_URL
+        const webhookUrl = `${webhookBase}/whatsapp/webhook/${instanceName}`
         await setWebhook(instanceName, webhookUrl, creds)
       } catch (e) {
         // Non-fatal: webhook setup can fail if already set
@@ -125,6 +126,28 @@ export default async function whatsappRoutes(app: FastifyInstance) {
         : undefined
       const { qrcode } = await getQRCode(number.instanceName, creds)
       return reply.send({ qrcode })
+    }
+  )
+
+  // Re-register webhook for an existing number (useful when public URL changes)
+  app.post(
+    '/whatsapp/numbers/:id/setup-webhook',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const number = await prisma.whatsappNumber.findUnique({ where: { id } })
+      if (!number) return reply.status(404).send({ error: 'Número não encontrado' })
+
+      const creds = number.apiUrl && number.apiKey
+        ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+        : undefined
+
+      const webhookBase = env.WEBHOOK_BASE_URL ?? env.API_URL
+      const webhookUrl = `${webhookBase}/whatsapp/webhook/${number.instanceName}`
+
+      await setWebhook(number.instanceName, webhookUrl, creds)
+
+      return reply.send({ ok: true, webhookUrl })
     }
   )
 

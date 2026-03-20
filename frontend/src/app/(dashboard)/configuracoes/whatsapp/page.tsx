@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import { Loader2, Plus, Trash2, RefreshCw, Wifi, WifiOff, Eye, EyeOff, MessageSquare } from 'lucide-react'
+import { Loader2, Plus, Trash2, RefreshCw, Wifi, WifiOff, Eye, EyeOff, MessageSquare, Webhook } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { WhatsappNumber } from '@/types'
@@ -69,6 +69,12 @@ export default function WhatsappConfigPage() {
       void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })
     },
     onError: () => toast.error('Erro ao verificar'),
+  })
+
+  const setupWebhookMutation = useMutation({
+    mutationFn: (id: string) => api.post<{ ok: boolean; webhookUrl: string }>(`/whatsapp/numbers/${id}/setup-webhook`),
+    onSuccess: (data) => toast.success(`Webhook atualizado: ${data.webhookUrl}`),
+    onError: () => toast.error('Erro ao configurar webhook'),
   })
 
   const disconnectMutation = useMutation({
@@ -149,6 +155,15 @@ export default function WhatsappConfigPage() {
                     disabled={verifyMutation.isPending}
                   >
                     <RefreshCw className={cn('h-4 w-4', verifyMutation.isPending && 'animate-spin')} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Reconfigurar webhook (necessário para receber mensagens)"
+                    onClick={() => setupWebhookMutation.mutate(number.id)}
+                    disabled={setupWebhookMutation.isPending}
+                  >
+                    <Webhook className={cn('h-4 w-4', setupWebhookMutation.isPending && 'animate-spin')} />
                   </Button>
                   <Button
                     size="sm"

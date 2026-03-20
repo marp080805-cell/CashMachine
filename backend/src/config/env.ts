@@ -12,6 +12,9 @@ const envSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   API_PORT: z.coerce.number().default(3011),
   API_URL: z.string().default('http://localhost:3011'),
+  // Public URL for webhook registration with Evolution API (must be internet-accessible)
+  // Default: same as API_URL. Override with e.g. https://cashmind.zi-ai.site/api
+  WEBHOOK_BASE_URL: z.string().optional(),
   EVOLUTION_API_URL: z.string().default('http://localhost:8080'),
   EVOLUTION_API_KEY: z.string().default(''),
   OPENAI_API_KEY: z.string().default(''),
