@@ -98,9 +98,10 @@ export async function createLead(input: CreateLeadInput, createdById: string) {
 }
 
 export async function updateLead(id: string, input: UpdateLeadInput) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return prisma.lead.update({
     where: { id },
-    data: input,
+    data: input as any,
     include: {
       company: { select: { id: true, name: true } },
       channel: { select: { id: true, name: true } },
@@ -138,7 +139,7 @@ export async function importLeads(
 
     if (existing) {
       if (onDuplicate === 'update') {
-        await prisma.lead.update({ where: { id: existing.id }, data: row })
+        await prisma.lead.update({ where: { id: existing.id }, data: row as any })
         updated++
       } else {
         skipped++

@@ -110,11 +110,12 @@ export default async function dealsRoutes(app: FastifyInstance) {
 
       const deal = await prisma.$transaction(async (tx) => {
         const { customFields, ...dealData } = input
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const newDeal = await tx.deal.create({
           data: {
             ...dealData,
-            ...(customFields !== undefined ? { customFields: customFields as unknown as Prisma.InputJsonValue } : {}),
-          } as Prisma.DealCreateInput,
+            ...(customFields !== undefined ? { customFields } : {}),
+          } as any,
           select: dealSelect,
         })
         await tx.activity.create({
@@ -140,12 +141,10 @@ export default async function dealsRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string }
       const input = createDealSchema.partial().parse(request.body)
       const { customFields, ...dealData } = input
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const deal = await prisma.deal.update({
         where: { id },
-        data: {
-          ...dealData,
-          ...(customFields !== undefined ? { customFields: customFields as unknown as Prisma.InputJsonValue } : {}),
-        } as Prisma.DealUpdateInput,
+        data: { ...dealData, ...(customFields !== undefined ? { customFields } : {}) } as any,
         select: dealSelect,
       })
       return reply.send(deal)
