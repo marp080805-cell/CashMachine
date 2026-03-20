@@ -7,7 +7,7 @@ import type { Funnel, Deal, FunnelStage } from '@/types'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { Skeleton } from '@/components/ui/skeleton'
 
-type FunnelWithDeals = Funnel & {
+type FunnelWithDeals = Omit<Funnel, 'stages'> & {
   stages: Array<FunnelStage & { deals: Deal[] }>
 }
 
