@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -14,7 +15,6 @@ import {
   Mic,
   Settings,
   LogOut,
-  Brain,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -53,11 +53,15 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-2 text-xl font-bold">
-          <Brain className="h-6 w-6 text-primary-light" />
-          <span>
-            <span className="text-sidebar-active">Cash</span><span className="text-primary-light opacity-70">Mind</span>
-          </span>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo-branco.png"
+            alt="Logo"
+            width={140}
+            height={40}
+            className="h-8 w-auto object-contain"
+            priority
+          />
         </Link>
       </div>
 
