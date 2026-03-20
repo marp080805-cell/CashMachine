@@ -20,7 +20,7 @@ import type { Deal, Funnel } from '@/types'
 import { api } from '@/lib/api'
 
 interface KanbanBoardProps {
-  funnel: Funnel & { stages: Array<{ id: string; name: string; position: number; color: string; funnelId: string; createdAt: string; deals: Deal[] }> }
+  funnel: Omit<Funnel, 'stages'> & { stages: Array<{ id: string; name: string; position: number; color: string; funnelId: string; createdAt: string; deals: Deal[] }> }
 }
 
 export function KanbanBoard({ funnel }: KanbanBoardProps) {
