@@ -7,11 +7,10 @@ import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import Image from 'next/image'
-import { Loader2 } from 'lucide-react'
+import { Brain, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types'
 
@@ -67,35 +66,46 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center pb-2">
-        <div className="mb-4">
-          <div className="flex items-center justify-center mb-1">
-            <Image
-              src="/logo-preto.png"
-              alt="Logo"
-              width={180}
-              height={50}
-              className="h-12 w-auto object-contain dark:hidden"
-              priority
-            />
-            <Image
-              src="/logo-branco.png"
-              alt="Logo"
-              width={180}
-              height={50}
-              className="h-12 w-auto object-contain hidden dark:block"
-              priority
-            />
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">Plataforma Comercial B2B</p>
+    <div className="w-full max-w-sm">
+      {/* Brand header — outside the card */}
+      <div className="flex flex-col items-center mb-8">
+        {/* Brain icon */}
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm mb-4 shadow-lg">
+          <Brain className="h-8 w-8 text-white" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Entrar na plataforma</h2>
-      </CardHeader>
 
-      <CardContent>
+        {/* Platform name */}
+        <h1 className="text-4xl font-bold text-white tracking-tight leading-none">
+          CashMind
+        </h1>
+
+        {/* Signature "by logo" */}
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-white/50 text-xs font-normal tracking-wide">by</span>
+          <Image
+            src="/logo-branco.png"
+            alt="Seu Resultado"
+            width={80}
+            height={18}
+            className="h-[14px] w-auto object-contain opacity-60"
+            priority
+          />
+        </div>
+      </div>
+
+      {/* Login card */}
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl px-8 py-8">
+        <div className="mb-6 text-center">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            Plataforma Comercial B2B
+          </p>
+          <h2 className="text-xl font-semibold text-foreground mt-1">
+            Entrar na plataforma
+          </h2>
+        </div>
+
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -105,11 +115,11 @@ export default function LoginPage() {
               disabled={isLoading}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
+              <p className="text-xs text-red-500">{errors.email.message}</p>
             )}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="password">Senha</Label>
             <Input
               id="password"
@@ -119,11 +129,11 @@ export default function LoginPage() {
               disabled={isLoading}
             />
             {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
+              <p className="text-xs text-red-500">{errors.password.message}</p>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full mt-2" disabled={isLoading}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -134,7 +144,7 @@ export default function LoginPage() {
             )}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

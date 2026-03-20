@@ -54,21 +54,25 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 flex-shrink-0">
-            <Brain className="h-4 w-4 text-white" />
+        <Link href="/" className="flex items-center gap-2.5">
+          {/* Brain icon */}
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 flex-shrink-0">
+            <Brain className="h-[18px] w-[18px] text-white" />
           </div>
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="font-bold text-sm text-white leading-none">CashMind</span>
-            <span className="text-sidebar-text/60 text-xs leading-none">by</span>
-            <Image
-              src="/logo-branco.png"
-              alt="Logo"
-              width={72}
-              height={20}
-              className="h-4 w-auto object-contain flex-shrink-0"
-              priority
-            />
+          {/* Name + signature */}
+          <div className="flex flex-col justify-center leading-none">
+            <span className="font-bold text-[15px] text-white tracking-tight">CashMind</span>
+            <div className="flex items-center gap-1 mt-[3px]">
+              <span className="text-sidebar-text/50 text-[10px]">by</span>
+              <Image
+                src="/logo-branco.png"
+                alt="Logo"
+                width={60}
+                height={12}
+                className="h-[11px] w-auto object-contain opacity-60"
+                priority
+              />
+            </div>
           </div>
         </Link>
       </div>
