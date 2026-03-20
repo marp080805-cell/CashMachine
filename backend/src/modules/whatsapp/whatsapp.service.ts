@@ -39,6 +39,10 @@ export async function handleIncomingWebhook(
 
   if (payload.event !== 'messages.upsert') return
 
+  // Skip delivery receipts / status-only updates that have no message body
+  const rawData = payload.data as { status?: string; message?: unknown }
+  if (!rawData.message) return
+
   const parsed = parseWebhookMessage(payload)
 
   const whatsappNumber = await prisma.whatsappNumber.findUnique({
@@ -102,7 +106,8 @@ export async function handleIncomingWebhook(
     })
   }
 
-  await prisma.whatsappMessage.upsert({
+  // Upsert and capture the full DB message (with id) for real-time socket emit
+  const savedMessage = await prisma.whatsappMessage.upsert({
     where: { remoteId: parsed.messageId },
     create: {
       remoteId: parsed.messageId,
@@ -117,15 +122,18 @@ export async function handleIncomingWebhook(
     update: {},
   })
 
+  // Emit full message (with DB id) so frontend deduplication works correctly
   app.io.to(`conversation:${conversation.id}`).emit('message:new', {
     conversationId: conversation.id,
-    message: {
-      remoteId: parsed.messageId,
-      content: parsed.content,
-      type: parsed.type,
-      fromMe: parsed.fromMe,
-      timestamp: parsed.timestamp,
-    },
+    message: savedMessage,
+  })
+
+  // Also notify user room so the conversation list updates last-message
+  app.io.to(`user:${whatsappNumber.userId}`).emit('conversation:updated', {
+    conversationId: conversation.id,
+    lastMessage: parsed.content,
+    lastMessageAt: parsed.timestamp,
+    unreadDelta: parsed.fromMe ? 0 : 1,
   })
 
   if (!parsed.fromMe) {

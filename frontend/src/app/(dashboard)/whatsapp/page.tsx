@@ -41,9 +41,17 @@ export default function WhatsAppPage() {
       }
     }
 
+    // Real-time conversation list update without full refetch
+    const handleConversationUpdated = () => {
+      void queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] })
+    }
+
     socket.on('notification:new', handleNotification)
+    socket.on('conversation:updated', handleConversationUpdated)
+
     return () => {
       socket.off('notification:new', handleNotification)
+      socket.off('conversation:updated', handleConversationUpdated)
     }
   }, [queryClient])
 

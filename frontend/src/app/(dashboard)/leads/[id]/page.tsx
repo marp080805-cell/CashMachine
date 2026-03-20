@@ -12,15 +12,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { formatPhone, formatDate } from '@/lib/utils'
-import { Pencil, Plus, X, Loader2, Save } from 'lucide-react'
+import { Pencil, Plus, X, Loader2, Save, MessageCircle, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import type { WhatsappNumber } from '@/types'
 
 const statusLabels: Record<string, string> = {
   NEW: 'Novo',
@@ -38,7 +41,11 @@ interface CustomField { key: string; value: string }
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
+  const [waOpen, setWaOpen] = useState(false)
+  const [waNumberId, setWaNumberId] = useState('')
+  const [waText, setWaText] = useState('')
   const [editForm, setEditForm] = useState<{
     name: string; email: string; phone: string; whatsapp: string
     position: string; status: string; notes: string; tags: string
@@ -62,6 +69,24 @@ export default function LeadDetailPage() {
   })
 
   const fieldDefs = customFieldDefs?.fields ?? []
+
+  const { data: waNumbers } = useQuery({
+    queryKey: ['whatsapp-numbers'],
+    queryFn: () => api.get<{ numbers: WhatsappNumber[] }>('/whatsapp/numbers'),
+  })
+  const connectedNumbers = (waNumbers?.numbers ?? []).filter((n) => n.status === 'CONNECTED')
+
+  const startConversationMutation = useMutation({
+    mutationFn: (body: { leadId: string; numberId: string; text: string }) =>
+      api.post<{ conversation: { id: string } }>('/whatsapp/conversations/start', body),
+    onSuccess: (res) => {
+      toast.success('Conversa iniciada!')
+      setWaOpen(false)
+      setWaText('')
+      router.push(`/whatsapp`)
+    },
+    onError: () => toast.error('Erro ao iniciar conversa'),
+  })
 
   const updateMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/leads/${id}`, body),
@@ -153,6 +178,18 @@ export default function LeadDetailPage() {
           <p className="text-muted-foreground">{lead.company?.name ?? 'Sem empresa'}</p>
         </div>
         <Badge variant="secondary">{statusLabels[lead.status] ?? lead.status}</Badge>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-green-600 border-green-300 hover:bg-green-50"
+          onClick={() => {
+            if (connectedNumbers.length === 1) setWaNumberId(connectedNumbers[0]!.id)
+            setWaOpen(true)
+          }}
+        >
+          <MessageCircle className="h-4 w-4 mr-2" />
+          WhatsApp
+        </Button>
         <Button size="sm" variant="outline" onClick={openEdit}>
           <Pencil className="h-4 w-4 mr-2" />
           Editar
@@ -237,6 +274,77 @@ export default function LeadDetailPage() {
 
         <RecentActivities activities={lead.activities ?? []} />
       </div>
+
+      {/* WhatsApp Modal */}
+      <Dialog open={waOpen} onOpenChange={setWaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              Iniciar conversa — {lead.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {connectedNumbers.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Nenhum número WhatsApp conectado.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => router.push('/configuracoes/whatsapp')}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Conectar WhatsApp
+                </Button>
+              </div>
+            ) : (
+              <>
+                {!(lead.whatsapp ?? lead.phone) && (
+                  <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
+                    Este lead não tem WhatsApp/telefone cadastrado. Edite o lead antes de enviar.
+                  </p>
+                )}
+                {connectedNumbers.length > 1 && (
+                  <div className="space-y-1.5">
+                    <Label>Enviar pelo número</Label>
+                    <Select value={waNumberId} onValueChange={setWaNumberId}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar número..." /></SelectTrigger>
+                      <SelectContent>
+                        {connectedNumbers.map((n) => (
+                          <SelectItem key={n.id} value={n.id}>{n.phone}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label>Mensagem</Label>
+                  <Textarea
+                    rows={4}
+                    placeholder={`Olá ${lead.name}, tudo bem?`}
+                    value={waText}
+                    onChange={(e) => setWaText(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setWaOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    disabled={!waText.trim() || !waNumberId || startConversationMutation.isPending}
+                    onClick={() => startConversationMutation.mutate({ leadId: id, numberId: waNumberId, text: waText })}
+                  >
+                    {startConversationMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                    ) : (
+                      <><MessageCircle className="h-4 w-4 mr-2" />Enviar</>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

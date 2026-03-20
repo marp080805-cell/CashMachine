@@ -23,12 +23,14 @@ interface EditableCellProps {
   onChangeEdit: (val: string) => void
   onCommit: () => void
   onCancel: () => void
+  onTabNext?: () => void
+  onTabPrev?: () => void
   format?: (v: number) => string
 }
 
 function EditableCell({
   cellId, value, editing, editValue,
-  onStartEdit, onChangeEdit, onCommit, onCancel, format,
+  onStartEdit, onChangeEdit, onCommit, onCancel, onTabNext, onTabPrev, format,
 }: EditableCellProps) {
   if (editing) {
     return (
@@ -39,17 +41,18 @@ function EditableCell({
         onChange={(e) => onChangeEdit(e.target.value)}
         onBlur={onCommit}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onCommit()
+          if (e.key === 'Enter') { e.preventDefault(); onCommit(); onTabNext?.() }
+          if (e.key === 'Tab') { e.preventDefault(); onCommit(); e.shiftKey ? onTabPrev?.() : onTabNext?.() }
           if (e.key === 'Escape') onCancel()
         }}
-        className="w-24 border rounded px-1 py-0.5 text-right text-sm bg-background"
+        className="w-24 border rounded px-1 py-0.5 text-right text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
       />
     )
   }
   return (
     <span
       onClick={() => onStartEdit(cellId, value)}
-      className="cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5 select-none"
+      className="cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5 select-none transition-colors"
       title="Clique para editar"
     >
       {format ? format(value) : value}
@@ -110,6 +113,12 @@ export default function PlanejamentoPage() {
     { leadsGoal: 0, leadsGenerated: 0, totalCost: 0, callsReal: 0, contractsReal: 0 }
   )
 
+  // Ordered list of editable cell IDs for Tab navigation
+  const EDITABLE_FIELDS = ['leadsGoal', 'leadsGenerated', 'totalCost', 'callsReal', 'contractsReal']
+  const allCellIds = rows.flatMap(({ channel }) =>
+    EDITABLE_FIELDS.map((f) => `${channel.id}-${f}`)
+  )
+
   const startEdit = useCallback((cellId: string, value: number) => {
     setEditingCell(cellId)
     setEditValue(String(value))
@@ -126,6 +135,27 @@ export default function PlanejamentoPage() {
     }
     setEditingCell(null)
   }, [editValue, updateMetricMutation])
+
+  const tabToNext = useCallback((currentCellId: string, direction: 1 | -1 = 1) => {
+    const idx = allCellIds.indexOf(currentCellId)
+    if (idx === -1) return
+    const nextIdx = idx + direction
+    if (nextIdx < 0 || nextIdx >= allCellIds.length) return
+    const nextId = allCellIds[nextIdx]!
+    // Parse value for next cell from rows
+    const [channelId, field] = nextId.split('-') as [string, string]
+    const row = rows.find((r) => r.channel.id === channelId)
+    if (!row) return
+    const m = row.metric
+    const valMap: Record<string, number> = {
+      leadsGoal: m?.leadsGoal ?? 0,
+      leadsGenerated: m?.leadsGenerated ?? 0,
+      totalCost: m?.totalCost ?? 0,
+      callsReal: m?.callsReal ?? 0,
+      contractsReal: m?.contractsReal ?? 0,
+    }
+    startEdit(nextId, valMap[field] ?? 0)
+  }, [allCellIds, rows, startEdit])
 
   const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -221,6 +251,8 @@ export default function PlanejamentoPage() {
                             onChangeEdit={changeEdit}
                             onCommit={() => commitEdit(channel.id, 'leadsGoal')}
                             onCancel={cancelEdit}
+                            onTabNext={() => tabToNext(`${channel.id}-leadsGoal`, 1)}
+                            onTabPrev={() => tabToNext(`${channel.id}-leadsGoal`, -1)}
                           />
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -233,6 +265,8 @@ export default function PlanejamentoPage() {
                             onChangeEdit={changeEdit}
                             onCommit={() => commitEdit(channel.id, 'leadsGenerated')}
                             onCancel={cancelEdit}
+                            onTabNext={() => tabToNext(`${channel.id}-leadsGenerated`, 1)}
+                            onTabPrev={() => tabToNext(`${channel.id}-leadsGenerated`, -1)}
                           />
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -246,6 +280,8 @@ export default function PlanejamentoPage() {
                             onCommit={() => commitEdit(channel.id, 'totalCost')}
                             onCancel={cancelEdit}
                             format={formatCurrency}
+                            onTabNext={() => tabToNext(`${channel.id}-totalCost`, 1)}
+                            onTabPrev={() => tabToNext(`${channel.id}-totalCost`, -1)}
                           />
                         </td>
                         <td className="px-4 py-3 text-right">{formatCurrency(cpl)}</td>
@@ -259,6 +295,8 @@ export default function PlanejamentoPage() {
                             onChangeEdit={changeEdit}
                             onCommit={() => commitEdit(channel.id, 'callsReal')}
                             onCancel={cancelEdit}
+                            onTabNext={() => tabToNext(`${channel.id}-callsReal`, 1)}
+                            onTabPrev={() => tabToNext(`${channel.id}-callsReal`, -1)}
                           />
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -271,6 +309,8 @@ export default function PlanejamentoPage() {
                             onChangeEdit={changeEdit}
                             onCommit={() => commitEdit(channel.id, 'contractsReal')}
                             onCancel={cancelEdit}
+                            onTabNext={() => tabToNext(`${channel.id}-contractsReal`, 1)}
+                            onTabPrev={() => tabToNext(`${channel.id}-contractsReal`, -1)}
                           />
                         </td>
                         <td className={cn('px-4 py-3 text-right font-semibold', getAttainmentColor(attainment))}>

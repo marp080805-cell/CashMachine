@@ -46,18 +46,6 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
 
   const { messages: storeMessages, aiSuggestions, setMessages, markAsRead } = useWhatsappStore()
 
-  const conversation = useQuery({
-    queryKey: ['conversation', conversationId],
-    queryFn: async () => {
-      const data = await api.get<{
-        conversations: WhatsappConversation[]
-        pagination: unknown
-      }>(`/whatsapp/conversations?limit=1`)
-      return null
-    },
-    enabled: false,
-  })
-
   const { isLoading } = useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
@@ -68,6 +56,9 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       return data
     },
     enabled: !!conversationId,
+    // Fallback polling in case socket is unavailable (e.g. wrong WS_URL in production)
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   })
 
   useEffect(() => {

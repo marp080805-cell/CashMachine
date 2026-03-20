@@ -326,6 +326,79 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     }
   )
 
+  // Start a new conversation with a lead (outbound first message)
+  app.post(
+    '/whatsapp/conversations/start',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { leadId, numberId, text } = z.object({
+        leadId: z.string(),
+        numberId: z.string(),
+        text: z.string().min(1),
+      }).parse(request.body)
+
+      const [lead, number] = await Promise.all([
+        prisma.lead.findUniqueOrThrow({ where: { id: leadId } }),
+        prisma.whatsappNumber.findUniqueOrThrow({ where: { id: numberId } }),
+      ])
+
+      const phone = (lead.whatsapp ?? lead.phone ?? '').replace(/\D/g, '')
+      if (!phone) return reply.status(400).send({ error: 'Lead sem número de WhatsApp ou telefone' })
+
+      const remoteJid = `${phone}@s.whatsapp.net`
+
+      const creds = number.apiUrl && number.apiKey
+        ? { baseUrl: number.apiUrl, apiKey: number.apiKey }
+        : undefined
+
+      const remoteId = await sendTextMessage(number.instanceName, remoteJid, text, creds)
+
+      // Find or create conversation
+      let conversation = await prisma.whatsappConversation.findUnique({
+        where: { numberId_remoteJid: { numberId: number.id, remoteJid } },
+      })
+
+      if (!conversation) {
+        conversation = await prisma.whatsappConversation.create({
+          data: {
+            remoteJid,
+            remotePhone: phone,
+            remoteName: lead.name,
+            numberId: number.id,
+            leadId: lead.id,
+            lastMessage: text,
+            lastMessageAt: new Date(),
+            unreadCount: 0,
+          },
+        })
+      } else {
+        await prisma.whatsappConversation.update({
+          where: { id: conversation.id },
+          data: { lastMessage: text, lastMessageAt: new Date(), leadId: lead.id },
+        })
+      }
+
+      const message = await prisma.whatsappMessage.create({
+        data: {
+          remoteId,
+          conversationId: conversation.id,
+          content: text,
+          type: 'TEXT',
+          fromMe: true,
+          status: 'SENT',
+          timestamp: new Date(),
+        },
+      })
+
+      app.io.to(`conversation:${conversation.id}`).emit('message:new', {
+        conversationId: conversation.id,
+        message,
+      })
+
+      return reply.status(201).send({ conversation, message })
+    }
+  )
+
   app.post(
     '/whatsapp/webhook/:instanceName',
     async (request, reply) => {

@@ -6,7 +6,7 @@ import { useWhatsappStore } from '@/stores/whatsappStore'
 import type { WhatsappMessage } from '@/types'
 
 export function useWhatsAppSocket(conversationId?: string) {
-  const { addMessage, setAiSuggestion, markAsRead, activeConversationId } = useWhatsappStore()
+  const { addMessage, setAiSuggestion, markAsRead, activeConversationId, updateConversation, conversations, incrementUnread } = useWhatsappStore()
 
   useEffect(() => {
     const socket = getSocket()
@@ -14,8 +14,13 @@ export function useWhatsAppSocket(conversationId?: string) {
     const handleNewMessage = (data: { conversationId: string; message: WhatsappMessage }) => {
       addMessage(data.conversationId, data.message)
 
-      if (data.conversationId === activeConversationId) {
+      if (data.conversationId === conversationId) {
         markAsRead(data.conversationId)
+        // Mark as read on server too
+        void fetch(`${process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3011'}/whatsapp/conversations/${data.conversationId}/read`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` },
+        }).catch(() => null)
       }
     }
 
@@ -23,8 +28,36 @@ export function useWhatsAppSocket(conversationId?: string) {
       setAiSuggestion(data.conversationId, data.suggestion)
     }
 
+    const handleConversationUpdated = (data: {
+      conversationId: string
+      lastMessage: string | null
+      lastMessageAt: string
+      unreadDelta: number
+    }) => {
+      const conv = conversations.get(data.conversationId)
+      if (conv) {
+        updateConversation({
+          ...conv,
+          lastMessage: data.lastMessage,
+          lastMessageAt: data.lastMessageAt,
+          unreadCount: data.conversationId === conversationId
+            ? conv.unreadCount  // already reading this conversation
+            : conv.unreadCount + data.unreadDelta,
+        })
+      }
+    }
+
+    // Re-join conversation room on socket reconnect
+    const handleConnect = () => {
+      if (conversationId) {
+        socket.emit('join:conversation', conversationId)
+      }
+    }
+
     socket.on('message:new', handleNewMessage)
     socket.on('ai:suggestion', handleAiSuggestion)
+    socket.on('conversation:updated', handleConversationUpdated)
+    socket.on('connect', handleConnect)
 
     if (conversationId) {
       socket.emit('join:conversation', conversationId)
@@ -33,10 +66,12 @@ export function useWhatsAppSocket(conversationId?: string) {
     return () => {
       socket.off('message:new', handleNewMessage)
       socket.off('ai:suggestion', handleAiSuggestion)
+      socket.off('conversation:updated', handleConversationUpdated)
+      socket.off('connect', handleConnect)
 
       if (conversationId) {
         socket.emit('leave:conversation', conversationId)
       }
     }
-  }, [conversationId, addMessage, setAiSuggestion, markAsRead, activeConversationId])
+  }, [conversationId, addMessage, setAiSuggestion, markAsRead, updateConversation, conversations, incrementUnread, activeConversationId])
 }
