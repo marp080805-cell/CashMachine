@@ -156,11 +156,11 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : data?.upcomingTasks.length === 0 ? (
+            ) : data?.upcomingTasks?.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhuma tarefa pendente</p>
             ) : (
               <div className="space-y-3">
-                {data?.upcomingTasks.map((task) => (
+                {data?.upcomingTasks?.map((task) => (
                   <Link key={task.id} href="/tarefas">
                     <div className={cn(
                       'flex items-center gap-3 rounded-lg border p-3 hover:bg-muted transition-colors',
@@ -198,7 +198,7 @@ export default function DashboardPage() {
                   {(data?.teamPerformance ?? []).slice(0, 5).map((member) => (
                     <div key={member.userId} className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {member.userName[0]}
+                        {member.userName?.[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{member.userName}</p>

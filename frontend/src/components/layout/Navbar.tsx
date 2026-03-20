@@ -67,12 +67,12 @@ export function Navbar({ title, onMenuClick }: NavbarProps) {
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Notificações</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notifData?.notifications.length === 0 && (
+            {notifData?.notifications?.length === 0 && (
               <p className="px-2 py-4 text-center text-sm text-muted-foreground">
                 Nenhuma notificação
               </p>
             )}
-            {notifData?.notifications.map((n) => (
+            {notifData?.notifications?.map((n) => (
               <DropdownMenuItem
                 key={n.id}
                 className={`flex-col items-start gap-1 ${!n.isRead ? 'bg-primary/5' : ''}`}
