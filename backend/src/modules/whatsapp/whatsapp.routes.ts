@@ -41,7 +41,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       const user = request.user as { id: string }
       const ownerId = userId ?? user.id
 
-      const instanceName = `cashmachine_${ownerId.replace(/-/g, '').slice(0, 12)}_${Date.now()}`
+      const instanceName = `cashmind_${ownerId.replace(/-/g, '').slice(0, 12)}_${Date.now()}`
 
       await createInstance(instanceName)
       const { qrcode } = await getQRCode(instanceName)

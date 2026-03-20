@@ -12,21 +12,21 @@ async function main() {
   const closerHash = await bcrypt.hash('Closer@123', 10)
 
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@cashmachine.com' },
+    where: { email: 'admin@cashmind.com' },
     update: {},
     create: {
-      email: 'admin@cashmachine.com',
-      name: 'Admin CashMachine',
+      email: 'admin@cashmind.com',
+      name: 'Admin CashMind',
       passwordHash,
       role: UserRole.ADMIN,
     },
   })
 
   const gestor = await prisma.user.upsert({
-    where: { email: 'gestor@cashmachine.com' },
+    where: { email: 'gestor@cashmind.com' },
     update: {},
     create: {
-      email: 'gestor@cashmachine.com',
+      email: 'gestor@cashmind.com',
       name: 'Carlos Gestor',
       passwordHash: gestorHash,
       role: UserRole.GESTOR,
@@ -34,10 +34,10 @@ async function main() {
   })
 
   const sdr1 = await prisma.user.upsert({
-    where: { email: 'sdr1@cashmachine.com' },
+    where: { email: 'sdr1@cashmind.com' },
     update: {},
     create: {
-      email: 'sdr1@cashmachine.com',
+      email: 'sdr1@cashmind.com',
       name: 'Ana SDR',
       passwordHash: sdrHash,
       role: UserRole.SDR,
@@ -45,10 +45,10 @@ async function main() {
   })
 
   const sdr2 = await prisma.user.upsert({
-    where: { email: 'sdr2@cashmachine.com' },
+    where: { email: 'sdr2@cashmind.com' },
     update: {},
     create: {
-      email: 'sdr2@cashmachine.com',
+      email: 'sdr2@cashmind.com',
       name: 'Bruno SDR',
       passwordHash: sdrHash,
       role: UserRole.SDR,
@@ -56,10 +56,10 @@ async function main() {
   })
 
   const closer = await prisma.user.upsert({
-    where: { email: 'closer@cashmachine.com' },
+    where: { email: 'closer@cashmind.com' },
     update: {},
     create: {
-      email: 'closer@cashmachine.com',
+      email: 'closer@cashmind.com',
       name: 'Diego Closer',
       passwordHash: closerHash,
       role: UserRole.CLOSER,
@@ -257,11 +257,11 @@ async function main() {
 
   console.log('\nSeed completed successfully!')
   console.log('\nCredentials:')
-  console.log('  Admin:  admin@cashmachine.com   / Admin@123')
-  console.log('  Gestor: gestor@cashmachine.com  / Gestor@123')
-  console.log('  SDR 1:  sdr1@cashmachine.com    / Sdr@123')
-  console.log('  SDR 2:  sdr2@cashmachine.com    / Sdr@123')
-  console.log('  Closer: closer@cashmachine.com  / Closer@123')
+  console.log('  Admin:  admin@cashmind.com   / Admin@123')
+  console.log('  Gestor: gestor@cashmind.com  / Gestor@123')
+  console.log('  SDR 1:  sdr1@cashmind.com    / Sdr@123')
+  console.log('  SDR 2:  sdr2@cashmind.com    / Sdr@123')
+  console.log('  Closer: closer@cashmind.com  / Closer@123')
 }
 
 main()

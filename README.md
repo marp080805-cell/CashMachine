@@ -1,4 +1,4 @@
-# CashMachine — Plataforma Comercial B2B
+# CashMind — Plataforma Comercial B2B
 
 Central de gestão comercial com CRM Kanban, WhatsApp multi-número com sugestões IA, planejamento de canais, relatórios e transcrição de chamadas.
 
@@ -17,8 +17,8 @@ Central de gestão comercial com CRM Kanban, WhatsApp multi-número com sugestõ
 ### 1. Clone e configure variáveis de ambiente
 
 ```bash
-git clone <repo-url> cashmachine
-cd cashmachine
+git clone <repo-url> cashmind
+cd cashmind
 cp .env.example .env
 ```
 
@@ -35,7 +35,7 @@ Edite `.env` com seus valores:
 | `EVOLUTION_API_KEY` | Chave de acesso da Evolution API |
 | `OPENAI_API_KEY` | Chave da OpenAI |
 | `RESEND_API_KEY` | Chave do Resend |
-| `EMAIL_FROM` | Remetente dos e-mails (ex: `CashMachine <no-reply@seudominio.com>`) |
+| `EMAIL_FROM` | Remetente dos e-mails (ex: `CashMind <no-reply@seudominio.com>`) |
 | `NEXT_PUBLIC_API_URL` | URL pública da API (ex: `https://app.seudominio.com/api`) |
 | `NEXT_PUBLIC_WS_URL` | URL pública do WebSocket (ex: `wss://app.seudominio.com`) |
 
@@ -70,11 +70,11 @@ make seed
 
 | Usuário | E-mail | Senha | Perfil |
 |---------|--------|-------|--------|
-| Admin | admin@cashmachine.com | Admin@123 | ADMIN |
-| Gestor | gestor@cashmachine.com | Gestor@123 | GESTOR |
-| SDR 1 | sdr1@cashmachine.com | Sdr@123 | SDR |
-| SDR 2 | sdr2@cashmachine.com | Sdr@123 | SDR |
-| Closer | closer@cashmachine.com | Closer@123 | CLOSER |
+| Admin | admin@cashmind.com | Admin@123 | ADMIN |
+| Gestor | gestor@cashmind.com | Gestor@123 | GESTOR |
+| SDR 1 | sdr1@cashmind.com | Sdr@123 | SDR |
+| SDR 2 | sdr2@cashmind.com | Sdr@123 | SDR |
+| Closer | closer@cashmind.com | Closer@123 | CLOSER |
 
 > **Atenção:** Troque todas as senhas antes de ir para produção.
 
@@ -95,8 +95,8 @@ make restart   # Reinicia api e frontend sem rebuild
 Copie o arquivo de configuração para o Nginx do servidor — **não substitua** o nginx.conf principal:
 
 ```bash
-sudo cp nginx/cashmachine.conf /etc/nginx/sites-available/cashmachine
-sudo ln -s /etc/nginx/sites-available/cashmachine /etc/nginx/sites-enabled/
+sudo cp nginx/cashmind.conf /etc/nginx/sites-available/cashmind
+sudo ln -s /etc/nginx/sites-available/cashmind /etc/nginx/sites-enabled/
 ```
 
 Edite o arquivo trocando `app.seudominio.com` pelo seu domínio real, depois:

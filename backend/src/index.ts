@@ -93,7 +93,7 @@ async function bootstrap() {
   }
 
   await app.listen({ port: env.API_PORT, host: '0.0.0.0' })
-  console.log(`CashMachine API running on port ${env.API_PORT}`)
+  console.log(`CashMind API running on port ${env.API_PORT}`)
 }
 
 bootstrap().catch((err) => {

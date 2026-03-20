@@ -56,11 +56,11 @@ export default async function aiRoutes(app: FastifyInstance) {
         const fileName = `transcriptions/${user.id}/${Date.now()}-${data.filename}`
 
         const { data: uploadData, error } = await supabase.storage
-          .from('cashmachine')
+          .from('cashmind')
           .upload(fileName, buffer, { contentType: data.mimetype, upsert: false })
 
         if (!error && uploadData) {
-          const { data: urlData } = supabase.storage.from('cashmachine').getPublicUrl(uploadData.path)
+          const { data: urlData } = supabase.storage.from('cashmind').getPublicUrl(uploadData.path)
           audioUrl = urlData.publicUrl
           title = data.filename.replace(/\.[^/.]+$/, '') || title
         }

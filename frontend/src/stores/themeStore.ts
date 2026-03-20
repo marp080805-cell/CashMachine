@@ -17,7 +17,7 @@ function applyTheme(theme: Theme) {
   } else {
     root.classList.remove('dark')
   }
-  localStorage.setItem('cashmachine-theme', theme)
+  localStorage.setItem('cashmind-theme', theme)
 }
 
 export const useThemeStore = create<ThemeStore>((set, get) => ({
@@ -36,7 +36,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
 
   initTheme: () => {
     if (typeof window === 'undefined') return
-    const stored = localStorage.getItem('cashmachine-theme') as Theme | null
+    const stored = localStorage.getItem('cashmind-theme') as Theme | null
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const resolved: Theme = stored ?? (prefersDark ? 'dark' : 'light')
     applyTheme(resolved)

@@ -101,10 +101,10 @@ export async function inviteUser(input: InviteInput, invitedById: string): Promi
 
   await sendEmail({
     to: input.email,
-    subject: 'Você foi convidado para o CashMachine',
+    subject: 'Você foi convidado para o CashMind',
     html: `
       <h2>Olá, ${input.name}!</h2>
-      <p>Você foi convidado para acessar o CashMachine como <strong>${input.role}</strong>.</p>
+      <p>Você foi convidado para acessar o CashMind como <strong>${input.role}</strong>.</p>
       <p><a href="${inviteUrl}">Clique aqui para aceitar o convite</a></p>
       <p>Este link expira em 7 dias.</p>
     `,

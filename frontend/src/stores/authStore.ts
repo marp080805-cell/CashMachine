@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, token: null, refreshToken: null, isAuthenticated: false }),
     }),
     {
-      name: 'cashmachine-auth',
+      name: 'cashmind-auth',
       partialize: (state) => ({
         token: state.token,
         refreshToken: state.refreshToken,

@@ -27,7 +27,7 @@ function getTitle(pathname: string): string {
   if (pageTitles[pathname]) return pageTitles[pathname]
   if (pathname.startsWith('/funis/')) return 'Kanban do Funil'
   if (pathname.startsWith('/leads/')) return 'Detalhes do Lead'
-  return 'CashMachine'
+  return 'CashMind'
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

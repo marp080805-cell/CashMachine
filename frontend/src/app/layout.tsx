@@ -6,7 +6,7 @@ import { Providers } from './providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'CashMachine — Plataforma Comercial B2B',
+  title: 'CashMind — Plataforma Comercial B2B',
   description: 'Central de gestão comercial B2B',
 }
 
@@ -21,7 +21,7 @@ export default function RootLayout({
         {/* Anti-flash: apply saved theme before first paint */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('cashmachine-theme');var p=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark'||(t===null&&p==='dark')){document.documentElement.classList.add('dark')}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('cashmind-theme');var p=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark'||(t===null&&p==='dark')){document.documentElement.classList.add('dark')}}catch(e){}})();`,
           }}
         />
       </head>
