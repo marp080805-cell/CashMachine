@@ -109,7 +109,14 @@ export default async function dealsRoutes(app: FastifyInstance) {
       const user = request.user as { id: string }
 
       const deal = await prisma.$transaction(async (tx) => {
-        const newDeal = await tx.deal.create({ data: input, select: dealSelect })
+        const { customFields, ...dealData } = input
+        const newDeal = await tx.deal.create({
+          data: {
+            ...dealData,
+            ...(customFields !== undefined ? { customFields: customFields as unknown as Prisma.InputJsonValue } : {}),
+          } as Prisma.DealCreateInput,
+          select: dealSelect,
+        })
         await tx.activity.create({
           data: {
             type: 'DEAL_CREATED',
@@ -132,7 +139,15 @@ export default async function dealsRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const input = createDealSchema.partial().parse(request.body)
-      const deal = await prisma.deal.update({ where: { id }, data: input, select: dealSelect })
+      const { customFields, ...dealData } = input
+      const deal = await prisma.deal.update({
+        where: { id },
+        data: {
+          ...dealData,
+          ...(customFields !== undefined ? { customFields: customFields as unknown as Prisma.InputJsonValue } : {}),
+        } as Prisma.DealUpdateInput,
+        select: dealSelect,
+      })
       return reply.send(deal)
     }
   )
@@ -158,7 +173,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
             dealId: id,
             leadId: current.leadId ?? undefined,
             userId: user.id,
-            metadata: { fromStage: current.stage.name, toStage: newStage.name },
+            metadata: { fromStage: current.stage.name, toStage: newStage.name } as Prisma.InputJsonValue,
           },
         })
 
@@ -232,7 +247,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
             description: `Deal "${updated.title}" marcado como PERDIDO. Motivo: ${lossReason}`,
             dealId: id,
             userId: user.id,
-            metadata: { lossReason },
+            metadata: { lossReason } as Prisma.InputJsonValue,
           },
         })
         return updated

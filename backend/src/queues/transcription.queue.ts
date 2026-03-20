@@ -39,7 +39,7 @@ export function startTranscriptionWorker() {
 
       await prisma.callTranscription.update({
         where: { id: transcriptionId },
-        data: { transcript, analysis: analysis as Prisma.InputJsonValue, status: 'DONE' },
+        data: { transcript, analysis: analysis as unknown as Prisma.InputJsonValue, status: 'DONE' },
       })
     },
     {

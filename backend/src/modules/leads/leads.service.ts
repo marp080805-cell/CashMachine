@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma'
+import { Prisma } from '@prisma/client'
 import type { CreateLeadInput, UpdateLeadInput, ListLeadsQuery } from './leads.schema'
-import type { Prisma } from '@prisma/client'
 
 export async function listLeads(query: ListLeadsQuery, userId: string, isAdmin: boolean) {
   const skip = (query.page - 1) * query.limit
@@ -79,11 +79,13 @@ export async function getLead(id: string) {
 }
 
 export async function createLead(input: CreateLeadInput, createdById: string) {
+  const { customFields, ...rest } = input
   const lead = await prisma.lead.create({
     data: {
-      ...input,
-      tags: input.tags ?? [],
+      ...rest,
+      tags: rest.tags ?? [],
       createdById,
+      ...(customFields !== undefined ? { customFields: customFields as unknown as Prisma.InputJsonValue } : {}),
     },
     include: {
       company: { select: { id: true, name: true } },
@@ -142,8 +144,14 @@ export async function importLeads(
         skipped++
       }
     } else {
+      const { customFields: cf, ...rowRest } = row
       await prisma.lead.create({
-        data: { ...row, tags: row.tags ?? [], createdById },
+        data: {
+          ...rowRest,
+          tags: rowRest.tags ?? [],
+          createdById,
+          ...(cf !== undefined ? { customFields: cf as unknown as Prisma.InputJsonValue } : {}),
+        },
       })
       created++
     }

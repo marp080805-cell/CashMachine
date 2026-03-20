@@ -46,7 +46,7 @@ export default async function aiRoutes(app: FastifyInstance) {
       if (data) {
         const { createClient } = await import('@supabase/supabase-js')
         const { env } = await import('../../config/env')
-        const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL as string, env.SUPABASE_SERVICE_ROLE_KEY as string)
 
         const chunks: Buffer[] = []
         for await (const chunk of data.file) {
