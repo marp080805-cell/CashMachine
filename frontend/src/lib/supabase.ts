@@ -11,11 +11,23 @@ export function getSupabase(): SupabaseClient | null {
   return _client
 }
 
-// backwards-compat shim — null-safe at build time
+// Chainable noop for when Supabase env vars are not configured
+const noopChannel: {
+  on: (...args: unknown[]) => typeof noopChannel
+  subscribe: () => { unsubscribe: () => void }
+} = {
+  on: () => noopChannel,
+  subscribe: () => ({ unsubscribe: () => {} }),
+}
+
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
     const client = getSupabase()
-    if (!client) return () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
+    if (!client) {
+      if (prop === 'channel') return () => noopChannel
+      if (prop === 'removeChannel') return () => Promise.resolve()
+      return () => {}
+    }
     return (client as unknown as Record<string | symbol, unknown>)[prop]
   },
 })
