@@ -6,7 +6,7 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 FROM node:20-alpine AS runtime
 

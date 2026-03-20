@@ -1,6 +1,8 @@
 import './config/env'
 import Fastify from 'fastify'
 import { env } from './config/env'
+import { prisma } from './lib/prisma'
+import bcrypt from 'bcryptjs'
 
 import multipart from '@fastify/multipart'
 import authPlugin from './plugins/auth'
@@ -79,6 +81,16 @@ async function bootstrap() {
 
   startNotificationWorker()
   startEmailWorker()
+
+  // Create initial admin user from env if not exists
+  const existing = await prisma.user.findUnique({ where: { email: env.ADMIN_EMAIL } })
+  if (!existing) {
+    const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 10)
+    await prisma.user.create({
+      data: { email: env.ADMIN_EMAIL, name: env.ADMIN_NAME, passwordHash, role: 'ADMIN' },
+    })
+    console.log(`Admin user created: ${env.ADMIN_EMAIL}`)
+  }
 
   await app.listen({ port: env.API_PORT, host: '0.0.0.0' })
   console.log(`CashMachine API running on port ${env.API_PORT}`)

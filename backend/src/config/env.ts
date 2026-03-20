@@ -20,6 +20,9 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default('CashMachine <noreply@cashmachine.com>'),
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  ADMIN_NAME: z.string().default('Admin'),
+  ADMIN_EMAIL: z.string().email().default('admin@cashmachine.com'),
+  ADMIN_PASSWORD: z.string().min(8).default('Admin@123'),
 })
 
 const parsed = envSchema.safeParse(process.env)
