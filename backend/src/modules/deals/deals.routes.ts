@@ -47,7 +47,7 @@ const dealSelect = {
       phone: true,
       conversations: {
         select: { id: true, lastMessage: true, lastMessageAt: true, unreadCount: true },
-        orderBy: { lastMessageAt: 'desc' },
+        orderBy: [{ lastMessageAt: 'desc' as const }],
         take: 1,
       },
     },
