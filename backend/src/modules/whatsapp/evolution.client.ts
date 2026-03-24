@@ -61,12 +61,18 @@ async function apiRequest<T>(
     body: body ? JSON.stringify(body) : undefined,
   })
 
+  const text = await response.text()
+
   if (!response.ok) {
-    const text = await response.text()
     throw new Error(`Evolution API error ${response.status}: ${text}`)
   }
 
-  return response.json() as Promise<T>
+  if (!text) return null as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return null as T
+  }
 }
 
 export async function createInstance(instanceName: string, creds?: EvolutionCredentials): Promise<EvolutionInstance> {
@@ -83,8 +89,10 @@ export async function getQRCode(instanceName: string, creds?: EvolutionCredentia
 }
 
 export async function getInstanceStatus(instanceName: string, creds?: EvolutionCredentials): Promise<string> {
-  const data = await apiRequest<{ instance: { state: string } }>('GET', `/instance/fetchInstances/${instanceName}`, undefined, creds)
-  return data.instance.state
+  // Evolution API v2 returns an array; v1 returns an object
+  const data = await apiRequest<{ instance: { state: string } } | Array<{ instance: { state: string } }>>('GET', `/instance/fetchInstances/${instanceName}`, undefined, creds)
+  if (Array.isArray(data)) return data[0]?.instance?.state ?? 'unknown'
+  return data?.instance?.state ?? 'unknown'
 }
 
 export async function getConnectionState(instanceName: string, creds?: EvolutionCredentials): Promise<string> {
