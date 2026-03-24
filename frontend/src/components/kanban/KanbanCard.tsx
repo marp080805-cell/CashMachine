@@ -2,11 +2,22 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Snowflake, Calendar } from 'lucide-react'
+import { Snowflake, Calendar, MessageSquare } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { cn, formatCurrency, formatDate, getInitials } from '@/lib/utils'
 import type { Deal } from '@/types'
+
+function formatRelativeDate(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000)
+  if (diffDays === 0) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (diffDays === 1) return 'Ontem'
+  if (diffDays < 7) return d.toLocaleDateString('pt-BR', { weekday: 'short' })
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
 
 interface KanbanCardProps {
   deal: Deal
@@ -84,6 +95,25 @@ export function KanbanCard({ deal, onClick }: KanbanCardProps) {
         )}>
           <Calendar className="h-3 w-3" />
           <span>{formatDate(deal.expectedClose)}</span>
+        </div>
+      )}
+
+      {deal.lead?.conversations?.[0] && (
+        <div className="flex items-start gap-1.5 mt-2 pt-2 border-t">
+          <MessageSquare className="h-3 w-3 text-green-500 shrink-0 mt-0.5" />
+          <span className="text-xs text-muted-foreground line-clamp-1 flex-1">
+            {deal.lead.conversations[0].lastMessage ?? '(mídia)'}
+          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            {deal.lead.conversations[0].unreadCount > 0 && (
+              <span className="bg-green-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                {deal.lead.conversations[0].unreadCount}
+              </span>
+            )}
+            <span className="text-[10px] text-muted-foreground">
+              {formatRelativeDate(deal.lead.conversations[0].lastMessageAt)}
+            </span>
+          </div>
         </div>
       )}
     </div>

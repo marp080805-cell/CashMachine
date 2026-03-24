@@ -47,7 +47,18 @@ export default async function funnelsRoutes(app: FastifyInstance) {
               deals: {
                 where: { status: 'OPEN' },
                 include: {
-                  lead: { select: { id: true, name: true } },
+                  lead: {
+                    select: {
+                      id: true,
+                      name: true,
+                      phone: true,
+                      conversations: {
+                        select: { id: true, lastMessage: true, lastMessageAt: true, unreadCount: true },
+                        orderBy: { lastMessageAt: 'desc' },
+                        take: 1,
+                      },
+                    },
+                  },
                   company: { select: { id: true, name: true } },
                   assignedTo: { select: { id: true, name: true, avatarUrl: true } },
                   activities: {

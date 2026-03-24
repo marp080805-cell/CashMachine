@@ -131,7 +131,17 @@ export interface Deal {
   stageId: string
   stage: Pick<FunnelStage, 'id' | 'name' | 'color'>
   leadId: string | null
-  lead: Pick<Lead, 'id' | 'name'> | null
+  lead: {
+    id: string
+    name: string
+    phone?: string | null
+    conversations?: Array<{
+      id: string
+      lastMessage: string | null
+      lastMessageAt: string | null
+      unreadCount: number
+    }>
+  } | null
   companyId: string | null
   company: Pick<Company, 'id' | 'name'> | null
   assignedToId: string

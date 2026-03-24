@@ -14,7 +14,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { KanbanColumn } from './KanbanColumn'
 import { KanbanCard } from './KanbanCard'
-import { DealModal } from './DealModal'
+import { DealConversationSheet } from './DealConversationSheet'
 import type { Deal, Funnel } from '@/types'
 import { api } from '@/lib/api'
 
@@ -91,7 +91,7 @@ export function KanbanBoard({ funnel, onNewDeal }: KanbanBoardProps) {
         </DragOverlay>
       </DndContext>
 
-      <DealModal
+      <DealConversationSheet
         deal={selectedDeal}
         onClose={() => setSelectedDeal(null)}
         funnelId={funnel.id}
