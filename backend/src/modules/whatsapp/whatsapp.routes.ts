@@ -134,8 +134,10 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     '/whatsapp/numbers/:id/setup-webhook',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
+      const { id } = request.params as { id: string }
+      console.log(`[setup-webhook] id=${id}`)
+
       try {
-        const { id } = request.params as { id: string }
         const number = await prisma.whatsappNumber.findUnique({ where: { id } })
         if (!number) return reply.status(404).send({ error: 'Número não encontrado' })
 
@@ -150,17 +152,19 @@ export default async function whatsappRoutes(app: FastifyInstance) {
         const webhookBase = env.WEBHOOK_BASE_URL ?? `${env.NEXT_PUBLIC_APP_URL}/api`
         const webhookUrl = `${webhookBase}/whatsapp/webhook/${number.instanceName}`
 
-        app.log.info(`Setting webhook for ${number.instanceName} → ${webhookUrl}`)
+        console.log(`[setup-webhook] calling setWebhook → ${webhookUrl}`)
         await setWebhook(number.instanceName, webhookUrl, creds)
+        console.log(`[setup-webhook] success`)
 
-        return reply.send({ ok: true, webhookUrl })
+        if (!reply.sent) return reply.send({ ok: true, webhookUrl })
+        return reply
       } catch (err) {
-        const raw = String(err)
-        // Extract Evolution API message if present
+        console.error(`[setup-webhook] error:`, err)
+        const raw = err instanceof Error ? err.message : String(err)
         const match = raw.match(/Evolution API error \d+: (.+)/)
         const msg = match ? match[1] : raw
-        app.log.error(`setup-webhook error: ${raw}`)
-        return reply.status(500).send({ error: `Evolution API: ${msg}` })
+        if (!reply.sent) return reply.status(500).send({ error: msg })
+        return reply
       }
     }
   )
