@@ -61,6 +61,7 @@ export default async function funnelsRoutes(app: FastifyInstance) {
                   },
                   company: { select: { id: true, name: true } },
                   assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+                  stage: { select: { id: true, name: true, color: true } },
                   activities: {
                     orderBy: { createdAt: 'desc' },
                     take: 1,
