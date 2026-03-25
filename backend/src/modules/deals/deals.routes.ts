@@ -10,19 +10,19 @@ const createDealSchema = z.object({
   expectedClose: z.string().datetime().optional(),
   notes: z.string().optional(),
   customFields: z.record(z.unknown()).optional(),
-  funnelId: z.string().uuid(),
-  stageId: z.string().uuid(),
-  leadId: z.string().uuid().optional(),
-  companyId: z.string().uuid().optional(),
-  assignedToId: z.string().uuid(),
+  funnelId: z.string().min(1),
+  stageId: z.string().min(1),
+  leadId: z.string().min(1).optional(),
+  companyId: z.string().min(1).optional(),
+  assignedToId: z.string().min(1),
 })
 
 const listDealsSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
-  funnelId: z.string().uuid().optional(),
-  stageId: z.string().uuid().optional(),
-  assignedToId: z.string().uuid().optional(),
+  funnelId: z.string().min(1).optional(),
+  stageId: z.string().min(1).optional(),
+  assignedToId: z.string().min(1).optional(),
   status: z.enum(['OPEN', 'WON', 'LOST', 'FROZEN']).optional(),
   search: z.string().optional(),
 })
