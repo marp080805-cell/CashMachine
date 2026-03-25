@@ -27,7 +27,8 @@ const listDealsSchema = z.object({
   search: z.string().optional(),
 })
 
-const dealSelect = {
+// Used in mutations (create/update) — Prisma does not support orderBy/take in select for mutations
+const dealSelectWrite = {
   id: true,
   title: true,
   value: true,
@@ -40,6 +41,16 @@ const dealSelect = {
   stageId: true,
   createdAt: true,
   updatedAt: true,
+  lead: { select: { id: true, name: true, phone: true } },
+  company: { select: { id: true, name: true } },
+  assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+  stage: { select: { id: true, name: true, color: true } },
+  funnel: { select: { id: true, name: true } },
+}
+
+// Used in reads (findMany/findUnique) — supports nested orderBy/take
+const dealSelect = {
+  ...dealSelectWrite,
   lead: {
     select: {
       id: true,
@@ -52,10 +63,6 @@ const dealSelect = {
       },
     },
   },
-  company: { select: { id: true, name: true } },
-  assignedTo: { select: { id: true, name: true, avatarUrl: true } },
-  stage: { select: { id: true, name: true, color: true } },
-  funnel: { select: { id: true, name: true } },
 }
 
 export default async function dealsRoutes(app: FastifyInstance) {
@@ -127,7 +134,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
             ...dealData,
             ...(customFields !== undefined ? { customFields } : {}),
           } as any,
-          select: dealSelect,
+          select: dealSelectWrite,
         })
         await tx.activity.create({
           data: {
@@ -156,7 +163,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
       const deal = await prisma.deal.update({
         where: { id },
         data: { ...dealData, ...(customFields !== undefined ? { customFields } : {}) } as any,
-        select: dealSelect,
+        select: dealSelectWrite,
       })
       return reply.send(deal)
     }
@@ -174,7 +181,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
         const current = await tx.deal.findUniqueOrThrow({ where: { id }, include: { stage: true } })
         const newStage = await tx.funnelStage.findUniqueOrThrow({ where: { id: stageId } })
 
-        const updated = await tx.deal.update({ where: { id }, data: { stageId }, select: dealSelect })
+        const updated = await tx.deal.update({ where: { id }, data: { stageId }, select: dealSelectWrite })
 
         await tx.activity.create({
           data: {
@@ -203,7 +210,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
       const deal = await prisma.deal.update({
         where: { id },
         data: { isFrozen: !current.isFrozen, status: !current.isFrozen ? 'FROZEN' : 'OPEN' },
-        select: dealSelect,
+        select: dealSelectWrite,
       })
       return reply.send(deal)
     }
@@ -220,7 +227,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
         const updated = await tx.deal.update({
           where: { id },
           data: { status: 'WON' },
-          select: dealSelect,
+          select: dealSelectWrite,
         })
         await tx.activity.create({
           data: {
@@ -249,7 +256,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
         const updated = await tx.deal.update({
           where: { id },
           data: { status: 'LOST', lossReason },
-          select: dealSelect,
+          select: dealSelectWrite,
         })
         await tx.activity.create({
           data: {
