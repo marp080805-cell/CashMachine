@@ -7,8 +7,8 @@ const createActivitySchema = z.object({
   type: z.enum(['NOTE', 'EMAIL', 'CALL', 'MEETING', 'WHATSAPP_MESSAGE', 'DEAL_MOVED', 'DEAL_CREATED', 'DEAL_WON', 'DEAL_LOST', 'TASK_COMPLETED', 'FILE_UPLOADED', 'AI_SUGGESTION']),
   description: z.string().min(1),
   metadata: z.record(z.unknown()).optional(),
-  leadId: z.string().uuid().optional(),
-  dealId: z.string().uuid().optional(),
+  leadId: z.string().min(1).optional(),
+  dealId: z.string().min(1).optional(),
 })
 
 export default async function activitiesRoutes(app: FastifyInstance) {

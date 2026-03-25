@@ -48,7 +48,7 @@ export default function LeadDetailPage() {
   const [waText, setWaText] = useState('')
   const [editForm, setEditForm] = useState<{
     name: string; email: string; phone: string; whatsapp: string
-    position: string; status: string; notes: string; tags: string
+    position: string; channelId: string; status: string; notes: string; tags: string
     customFields: CustomField[]
   } | null>(null)
 
@@ -109,6 +109,7 @@ export default function LeadDetailPage() {
       phone: lead.phone ?? '',
       whatsapp: lead.whatsapp ?? '',
       position: lead.position ?? '',
+      channelId: lead.channelId ?? '',
       status: lead.status,
       notes: lead.notes ?? '',
       tags: lead.tags.join(', '),
@@ -132,6 +133,7 @@ export default function LeadDetailPage() {
       phone: editForm.phone || undefined,
       whatsapp: editForm.whatsapp || undefined,
       position: editForm.position || undefined,
+      channelId: editForm.channelId || undefined,
       status: editForm.status,
       notes: editForm.notes || undefined,
       tags: editForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -394,8 +396,8 @@ export default function LeadDetailPage() {
                 <div className="space-y-1.5">
                   <Label>Canal</Label>
                   <Select
-                    value={lead.channelId ?? ''}
-                    onValueChange={(v) => setEditForm((f) => f ? { ...f } : f)}
+                    value={editForm.channelId}
+                    onValueChange={(v) => setEditForm((f) => f ? { ...f, channelId: v } : f)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecionar..." />

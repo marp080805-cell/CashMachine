@@ -8,9 +8,9 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   type: z.enum(['CALL', 'EMAIL', 'MEETING', 'VISIT', 'PROPOSAL', 'FOLLOW_UP', 'OTHER']).default('CALL'),
   dueDate: z.string().datetime(),
-  leadId: z.string().uuid().optional(),
-  dealId: z.string().uuid().optional(),
-  assignedToId: z.string().uuid(),
+  leadId: z.string().min(1).optional(),
+  dealId: z.string().min(1).optional(),
+  assignedToId: z.string().min(1),
 })
 
 export default async function tasksRoutes(app: FastifyInstance) {

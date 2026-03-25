@@ -174,7 +174,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
     { preHandler: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      const { stageId } = z.object({ stageId: z.string().uuid() }).parse(request.body)
+      const { stageId } = z.object({ stageId: z.string().min(1) }).parse(request.body)
       const user = request.user as { id: string }
 
       const deal = await prisma.$transaction(async (tx) => {

@@ -363,7 +363,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     { preHandler: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      const { leadId } = z.object({ leadId: z.string().uuid() }).parse(request.body)
+      const { leadId } = z.object({ leadId: z.string().min(1) }).parse(request.body)
 
       const conversation = await prisma.whatsappConversation.update({
         where: { id },
