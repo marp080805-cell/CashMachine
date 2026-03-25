@@ -93,7 +93,11 @@ export default function FunnelKanbanPage() {
       setLeadSearch('')
       void queryClient.invalidateQueries({ queryKey: ['funnel', id] })
     },
-    onError: (err: unknown) => toast.error((err as { message?: string })?.message ?? 'Erro ao criar deal'),
+    onError: (err: unknown) => {
+      const e = err as { message?: string; data?: { details?: Array<{ path: string[]; message: string }> } }
+      const fieldErrors = e?.data?.details?.map((d) => `${d.path.join('.')}: ${d.message}`).join(' | ')
+      toast.error(fieldErrors ?? e?.message ?? 'Erro ao criar deal', { duration: 10000 })
+    },
   })
 
   function openNewDeal(stageId?: string) {
