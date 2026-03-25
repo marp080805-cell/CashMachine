@@ -19,12 +19,13 @@ export function startNotificationWorker() {
         sendEmail?: boolean
       }
 
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true, tenantId: true } })
+
       await prisma.notification.create({
-        data: { userId, type, title, body, link },
+        data: { userId, type, title, body, link, tenantId: user?.tenantId ?? '' },
       })
 
       if (shouldSendEmail) {
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
         if (user) {
           await sendEmail({
             to: user.email,

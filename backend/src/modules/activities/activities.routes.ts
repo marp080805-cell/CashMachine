@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 
 const createActivitySchema = z.object({
@@ -42,7 +43,12 @@ export default async function activitiesRoutes(app: FastifyInstance) {
     const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
 
     const activity = await prisma.activity.create({
-      data: { ...input, tenantId, userId },
+      data: {
+        ...input,
+        metadata: input.metadata as Prisma.InputJsonValue | undefined,
+        tenantId,
+        userId,
+      },
       include: {
         user: { select: { id: true, name: true, avatarUrl: true } },
       },

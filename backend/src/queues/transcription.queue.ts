@@ -11,10 +11,10 @@ export function startTranscriptionWorker() {
   return new Worker(
     'transcriptions',
     async (job) => {
-      const { transcriptionId, audioUrl, dealId } = job.data as {
+      const { transcriptionId, audioUrl, opportunityId } = job.data as {
         transcriptionId: string
         audioUrl: string
-        dealId?: string
+        opportunityId?: string
       }
 
       await prisma.callTranscription.update({
@@ -25,13 +25,13 @@ export function startTranscriptionWorker() {
       const transcript = await transcribeAudio(audioUrl)
 
       let dealContext: string | null = null
-      if (dealId) {
-        const deal = await prisma.deal.findUnique({
-          where: { id: dealId },
-          select: { title: true, value: true, lead: { select: { name: true } } },
+      if (opportunityId) {
+        const opportunity = await prisma.opportunity.findUnique({
+          where: { id: opportunityId },
+          select: { title: true, value: true, contact: { select: { name: true } } },
         })
-        if (deal) {
-          dealContext = `Deal: ${deal.title}, Valor: R$ ${deal.value ?? 'N/A'}, Lead: ${deal.lead?.name ?? 'N/A'}`
+        if (opportunity) {
+          dealContext = `Oportunidade: ${opportunity.title}, Valor: R$ ${opportunity.value ?? 'N/A'}, Contato: ${opportunity.contact?.name ?? 'N/A'}`
         }
       }
 
