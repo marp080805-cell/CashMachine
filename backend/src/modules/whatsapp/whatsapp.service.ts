@@ -37,7 +37,7 @@ export async function handleIncomingWebhook(
     return
   }
 
-  // Handle delivery/read status updates (double checkmarks)
+  // Handle delivery/read status updates
   if (payload.event === 'messages.update') {
     const updates = Array.isArray(payload.data) ? payload.data : [payload.data]
     for (const upd of updates as Array<{ key?: { id?: string }; update?: { status?: string } }>) {
@@ -45,7 +45,6 @@ export async function handleIncomingWebhook(
       const rawStatus = upd.update?.status
       if (!remoteId || !rawStatus) continue
 
-      // Map Evolution API status to our enum
       const statusMap: Record<string, string> = {
         DELIVERY_ACK: 'DELIVERED',
         READ: 'READ',
@@ -75,16 +74,12 @@ export async function handleIncomingWebhook(
 
   if (payload.event !== 'messages.upsert') return
 
-  // Skip delivery receipts / status-only updates that have no message body
   const rawData = payload.data as { status?: string; message?: unknown }
   if (!rawData.message) return
 
   const parsed = parseWebhookMessage(payload)
 
-  const whatsappNumber = await prisma.whatsappNumber.findUnique({
-    where: { instanceName },
-  })
-
+  const whatsappNumber = await prisma.whatsappNumber.findUnique({ where: { instanceName } })
   if (!whatsappNumber) return
 
   const remotePhone = parsed.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
@@ -94,28 +89,26 @@ export async function handleIncomingWebhook(
   })
 
   if (!conversation) {
-    const leadMatch = await prisma.lead.findFirst({
+    // Buscar Contact pelo telefone (dentro do mesmo tenant)
+    const contactMatch = await prisma.contact.findFirst({
       where: {
-        OR: [
-          { whatsapp: { contains: remotePhone } },
-          { phone: { contains: remotePhone } },
-        ],
+        tenantId: whatsappNumber.tenantId,
+        phone: { contains: remotePhone },
       },
     })
 
-    let leadId = leadMatch?.id
+    let contactId = contactMatch?.id
 
-    if (!leadId && !parsed.fromMe) {
-      const newLead = await prisma.lead.create({
+    if (!contactId && !parsed.fromMe) {
+      // Criar contato automaticamente para mensagens recebidas
+      const newContact = await prisma.contact.create({
         data: {
+          tenantId: whatsappNumber.tenantId,
           name: parsed.remoteName ?? remotePhone,
-          whatsapp: remotePhone,
           phone: remotePhone,
-          status: 'NEW',
-          createdById: whatsappNumber.userId,
         },
       })
-      leadId = newLead.id
+      contactId = newContact.id
     }
 
     conversation = await prisma.whatsappConversation.create({
@@ -124,7 +117,7 @@ export async function handleIncomingWebhook(
         remotePhone,
         remoteName: parsed.remoteName,
         numberId: whatsappNumber.id,
-        leadId,
+        contactId,
         lastMessage: parsed.content,
         lastMessageAt: parsed.timestamp,
         unreadCount: parsed.fromMe ? 0 : 1,
@@ -142,7 +135,6 @@ export async function handleIncomingWebhook(
     })
   }
 
-  // Upsert and capture the full DB message (with id) for real-time socket emit
   const savedMessage = await prisma.whatsappMessage.upsert({
     where: { remoteId: parsed.messageId },
     create: {
@@ -158,13 +150,11 @@ export async function handleIncomingWebhook(
     update: {},
   })
 
-  // Emit full message (with DB id) so frontend deduplication works correctly
   app.io.to(`conversation:${conversation.id}`).emit('message:new', {
     conversationId: conversation.id,
     message: savedMessage,
   })
 
-  // Also notify user room so the conversation list updates last-message
   app.io.to(`user:${whatsappNumber.userId}`).emit('conversation:updated', {
     conversationId: conversation.id,
     lastMessage: parsed.content,
@@ -175,6 +165,7 @@ export async function handleIncomingWebhook(
   if (!parsed.fromMe) {
     await prisma.notification.create({
       data: {
+        tenantId: whatsappNumber.tenantId,
         userId: whatsappNumber.userId,
         type: 'WHATSAPP_MESSAGE',
         title: 'Nova mensagem WhatsApp',
@@ -191,7 +182,7 @@ export async function handleIncomingWebhook(
     await aiSuggestionQueue.add('generate-suggestion', {
       conversationId: conversation.id,
       incomingMessage: parsed.content ?? '',
-      leadId: conversation.leadId,
+      contactId: conversation.contactId,
     })
   }
 }

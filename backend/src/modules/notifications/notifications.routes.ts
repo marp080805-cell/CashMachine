@@ -2,47 +2,37 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
 
 export default async function notificationsRoutes(app: FastifyInstance) {
-  app.get(
-    '/notifications',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const user = request.user as { id: string }
-      const { limit } = request.query as { limit?: string }
+  app.get('/notifications', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id: userId, tenantId } = request.user as { id: string; tenantId: string }
+    const { limit = 20 } = request.query as { limit?: string }
 
-      const notifications = await prisma.notification.findMany({
-        where: { userId: user.id },
+    const [notifications, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where: { userId, tenantId },
         orderBy: { createdAt: 'desc' },
-        take: limit ? parseInt(limit, 10) : 20,
-      })
+        take: Number(limit),
+      }),
+      prisma.notification.count({ where: { userId, tenantId, isRead: false } }),
+    ])
 
-      const unreadCount = await prisma.notification.count({
-        where: { userId: user.id, isRead: false },
-      })
+    return reply.send({ notifications, unreadCount })
+  })
 
-      return reply.send({ notifications, unreadCount })
-    }
-  )
+  app.patch('/notifications/:id/read', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
 
-  app.patch(
-    '/notifications/:id/read',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      await prisma.notification.update({ where: { id }, data: { isRead: true } })
-      return reply.status(204).send()
-    }
-  )
+    await prisma.notification.updateMany({ where: { id, tenantId }, data: { isRead: true } })
+    return reply.send({ success: true })
+  })
 
-  app.patch(
-    '/notifications/read-all',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const user = request.user as { id: string }
-      await prisma.notification.updateMany({
-        where: { userId: user.id, isRead: false },
-        data: { isRead: true },
-      })
-      return reply.status(204).send()
-    }
-  )
+  app.patch('/notifications/read-all', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id: userId, tenantId } = request.user as { id: string; tenantId: string }
+
+    await prisma.notification.updateMany({
+      where: { userId, tenantId, isRead: false },
+      data: { isRead: true },
+    })
+    return reply.send({ success: true })
+  })
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Funnel } from '@/types'
+import type { Pipeline } from '@/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,10 +21,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select'
 
-const funnelTypeLabels: Record<string, string> = {
-  PROSPECTING: 'Prospecção',
+const pipelineTypeLabels: Record<string, string> = {
   SALES: 'Vendas',
-  POST_SALES: 'Pós-Venda',
+  TREATMENT: 'Tratamento',
+  RESCUE: 'Resgate',
+  RELATIONSHIP: 'Relacionamento',
   CUSTOM: 'Personalizado',
 }
 
@@ -41,32 +42,31 @@ export default function FunisPage() {
     name: '',
     description: '',
     type: 'SALES',
-    stages: DEFAULT_STAGES.map((s, i) => ({ ...s, position: i })),
+    stages: DEFAULT_STAGES.map((s, i) => ({ ...s, sortOrder: i })),
   })
   const queryClient = useQueryClient()
 
-  const { data: funnels, isLoading } = useQuery({
-    queryKey: ['funnels'],
-    queryFn: () => api.get<Funnel[]>('/funnels'),
+  const { data: pipelines, isLoading } = useQuery({
+    queryKey: ['pipelines'],
+    queryFn: () => api.get<Pipeline[]>('/pipelines'),
   })
 
   const createMutation = useMutation({
     mutationFn: async (body: { name: string; description: string; type: string }) => {
-      const funnel = await api.post<Funnel>('/funnels', body)
-      // Create default stages
+      const pipeline = await api.post<Pipeline>('/pipelines', body)
       for (let i = 0; i < form.stages.length; i++) {
         const stage = form.stages[i]
-        await api.post(`/funnels/${funnel.id}/stages`, { name: stage.name, color: stage.color, position: i })
+        await api.post(`/pipelines/${pipeline.id}/stages`, { name: stage.name, color: stage.color, sortOrder: i })
       }
-      return funnel
+      return pipeline
     },
     onSuccess: () => {
-      toast.success('Funil criado!')
+      toast.success('Pipeline criado!')
       setModalOpen(false)
-      setForm({ name: '', description: '', type: 'SALES', stages: DEFAULT_STAGES.map((s, i) => ({ ...s, position: i })) })
-      void queryClient.invalidateQueries({ queryKey: ['funnels'] })
+      setForm({ name: '', description: '', type: 'SALES', stages: DEFAULT_STAGES.map((s, i) => ({ ...s, sortOrder: i })) })
+      void queryClient.invalidateQueries({ queryKey: ['pipelines'] })
     },
-    onError: () => toast.error('Erro ao criar funil'),
+    onError: () => toast.error('Erro ao criar pipeline'),
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -78,7 +78,7 @@ export default function FunisPage() {
   function addStage() {
     setForm((f) => ({
       ...f,
-      stages: [...f.stages, { name: '', color: '#6366f1', position: f.stages.length }],
+      stages: [...f.stages, { name: '', color: '#6366f1', sortOrder: f.stages.length }],
     }))
   }
 
@@ -106,41 +106,41 @@ export default function FunisPage() {
       <div className="flex justify-end">
         <Button onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Novo Funil
+          Novo Pipeline
         </Button>
       </div>
 
-      {!funnels?.length ? (
+      {!pipelines?.length ? (
         <EmptyState
           icon={GitBranch}
-          title="Nenhum funil cadastrado"
-          description="Crie seu primeiro funil de vendas para começar"
+          title="Nenhum pipeline cadastrado"
+          description="Crie seu primeiro pipeline de vendas para começar"
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {funnels.map((funnel) => (
-            <Link key={funnel.id} href={`/funis/${funnel.id}`}>
+          {pipelines.map((pipeline) => (
+            <Link key={pipeline.id} href={`/funis/${pipeline.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{funnel.name}</CardTitle>
+                    <CardTitle className="text-base">{pipeline.name}</CardTitle>
                     <Badge variant="secondary" className="text-xs shrink-0">
-                      {funnelTypeLabels[funnel.type] ?? funnel.type}
+                      {pipelineTypeLabels[pipeline.type] ?? pipeline.type}
                     </Badge>
                   </div>
-                  {funnel.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">{funnel.description}</p>
+                  {pipeline.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">{pipeline.description}</p>
                   )}
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <GitBranch className="h-4 w-4" />
-                    <span>{funnel.stages.length} etapas</span>
+                    <span>{pipeline.stages.length} etapas</span>
                     <span>·</span>
-                    <span>{funnel._count?.deals ?? 0} deals</span>
+                    <span>{pipeline._count?.opportunities ?? 0} oportunidades</span>
                   </div>
                   <div className="flex gap-1 mt-3">
-                    {funnel.stages.slice(0, 6).map((stage) => (
+                    {pipeline.stages.slice(0, 6).map((stage) => (
                       <div
                         key={stage.id}
                         className="h-2 flex-1 rounded-full"
@@ -159,13 +159,13 @@ export default function FunisPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Funil</DialogTitle>
+            <DialogTitle>Novo Pipeline</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nome *</Label>
               <Input
-                placeholder="Ex: Funil de Vendas"
+                placeholder="Ex: Pipeline de Vendas"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
@@ -183,14 +183,13 @@ export default function FunisPage() {
               <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(funnelTypeLabels).map(([val, lbl]) => (
+                  {Object.entries(pipelineTypeLabels).map(([val, lbl]) => (
                     <SelectItem key={val} value={val}>{lbl}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Etapas */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Etapas</Label>
@@ -239,7 +238,7 @@ export default function FunisPage() {
               <Button type="submit" className="flex-1" disabled={createMutation.isPending}>
                 {createMutation.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</>
-                ) : 'Criar Funil'}
+                ) : 'Criar Pipeline'}
               </Button>
             </div>
           </form>

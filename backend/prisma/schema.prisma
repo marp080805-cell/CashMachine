@@ -9,206 +9,497 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── USUÁRIOS E EQUIPES ───────────────────────────────────────────
+// ─── TENANT (MULTI-TENANT SAAS) ──────────────────────────────────
 
-model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  name          String
-  avatarUrl     String?
-  passwordHash  String
-  role          UserRole  @default(SDR)
-  isActive      Boolean   @default(true)
-  teamId        String?
-  team          Team?     @relation(fields: [teamId], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+model Tenant {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  plan      TenantPlan @default(FREE)
+  settings  Json?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  assignedDeals     Deal[]         @relation("AssignedDeals")
-  createdLeads      Lead[]         @relation("CreatedLeads")
+  users             User[]
+  contacts          Contact[]
+  companies         Company[]
+  leads             Lead[]
+  opportunities     Opportunity[]
+  pipelines         Pipeline[]
+  origins           Origin[]
+  lostReasons       LostReason[]
+  tags              Tag[]
+  customFieldGroups CustomFieldGroup[]
   activities        Activity[]
   tasks             Task[]
   whatsappNumbers   WhatsappNumber[]
   notifications     Notification[]
-  dashboardConfig   DashboardConfig?
-  createdGoals      Goal[]         @relation("CreatedGoals")
 
+  @@map("tenants")
+}
+
+enum TenantPlan {
+  FREE
+  STANDARD
+  PRO
+  ENTERPRISE
+}
+
+// ─── USUÁRIOS ─────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  email        String
+  passwordHash String
+  avatarUrl    String?
+  role         UserRole  @default(SDR)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  assignedOpportunities Opportunity[]  @relation("AssignedTo")
+  sdrOpportunities      Opportunity[]  @relation("SDR")
+  closerOpportunities   Opportunity[]  @relation("Closer")
+  activities            Activity[]
+  tasks                 Task[]         @relation("AssignedTasks")
+  createdTasks          Task[]         @relation("CreatedTasks")
+  whatsappNumbers       WhatsappNumber[]
+  createdTags           Tag[]
+  movedStages           StageHistory[]
+  tagAssignments        TagAssignment[]
+  customFieldValues     CustomFieldValue[]
+  notifications         Notification[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
   @@map("users")
 }
 
 enum UserRole {
   ADMIN
-  GESTOR
+  MANAGER
   SDR
   CLOSER
+  VIEWER
 }
 
-model Team {
-  id        String   @id @default(uuid())
-  name      String
-  users     User[]
-  createdAt DateTime @default(now())
+// ─── CONTATOS (PESSOAS — entidade fixa) ───────────────────────────
 
-  @@map("teams")
+model Contact {
+  id               String     @id @default(uuid())
+  tenantId         String
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  email            String?
+  phone            String?
+  cpfCnpj          String?
+  originId         String?
+  origin           Origin?    @relation(fields: [originId], references: [id])
+  subOriginId      String?
+  subOrigin        SubOrigin? @relation(fields: [subOriginId], references: [id])
+  companyId        String?
+  company          Company?   @relation(fields: [companyId], references: [id])
+  firstContactDate DateTime?
+  notes            String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  opportunities  Opportunity[]
+  leads          Lead[]
+  activities     Activity[]
+  tasks          Task[]
+  conversations  WhatsappConversation[]
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@index([tenantId, phone])
+  @@map("contacts")
 }
 
-// ─── FUNIS ───────────────────────────────────────────────────────
-
-model Funnel {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  type        FunnelType    @default(SALES)
-  isActive    Boolean       @default(true)
-  position    Int           @default(0)
-  stages      FunnelStage[]
-  deals       Deal[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@map("funnels")
-}
-
-enum FunnelType {
-  PROSPECTING
-  SALES
-  POST_SALES
-  CUSTOM
-}
-
-model FunnelStage {
-  id         String   @id @default(uuid())
-  name       String
-  position   Int
-  color      String   @default("#6366f1")
-  funnelId   String
-  funnel     Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
-  deals      Deal[]
-  createdAt  DateTime @default(now())
-
-  @@map("funnel_stages")
-}
-
-// ─── LEADS E EMPRESAS ────────────────────────────────────────────
+// ─── EMPRESAS ─────────────────────────────────────────────────────
 
 model Company {
-  id          String   @id @default(uuid())
-  name        String
-  cnpj        String?  @unique
-  website     String?
-  segment     String?
-  city        String?
-  state       String?
-  leads       Lead[]
-  deals       Deal[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  cnpj      String?
+  segment   String?
+  website   String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  contacts      Contact[]
+  opportunities Opportunity[]
+
+  @@index([tenantId])
   @@map("companies")
 }
 
-model Lead {
-  id            String        @id @default(uuid())
-  name          String
-  email         String?
-  phone         String?
-  whatsapp      String?
-  position      String?
-  companyId     String?
-  company       Company?      @relation(fields: [companyId], references: [id])
-  channelId     String?
-  channel       Channel?      @relation(fields: [channelId], references: [id])
-  status        LeadStatus    @default(NEW)
-  tags          String[]
-  notes         String?
-  customFields  Json?
-  createdById   String
-  createdBy     User          @relation("CreatedLeads", fields: [createdById], references: [id])
-  deals         Deal[]
-  activities    Activity[]
-  tasks         Task[]
-  conversations WhatsappConversation[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+// ─── LEADS (lista pré-levantada — NÃO está no pipeline) ───────────
 
-  @@index([channelId])
-  @@index([createdById])
-  @@index([status])
-  @@index([createdAt])
+model Lead {
+  id        String     @id @default(uuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  source    String?
+  status    LeadStatus @default(NEW)
+  score     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
   @@map("leads")
 }
 
 enum LeadStatus {
   NEW
-  CONTACTED
   QUALIFIED
-  UNQUALIFIED
-  CUSTOMER
-  LOST
+  DISQUALIFIED
 }
 
-// ─── NEGÓCIOS (DEALS) ────────────────────────────────────────────
+// ─── PIPELINE (FUNIL) ─────────────────────────────────────────────
 
-model Deal {
-  id            String       @id @default(uuid())
-  title         String
-  value         Float?
-  probability   Int?         @default(50)
-  expectedClose DateTime?
-  status        DealStatus   @default(OPEN)
-  lossReason    String?
-  notes         String?
-  customFields  Json?
-  isFrozen      Boolean      @default(false)
-  funnelId      String
-  funnel        Funnel       @relation(fields: [funnelId], references: [id])
-  stageId       String
-  stage         FunnelStage  @relation(fields: [stageId], references: [id])
-  leadId        String?
-  lead          Lead?        @relation(fields: [leadId], references: [id])
-  companyId     String?
-  company       Company?     @relation(fields: [companyId], references: [id])
-  assignedToId  String
-  assignedTo    User         @relation("AssignedDeals", fields: [assignedToId], references: [id])
-  activities    Activity[]
-  tasks         Task[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+model Pipeline {
+  id               String       @id @default(uuid())
+  tenantId         String
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  prefix           String?
+  description      String?
+  type             PipelineType @default(SALES)
+  isActive         Boolean      @default(true)
+  sortOrder        Int          @default(0)
+  defaultCloseDays Int?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
+  stages        Stage[]
+  opportunities Opportunity[]
+
+  @@index([tenantId])
+  @@map("pipelines")
+}
+
+enum PipelineType {
+  SALES
+  TREATMENT
+  RESCUE
+  RELATIONSHIP
+  CUSTOM
+}
+
+// ─── ETAPA DO PIPELINE ────────────────────────────────────────────
+
+model Stage {
+  id             String   @id @default(uuid())
+  pipelineId     String
+  pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name           String
+  color          String   @default("#6366f1")
+  sortOrder      Int      @default(0)
+  isWon          Boolean  @default(false)
+  isLost         Boolean  @default(false)
+  requiredFields Json?
+  visibleFields  Json?
+  description    String?
+  createdAt      DateTime @default(now())
+
+  opportunities  Opportunity[]
+  stageHistories StageHistory[]
+  tasks          Task[]
+
+  @@index([pipelineId])
+  @@map("stages")
+}
+
+// ─── HISTÓRICO DE MOVIMENTAÇÃO ────────────────────────────────────
+
+model StageHistory {
+  id              String      @id @default(uuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  stageId         String
+  stage           Stage       @relation(fields: [stageId], references: [id])
+  enteredAt       DateTime    @default(now())
+  exitedAt        DateTime?
+  movedById       String
+  movedBy         User        @relation(fields: [movedById], references: [id])
+  durationSeconds Int?
+
+  @@index([opportunityId])
   @@index([stageId])
-  @@index([assignedToId])
-  @@index([funnelId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("deals")
+  @@map("stage_histories")
 }
 
-enum DealStatus {
+// ─── OPORTUNIDADE (CARD NO PIPELINE) ─────────────────────────────
+
+model Opportunity {
+  id                 String            @id @default(uuid())
+  tenantId           String
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId          String
+  contact            Contact           @relation(fields: [contactId], references: [id])
+  companyId          String?
+  company            Company?          @relation(fields: [companyId], references: [id])
+  pipelineId         String
+  pipeline           Pipeline          @relation(fields: [pipelineId], references: [id])
+  stageId            String
+  stage              Stage             @relation(fields: [stageId], references: [id])
+  assignedToId       String
+  assignedTo         User              @relation("AssignedTo", fields: [assignedToId], references: [id])
+  sdrId              String?
+  sdr                User?             @relation("SDR", fields: [sdrId], references: [id])
+  closerId           String?
+  closer             User?             @relation("Closer", fields: [closerId], references: [id])
+  title              String
+  value              Decimal?          @db.Decimal(12, 2)
+  originId           String?
+  origin             Origin?           @relation(fields: [originId], references: [id])
+  subOriginId        String?
+  subOrigin          SubOrigin?        @relation(fields: [subOriginId], references: [id])
+  expectedCloseDate  DateTime?
+  closedAt           DateTime?
+  lostReasonId       String?
+  lostReason         LostReason?       @relation(fields: [lostReasonId], references: [id])
+  rescueEligible     Boolean           @default(false)
+  temperature        Temperature?
+  qualificationScore Int?
+  position           Int               @default(0)
+  handoffAt          DateTime?
+  sdrBriefing        String?
+  slaFirstContactAt  DateTime?
+  status             OpportunityStatus @default(OPEN)
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  stageHistories StageHistory[]
+  activities     Activity[]
+  tasks          Task[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, pipelineId])
+  @@index([tenantId, stageId])
+  @@index([assignedToId])
+  @@map("opportunities")
+}
+
+enum OpportunityStatus {
   OPEN
   WON
   LOST
-  FROZEN
 }
 
-// ─── ATIVIDADES E TAREFAS ────────────────────────────────────────
+enum Temperature {
+  COLD
+  WARM
+  HOT
+}
+
+// ─── ORIGEM ───────────────────────────────────────────────────────
+
+model Origin {
+  id        String    @id @default(uuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  subOrigins    SubOrigin[]
+  contacts      Contact[]
+  opportunities Opportunity[]
+
+  @@index([tenantId])
+  @@map("origins")
+}
+
+model SubOrigin {
+  id        String   @id @default(uuid())
+  originId  String
+  origin    Origin   @relation(fields: [originId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  contacts      Contact[]
+  opportunities Opportunity[]
+
+  @@index([originId])
+  @@map("sub_origins")
+}
+
+// ─── MOTIVO DE PERDA ──────────────────────────────────────────────
+
+model LostReason {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  opportunities Opportunity[]
+
+  @@index([tenantId])
+  @@map("lost_reasons")
+}
+
+// ─── TAGS COM GOVERNANÇA ──────────────────────────────────────────
+
+model Tag {
+  id          String      @id @default(uuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  color       String      @default("#6366f1")
+  category    TagCategory @default(CUSTOM)
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  isLocked    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+
+  assignments TagAssignment[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("tags")
+}
+
+enum TagCategory {
+  QUALIFICATION
+  TEMPERATURE
+  STATUS
+  CUSTOM
+}
+
+model TagAssignment {
+  id           String    @id @default(uuid())
+  tagId        String
+  tag          Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  entityType   String    // "opportunity" | "contact"
+  entityId     String
+  assignedAt   DateTime  @default(now())
+  assignedById String
+  assignedBy   User      @relation(fields: [assignedById], references: [id])
+  removedAt    DateTime?
+
+  @@index([tagId])
+  @@index([entityType, entityId])
+  @@map("tag_assignments")
+}
+
+// ─── CAMPOS PERSONALIZADOS ────────────────────────────────────────
+
+model CustomFieldGroup {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType          String   // "opportunity" | "contact" | "company"
+  name                String
+  sortOrder           Int      @default(0)
+  isCollapsedByDefault Boolean @default(false)
+  createdAt           DateTime @default(now())
+
+  customFields CustomField[]
+
+  @@index([tenantId])
+  @@map("custom_field_groups")
+}
+
+model CustomField {
+  id                String          @id @default(uuid())
+  groupId           String
+  group             CustomFieldGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entityType        String          // "opportunity" | "contact" | "company"
+  name              String
+  slug              String
+  fieldType         CustomFieldType
+  options           Json?           // para select/multiselect
+  isRequiredGlobal  Boolean         @default(false)
+  requiredInStages  Json?           // array de stage IDs
+  visibleInStages   Json?           // array de stage IDs (null = sempre visível)
+  showInCard        Boolean         @default(false)
+  tooltip           String?
+  defaultValue      String?
+  sortOrder         Int             @default(0)
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+
+  values CustomFieldValue[]
+
+  @@unique([groupId, slug])
+  @@index([groupId])
+  @@map("custom_fields")
+}
+
+enum CustomFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  DATETIME
+  SELECT
+  MULTISELECT
+  CHECKBOX
+  URL
+  PHONE
+  EMAIL
+  CURRENCY
+}
+
+model CustomFieldValue {
+  id            String      @id @default(uuid())
+  customFieldId String
+  customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  entityType    String      // "opportunity" | "contact" | "company"
+  entityId      String
+  valueText     String?
+  valueNumber   Decimal?    @db.Decimal(18, 4)
+  valueDate     DateTime?
+  valueJson     Json?
+  updatedAt     DateTime    @updatedAt
+  updatedById   String
+  updatedBy     User        @relation(fields: [updatedById], references: [id])
+
+  @@unique([customFieldId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("custom_field_values")
+}
+
+// ─── ATIVIDADES (LOG DE AÇÕES) ────────────────────────────────────
 
 model Activity {
-  id          String       @id @default(uuid())
-  type        ActivityType
-  description String
-  metadata    Json?
-  leadId      String?
-  lead        Lead?        @relation(fields: [leadId], references: [id])
-  dealId      String?
-  deal        Deal?        @relation(fields: [dealId], references: [id])
-  userId      String
-  user        User         @relation(fields: [userId], references: [id])
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(uuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type          ActivityType
+  description   String
+  metadata      Json?
+  contactId     String?
+  contact       Contact?     @relation(fields: [contactId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  createdAt     DateTime     @default(now())
 
-  @@index([leadId])
-  @@index([dealId])
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([opportunityId])
   @@index([userId])
-  @@index([createdAt])
   @@map("activities")
 }
 
@@ -218,124 +509,104 @@ enum ActivityType {
   CALL
   MEETING
   WHATSAPP_MESSAGE
-  DEAL_MOVED
-  DEAL_CREATED
-  DEAL_WON
-  DEAL_LOST
+  OPPORTUNITY_MOVED
+  OPPORTUNITY_CREATED
+  OPPORTUNITY_WON
+  OPPORTUNITY_LOST
   TASK_COMPLETED
   FILE_UPLOADED
   AI_SUGGESTION
+  STAGE_CHANGED
+  HANDOFF
 }
 
-model Task {
-  id           String     @id @default(uuid())
-  title        String
-  description  String?
-  type         TaskType   @default(CALL)
-  dueDate      DateTime
-  isCompleted  Boolean    @default(false)
-  completedAt  DateTime?
-  leadId       String?
-  lead         Lead?      @relation(fields: [leadId], references: [id])
-  dealId       String?
-  deal         Deal?      @relation(fields: [dealId], references: [id])
-  assignedToId String
-  assignedTo   User       @relation(fields: [assignedToId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+// ─── TAREFAS ──────────────────────────────────────────────────────
 
+model Task {
+  id            String     @id @default(uuid())
+  tenantId      String
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  contactId     String?
+  contact       Contact?   @relation(fields: [contactId], references: [id])
+  stageId       String?
+  stage         Stage?     @relation(fields: [stageId], references: [id])
+  assignedToId  String
+  assignedTo    User       @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  createdById   String
+  createdBy     User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  title         String
+  description   String?
+  type          TaskType   @default(FOLLOW_UP)
+  dueDate       DateTime?
+  completedAt   DateTime?
+  completedById String?
+  completionNotes String?
+  isAutomated   Boolean    @default(false)
+  priority      TaskPriority @default(MEDIUM)
+  status        TaskStatus  @default(PENDING)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([tenantId])
   @@index([assignedToId])
+  @@index([opportunityId])
+  @@index([status])
   @@index([dueDate])
-  @@index([isCompleted])
   @@map("tasks")
 }
 
 enum TaskType {
-  CALL
-  EMAIL
-  MEETING
-  VISIT
-  PROPOSAL
+  FIRST_CONTACT
   FOLLOW_UP
-  OTHER
-}
-
-// ─── CANAIS DE AQUISIÇÃO ─────────────────────────────────────────
-
-model Channel {
-  id                  String          @id @default(uuid())
-  name                String
-  type                ChannelType
-  status              ChannelStatus   @default(ACTIVE)
-  priority            Int             @default(3)
-  cplTarget           Float?
-  cacTarget           Float?
-  leadToCallRate      Float           @default(0.2)
-  callToContractRate  Float           @default(0.25)
-  leads               Lead[]
-  metrics             ChannelMetric[]
-  goals               Goal[]
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-
-  @@map("channels")
-}
-
-enum ChannelType {
-  ONLINE_PAID
-  ONLINE_ORGANIC
-  PRESENTIAL_EVENT
-  PRESENTIAL_COMMUNITY
-  OFFLINE_REFERRAL_PARTNER
-  OFFLINE_REFERRAL_CLIENT
-  OUTBOUND
+  QUALIFY
+  SCHEDULE_MEETING
+  CONFIRM_PRESENCE
+  PREPARE_BRIEFING
+  SEND_PROPOSAL
+  FOLLOW_UP_PROPOSAL
+  CALL
+  MEETING
+  EMAIL
+  REMINDER
+  RESCUE_CONTACT
   CUSTOM
 }
 
-enum ChannelStatus {
-  ACTIVE
-  PAUSED
-  TESTING
-  INACTIVE
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
-model ChannelMetric {
-  id                  String   @id @default(uuid())
-  channelId           String
-  channel             Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  month               Int
-  year                Int
-  leadsGoal           Int      @default(0)
-  leadsGenerated      Int      @default(0)
-  totalCost           Float    @default(0)
-  callsReal           Int      @default(0)
-  contractsReal       Int      @default(0)
-  callsEstimated      Float    @default(0)
-  contractsEstimated  Float    @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@unique([channelId, month, year])
-  @@index([channelId])
-  @@index([month, year])
-  @@map("channel_metrics")
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  OVERDUE
 }
 
-// ─── WHATSAPP ────────────────────────────────────────────────────
+// ─── WHATSAPP ─────────────────────────────────────────────────────
 
 model WhatsappNumber {
-  id              String                @id @default(uuid())
-  phone           String                @unique
-  instanceName    String                @unique
-  apiUrl          String?
-  apiKey          String?
-  status          WhatsappStatus        @default(DISCONNECTED)
-  userId          String
-  user            User                  @relation(fields: [userId], references: [id])
-  conversations   WhatsappConversation[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id           String          @id @default(uuid())
+  tenantId     String
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone        String          @unique
+  instanceName String          @unique
+  apiUrl       String?
+  apiKey       String?
+  status       WhatsappStatus  @default(DISCONNECTED)
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  conversations WhatsappConversation[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@map("whatsapp_numbers")
 }
@@ -348,26 +619,26 @@ enum WhatsappStatus {
 }
 
 model WhatsappConversation {
-  id              String             @id @default(uuid())
-  remoteJid       String
-  remotePhone     String
-  remoteName      String?
-  remoteAvatar    String?
-  numberId        String
-  number          WhatsappNumber     @relation(fields: [numberId], references: [id])
-  leadId          String?
-  lead            Lead?              @relation(fields: [leadId], references: [id])
-  lastMessage     String?
-  lastMessageAt   DateTime?
-  unreadCount     Int                @default(0)
-  isArchived      Boolean            @default(false)
-  messages        WhatsappMessage[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id            String             @id @default(uuid())
+  remoteJid     String
+  remotePhone   String
+  remoteName    String?
+  remoteAvatar  String?
+  numberId      String
+  number        WhatsappNumber     @relation(fields: [numberId], references: [id])
+  contactId     String?
+  contact       Contact?           @relation(fields: [contactId], references: [id])
+  lastMessage   String?
+  lastMessageAt DateTime?
+  unreadCount   Int                @default(0)
+  isArchived    Boolean            @default(false)
+  messages      WhatsappMessage[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@unique([numberId, remoteJid])
   @@index([numberId])
-  @@index([leadId])
+  @@index([contactId])
   @@index([lastMessageAt])
   @@map("whatsapp_conversations")
 }
@@ -410,22 +681,24 @@ enum MessageStatus {
   FAILED
 }
 
-// ─── IA — TRANSCRIÇÕES ───────────────────────────────────────────
+// ─── IA — TRANSCRIÇÕES ────────────────────────────────────────────
 
 model CallTranscription {
-  id            String               @id @default(uuid())
+  id            String              @id @default(uuid())
+  tenantId      String
   title         String
   audioUrl      String?
   transcript    String?
   duration      Int?
-  leadId        String?
-  dealId        String?
+  contactId     String?
+  opportunityId String?
   analysis      Json?
-  status        TranscriptionStatus  @default(PENDING)
+  status        TranscriptionStatus @default(PENDING)
   uploadedById  String
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
+  @@index([tenantId])
   @@index([uploadedById])
   @@index([status])
   @@map("call_transcriptions")
@@ -438,74 +711,12 @@ enum TranscriptionStatus {
   ERROR
 }
 
-// ─── PERSONALIZAÇÃO ──────────────────────────────────────────────
-
-model CustomFieldDefinition {
-  id        String          @id @default(uuid())
-  name      String
-  label     String
-  type      CustomFieldType
-  entity    String          @default("lead")
-  options   Json?
-  required  Boolean         @default(false)
-  position  Int             @default(0)
-  isActive  Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
-  @@unique([name, entity])
-  @@map("custom_field_definitions")
-}
-
-enum CustomFieldType {
-  TEXT
-  NUMBER
-  SELECT
-  MULTI_SELECT
-  DATE
-  BOOLEAN
-  URL
-}
-
-model DashboardConfig {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  widgets   Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("dashboard_configs")
-}
-
-model Goal {
-  id          String     @id @default(uuid())
-  name        String
-  metric      String
-  target      Float
-  period      GoalPeriod @default(MONTHLY)
-  month       Int?
-  year        Int
-  channelId   String?
-  channel     Channel?   @relation(fields: [channelId], references: [id])
-  createdById String
-  createdBy   User       @relation("CreatedGoals", fields: [createdById], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  @@map("goals")
-}
-
-enum GoalPeriod {
-  MONTHLY
-  QUARTERLY
-  ANNUAL
-}
-
-// ─── NOTIFICAÇÕES ────────────────────────────────────────────────
+// ─── NOTIFICAÇÕES ─────────────────────────────────────────────────
 
 model Notification {
   id        String           @id @default(uuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId    String
   user      User             @relation(fields: [userId], references: [id])
   type      NotificationType
@@ -515,6 +726,7 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@index([isRead])
   @@map("notifications")
@@ -522,9 +734,10 @@ model Notification {
 
 enum NotificationType {
   TASK_DUE
-  DEAL_ASSIGNED
+  OPPORTUNITY_ASSIGNED
   WHATSAPP_MESSAGE
   AI_SUGGESTION
   REPORT_READY
+  HANDOFF_RECEIVED
   SYSTEM
 }

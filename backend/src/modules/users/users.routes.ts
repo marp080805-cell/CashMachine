@@ -3,103 +3,92 @@ import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { requirePermission } from '../../middleware/rbac'
 import bcrypt from 'bcryptjs'
-import type { UserRole } from '@prisma/client'
 
 export default async function usersRoutes(app: FastifyInstance) {
-  app.get(
-    '/users',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const users = await prisma.user.findMany({
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          avatarUrl: true,
-          isActive: true,
-          teamId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { name: 'asc' },
-      })
-      return reply.send({ users })
-    }
-  )
+  app.get('/users', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { tenantId } = request.user as { tenantId: string }
 
-  app.get(
+    const users = await prisma.user.findMany({
+      where: { tenantId },
+      select: {
+        id: true, email: true, name: true, role: true,
+        avatarUrl: true, isActive: true, lastLoginAt: true, createdAt: true,
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    return reply.send(users)
+  })
+
+  app.get('/users/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    const user = await prisma.user.findFirstOrThrow({
+      where: { id, tenantId },
+      select: {
+        id: true, email: true, name: true, role: true,
+        avatarUrl: true, isActive: true, lastLoginAt: true, createdAt: true,
+      },
+    })
+
+    return reply.send(user)
+  })
+
+  app.patch('/users/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId, id: currentUserId, role: currentRole } = request.user as {
+      tenantId: string; id: string; role: string
+    }
+
+    const input = z.object({
+      name: z.string().min(2).optional(),
+      avatarUrl: z.string().url().optional(),
+      role: z.enum(['ADMIN', 'MANAGER', 'SDR', 'CLOSER', 'VIEWER']).optional(),
+      isActive: z.boolean().optional(),
+      password: z.string().min(8).optional(),
+    }).parse(request.body)
+
+    if (input.role !== undefined && currentRole !== 'ADMIN') {
+      return reply.status(403).send({ error: 'Apenas admins podem alterar roles' })
+    }
+
+    if (currentUserId !== id && currentRole !== 'ADMIN') {
+      return reply.status(403).send({ error: 'Forbidden' })
+    }
+
+    await prisma.user.findFirstOrThrow({ where: { id, tenantId } })
+
+    const updateData: Record<string, unknown> = {}
+    if (input.name) updateData.name = input.name
+    if (input.avatarUrl) updateData.avatarUrl = input.avatarUrl
+    if (input.role) updateData.role = input.role
+    if (input.isActive !== undefined) updateData.isActive = input.isActive
+    if (input.password) updateData.passwordHash = await bcrypt.hash(input.password, 12)
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: { id: true, email: true, name: true, role: true, avatarUrl: true, isActive: true },
+    })
+
+    return reply.send(updated)
+  })
+
+  app.delete(
     '/users/:id',
-    { preHandler: [app.authenticate] },
+    { preHandler: [app.authenticate, requirePermission('users:manage')] },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      const user = await prisma.user.findUniqueOrThrow({
-        where: { id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          avatarUrl: true,
-          isActive: true,
-          teamId: true,
-          createdAt: true,
-        },
-      })
-      return reply.send(user)
-    }
-  )
+      const { tenantId, id: currentUserId } = request.user as { tenantId: string; id: string }
 
-  app.patch(
-    '/users/:id',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      const currentUser = request.user as { id: string; role: UserRole }
-
-      const bodySchema = z.object({
-        name: z.string().min(2).optional(),
-        avatarUrl: z.string().url().optional(),
-        role: z.enum(['ADMIN', 'GESTOR', 'SDR', 'CLOSER']).optional(),
-        isActive: z.boolean().optional(),
-        teamId: z.string().uuid().nullable().optional(),
-        password: z.string().min(6).optional(),
-      })
-
-      const body = bodySchema.parse(request.body)
-
-      if (body.role !== undefined && currentUser.role !== 'ADMIN') {
-        return reply.status(403).send({ error: 'Only admins can change roles' })
+      if (id === currentUserId) {
+        return reply.status(400).send({ error: 'Não é possível desativar seu próprio usuário' })
       }
 
-      if (currentUser.id !== id && currentUser.role !== 'ADMIN') {
-        return reply.status(403).send({ error: 'Forbidden' })
-      }
-
-      const updateData: Record<string, unknown> = {}
-      if (body.name !== undefined) updateData['name'] = body.name
-      if (body.avatarUrl !== undefined) updateData['avatarUrl'] = body.avatarUrl
-      if (body.role !== undefined) updateData['role'] = body.role
-      if (body.isActive !== undefined) updateData['isActive'] = body.isActive
-      if (body.teamId !== undefined) updateData['teamId'] = body.teamId
-      if (body.password !== undefined) {
-        updateData['passwordHash'] = await bcrypt.hash(body.password, 12)
-      }
-
-      const updated = await prisma.user.update({
-        where: { id },
-        data: updateData,
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          avatarUrl: true,
-          isActive: true,
-        },
-      })
-
-      return reply.send(updated)
+      await prisma.user.findFirstOrThrow({ where: { id, tenantId } })
+      await prisma.user.update({ where: { id }, data: { isActive: false } })
+      return reply.send({ success: true })
     }
   )
 }

@@ -10,13 +10,15 @@ const activityIcons: Record<ActivityType, React.ElementType> = {
   CALL: Phone,
   MEETING: Star,
   WHATSAPP_MESSAGE: MessageSquare,
-  DEAL_MOVED: ArrowRight,
-  DEAL_CREATED: Star,
-  DEAL_WON: CheckSquare,
-  DEAL_LOST: FileText,
+  OPPORTUNITY_MOVED: ArrowRight,
+  OPPORTUNITY_CREATED: Star,
+  OPPORTUNITY_WON: CheckSquare,
+  OPPORTUNITY_LOST: FileText,
   TASK_COMPLETED: CheckSquare,
   FILE_UPLOADED: FileText,
   AI_SUGGESTION: Mic,
+  STAGE_CHANGED: ArrowRight,
+  HANDOFF: ArrowRight,
 }
 
 const activityColors: Record<ActivityType, string> = {
@@ -25,13 +27,15 @@ const activityColors: Record<ActivityType, string> = {
   CALL: 'text-green-500 bg-green-50',
   MEETING: 'text-amber-500 bg-amber-50',
   WHATSAPP_MESSAGE: 'text-emerald-500 bg-emerald-50',
-  DEAL_MOVED: 'text-indigo-500 bg-indigo-50',
-  DEAL_CREATED: 'text-indigo-500 bg-indigo-50',
-  DEAL_WON: 'text-green-500 bg-green-50',
-  DEAL_LOST: 'text-red-500 bg-red-50',
+  OPPORTUNITY_MOVED: 'text-indigo-500 bg-indigo-50',
+  OPPORTUNITY_CREATED: 'text-indigo-500 bg-indigo-50',
+  OPPORTUNITY_WON: 'text-green-500 bg-green-50',
+  OPPORTUNITY_LOST: 'text-red-500 bg-red-50',
   TASK_COMPLETED: 'text-teal-500 bg-teal-50',
   FILE_UPLOADED: 'text-muted-foreground bg-muted',
   AI_SUGGESTION: 'text-violet-500 bg-violet-50',
+  STAGE_CHANGED: 'text-indigo-500 bg-indigo-50',
+  HANDOFF: 'text-orange-500 bg-orange-50',
 }
 
 interface RecentActivitiesProps {

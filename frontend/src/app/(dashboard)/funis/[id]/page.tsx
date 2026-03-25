@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Funnel, Deal, FunnelStage, Lead } from '@/types'
+import type { Pipeline, Opportunity, Stage, Contact } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,128 +26,131 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-type FunnelWithDeals = Omit<Funnel, 'stages'> & {
-  stages: Array<FunnelStage & { deals: Deal[] }>
+type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
+  stages: Array<Stage & { opportunities: Opportunity[] }>
 }
 
-export default function FunnelKanbanPage() {
+export default function PipelineKanbanPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const { user } = useAuth()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [dealModalOpen, setDealModalOpen] = useState(false)
+  const [oppModalOpen, setOppModalOpen] = useState(false)
   const [defaultStageId, setDefaultStageId] = useState<string>('')
-  const [dealForm, setDealForm] = useState({
+  const [oppForm, setOppForm] = useState({
     title: '',
     value: '',
     stageId: '',
-    leadId: '',
+    contactId: '',
     notes: '',
-    expectedClose: '',
+    expectedCloseDate: '',
   })
-  const [leadSearch, setLeadSearch] = useState('')
+  const [contactSearch, setContactSearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
 
-  const { data: funnel, isLoading } = useQuery({
-    queryKey: ['funnel', id],
-    queryFn: () => api.get<FunnelWithDeals>(`/funnels/${id}`),
+  const { data: pipeline, isLoading } = useQuery({
+    queryKey: ['pipeline', id],
+    queryFn: () => api.get<PipelineWithOpportunities>(`/pipelines/${id}`),
     enabled: !!id,
   })
 
-  const { data: leadsData } = useQuery({
-    queryKey: ['leads-search', leadSearch],
+  const { data: contactsData } = useQuery({
+    queryKey: ['contacts-search', contactSearch],
     queryFn: () =>
-      api.get<{ leads: Lead[] }>(`/leads?limit=20${leadSearch ? `&search=${encodeURIComponent(leadSearch)}` : ''}`),
-    enabled: dealModalOpen,
+      api.get<{ data: Contact[] }>(`/contacts?limit=20${contactSearch ? `&search=${encodeURIComponent(contactSearch)}` : ''}`),
+    enabled: oppModalOpen,
   })
 
-  const { data: lostDeals } = useQuery({
-    queryKey: ['deals-lost', id],
-    queryFn: () => api.get<{ deals: Deal[] }>(`/deals?funnelId=${id}&status=LOST&limit=100`),
+  const { data: lostOpps } = useQuery({
+    queryKey: ['opportunities-lost', id],
+    queryFn: () => api.get<{ data: Opportunity[] }>(`/opportunities?pipelineId=${id}&status=LOST&limit=100`),
     enabled: !!id,
   })
 
-  const { data: wonDeals } = useQuery({
-    queryKey: ['deals-won', id],
-    queryFn: () => api.get<{ deals: Deal[] }>(`/deals?funnelId=${id}&status=WON&limit=100`),
+  const { data: wonOpps } = useQuery({
+    queryKey: ['opportunities-won', id],
+    queryFn: () => api.get<{ data: Opportunity[] }>(`/opportunities?pipelineId=${id}&status=WON&limit=100`),
     enabled: !!id,
   })
 
   const addStageMutation = useMutation({
     mutationFn: ({ name, color }: { name: string; color: string }) =>
-      api.post(`/funnels/${id}/stages`, {
+      api.post(`/pipelines/${id}/stages`, {
         name,
         color,
-        position: (funnel?.stages.length ?? 0),
+        sortOrder: (pipeline?.stages.length ?? 0),
       }),
     onSuccess: () => {
       toast.success('Etapa adicionada!')
       setNewStageName('')
-      void queryClient.invalidateQueries({ queryKey: ['funnel', id] })
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
     onError: () => toast.error('Erro ao adicionar etapa'),
   })
 
   const deleteStageMutation = useMutation({
-    mutationFn: (stageId: string) => api.delete(`/funnels/${id}/stages/${stageId}`),
+    mutationFn: (stageId: string) => api.delete(`/pipelines/${id}/stages/${stageId}`),
     onSuccess: () => {
       toast.success('Etapa removida!')
-      void queryClient.invalidateQueries({ queryKey: ['funnel', id] })
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
     onError: () => toast.error('Erro ao remover etapa'),
   })
 
-  const createDealMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.post<Deal>('/deals', body),
+  const createOppMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.post<Opportunity>('/opportunities', body),
     onSuccess: () => {
-      toast.success('Deal criado!')
-      setDealModalOpen(false)
-      setDealForm({ title: '', value: '', stageId: '', leadId: '', notes: '', expectedClose: '' })
-      setLeadSearch('')
-      void queryClient.invalidateQueries({ queryKey: ['funnel', id] })
+      toast.success('Oportunidade criada!')
+      setOppModalOpen(false)
+      setOppForm({ title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '' })
+      setContactSearch('')
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
     onError: (err: unknown) => {
       const e = err as { message?: string; data?: { details?: Array<{ path: string[]; message: string }> } }
       const fieldErrors = e?.data?.details?.map((d) => `${d.path.join('.')}: ${d.message}`).join(' | ')
-      toast.error(fieldErrors ?? e?.message ?? 'Erro ao criar deal', { duration: 10000 })
+      toast.error(fieldErrors ?? e?.message ?? 'Erro ao criar oportunidade', { duration: 10000 })
     },
   })
 
-  const reopenDealMutation = useMutation({
-    mutationFn: (dealId: string) => api.patch(`/deals/${dealId}`, { status: 'OPEN' }),
+  const reopenOppMutation = useMutation({
+    mutationFn: (oppId: string) => api.post(`/opportunities/${oppId}/reopen`),
     onSuccess: () => {
-      toast.success('Deal reaberto!')
-      void queryClient.invalidateQueries({ queryKey: ['funnel', id] })
-      void queryClient.invalidateQueries({ queryKey: ['deals-lost', id] })
-      void queryClient.invalidateQueries({ queryKey: ['deals-won', id] })
+      toast.success('Oportunidade reaberta!')
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-lost', id] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-won', id] })
     },
-    onError: () => toast.error('Erro ao reabrir deal'),
+    onError: () => toast.error('Erro ao reabrir oportunidade'),
   })
 
-  function openNewDeal(stageId?: string) {
-    setDefaultStageId(stageId ?? funnel?.stages[0]?.id ?? '')
-    setDealForm((f) => ({ ...f, stageId: stageId ?? funnel?.stages[0]?.id ?? '' }))
-    setDealModalOpen(true)
+  function openNewOpp(stageId?: string) {
+    setDefaultStageId(stageId ?? pipeline?.stages[0]?.id ?? '')
+    setOppForm((f) => ({ ...f, stageId: stageId ?? pipeline?.stages[0]?.id ?? '' }))
+    setOppModalOpen(true)
   }
 
-  function handleDealSubmit(e: React.FormEvent) {
+  function handleOppSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!dealForm.title.trim()) { toast.error('Título é obrigatório'); return }
-    if (!dealForm.stageId) { toast.error('Selecione uma etapa'); return }
+    if (!oppForm.title.trim()) { toast.error('Título é obrigatório'); return }
+    if (!oppForm.stageId) { toast.error('Selecione uma etapa'); return }
+    if (!oppForm.contactId) { toast.error('Selecione um contato'); return }
 
-    createDealMutation.mutate({
-      title: dealForm.title,
-      funnelId: id,
-      stageId: dealForm.stageId,
-      ...(dealForm.leadId && { leadId: dealForm.leadId }),
-      ...(dealForm.value && { value: parseFloat(dealForm.value) }),
-      ...(dealForm.notes && { notes: dealForm.notes }),
-      ...(dealForm.expectedClose && { expectedClose: new Date(dealForm.expectedClose).toISOString() }),
+    createOppMutation.mutate({
+      title: oppForm.title,
+      pipelineId: id,
+      stageId: oppForm.stageId,
+      contactId: oppForm.contactId,
+      ...(oppForm.value && { value: parseFloat(oppForm.value) }),
+      ...(oppForm.notes && { notes: oppForm.notes }),
+      ...(oppForm.expectedCloseDate && { expectedCloseDate: new Date(oppForm.expectedCloseDate).toISOString() }),
       assignedToId: user?.id ?? '',
     })
   }
+
+  const selectedContact = contactsData?.data?.find((c) => c.id === oppForm.contactId)
 
   if (isLoading) {
     return (
@@ -162,28 +165,28 @@ export default function FunnelKanbanPage() {
     )
   }
 
-  if (!funnel) return null
+  if (!pipeline) return null
 
-  const totalOpenValue = funnel.stages.reduce(
-    (sum, s) => sum + s.deals.reduce((acc, d) => acc + (d.value ?? 0), 0),
+  const totalOpenValue = pipeline.stages.reduce(
+    (sum, s) => sum + s.opportunities.reduce((acc, o) => acc + (o.value ?? 0), 0),
     0
   )
-  const totalOpenDeals = funnel.stages.reduce((sum, s) => sum + s.deals.length, 0)
+  const totalOpenOpps = pipeline.stages.reduce((sum, s) => sum + s.opportunities.length, 0)
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">{funnel.name}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{pipeline.name}</h2>
           <p className="text-sm text-muted-foreground">
-            {funnel.stages.length} etapas · {totalOpenDeals} deals em aberto
+            {pipeline.stages.length} etapas · {totalOpenOpps} oportunidades em aberto
             {totalOpenValue > 0 && ` · ${formatCurrency(totalOpenValue)} no pipeline`}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => openNewDeal()}>
+          <Button size="sm" onClick={() => openNewOpp()}>
             <Plus className="h-4 w-4 mr-2" />
-            Novo Deal
+            Nova Oportunidade
           </Button>
           <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="h-4 w-4 mr-2" />
@@ -196,41 +199,41 @@ export default function FunnelKanbanPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="kanban">
             Kanban
-            <Badge variant="secondary" className="ml-2 text-xs">{totalOpenDeals}</Badge>
+            <Badge variant="secondary" className="ml-2 text-xs">{totalOpenOpps}</Badge>
           </TabsTrigger>
           <TabsTrigger value="lost">
             Perdidos
-            {(lostDeals?.deals.length ?? 0) > 0 && (
-              <Badge variant="danger" className="ml-2 text-xs">{lostDeals!.deals.length}</Badge>
+            {(lostOpps?.data.length ?? 0) > 0 && (
+              <Badge variant="danger" className="ml-2 text-xs">{lostOpps!.data.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="won">
             Ganhos
-            {(wonDeals?.deals.length ?? 0) > 0 && (
-              <Badge variant="success" className="ml-2 text-xs">{wonDeals!.deals.length}</Badge>
+            {(wonOpps?.data.length ?? 0) > 0 && (
+              <Badge variant="success" className="ml-2 text-xs">{wonOpps!.data.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban">
-          <KanbanBoard funnel={funnel} onNewDeal={openNewDeal} />
+          <KanbanBoard pipeline={pipeline} onNewOpportunity={openNewOpp} />
         </TabsContent>
 
         <TabsContent value="lost">
-          <ClosedDealsTable
-            deals={lostDeals?.deals ?? []}
-            emptyMessage="Nenhum deal perdido neste funil"
-            onReopen={(dealId) => reopenDealMutation.mutate(dealId)}
-            reopenPending={reopenDealMutation.isPending}
+          <ClosedOppsTable
+            opportunities={lostOpps?.data ?? []}
+            emptyMessage="Nenhuma oportunidade perdida neste pipeline"
+            onReopen={(oppId) => reopenOppMutation.mutate(oppId)}
+            reopenPending={reopenOppMutation.isPending}
           />
         </TabsContent>
 
         <TabsContent value="won">
-          <ClosedDealsTable
-            deals={wonDeals?.deals ?? []}
-            emptyMessage="Nenhum deal ganho neste funil"
-            onReopen={(dealId) => reopenDealMutation.mutate(dealId)}
-            reopenPending={reopenDealMutation.isPending}
+          <ClosedOppsTable
+            opportunities={wonOpps?.data ?? []}
+            emptyMessage="Nenhuma oportunidade ganha neste pipeline"
+            onReopen={(oppId) => reopenOppMutation.mutate(oppId)}
+            reopenPending={reopenOppMutation.isPending}
           />
         </TabsContent>
       </Tabs>
@@ -239,13 +242,13 @@ export default function FunnelKanbanPage() {
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
         <SheetContent side="right" className="w-[400px] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Gerenciar Etapas — {funnel.name}</SheetTitle>
+            <SheetTitle>Gerenciar Etapas — {pipeline.name}</SheetTitle>
           </SheetHeader>
 
           <div className="space-y-4 mt-6">
             <div className="space-y-2">
-              {funnel.stages
-                .sort((a, b) => a.position - b.position)
+              {pipeline.stages
+                .sort((a, b) => a.sortOrder - b.sortOrder)
                 .map((stage) => (
                   <div key={stage.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                     <div
@@ -253,14 +256,14 @@ export default function FunnelKanbanPage() {
                       style={{ backgroundColor: stage.color }}
                     />
                     <span className="flex-1 text-sm font-medium">{stage.name}</span>
-                    <span className="text-xs text-muted-foreground">{stage.deals.length} deals</span>
+                    <span className="text-xs text-muted-foreground">{stage.opportunities.length} oportunidades</span>
                     <Button
                       size="sm"
                       variant="ghost"
                       className="text-red-500 hover:text-red-600 h-7 w-7 p-0"
                       onClick={() => deleteStageMutation.mutate(stage.id)}
-                      disabled={deleteStageMutation.isPending || stage.deals.length > 0}
-                      title={stage.deals.length > 0 ? 'Mova os deals antes de remover' : 'Remover etapa'}
+                      disabled={deleteStageMutation.isPending || stage.opportunities.length > 0}
+                      title={stage.opportunities.length > 0 ? 'Mova as oportunidades antes de remover' : 'Remover etapa'}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -304,27 +307,27 @@ export default function FunnelKanbanPage() {
         </SheetContent>
       </Sheet>
 
-      {/* New Deal Modal */}
-      <Dialog open={dealModalOpen} onOpenChange={(open) => { setDealModalOpen(open); if (!open) setLeadSearch('') }}>
+      {/* New Opportunity Modal */}
+      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) setContactSearch('') }}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Deal</DialogTitle>
+            <DialogTitle>Nova Oportunidade</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleDealSubmit} className="space-y-4 py-2">
+          <form onSubmit={handleOppSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Título *</Label>
               <Input
                 placeholder="Ex: Contrato Empresa XYZ"
-                value={dealForm.title}
-                onChange={(e) => setDealForm((f) => ({ ...f, title: e.target.value }))}
+                value={oppForm.title}
+                onChange={(e) => setOppForm((f) => ({ ...f, title: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
               <Label>Etapa</Label>
-              <Select value={dealForm.stageId} onValueChange={(v) => setDealForm((f) => ({ ...f, stageId: v }))}>
+              <Select value={oppForm.stageId} onValueChange={(v) => setOppForm((f) => ({ ...f, stageId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecionar etapa..." /></SelectTrigger>
                 <SelectContent>
-                  {funnel.stages.sort((a, b) => a.position - b.position).map((s) => (
+                  {pipeline.stages.sort((a, b) => a.sortOrder - b.sortOrder).map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       <div className="flex items-center gap-2">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} />
@@ -336,38 +339,36 @@ export default function FunnelKanbanPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Vincular a um Lead</Label>
+              <Label>Contato *</Label>
               <div className="space-y-2">
                 <Input
-                  placeholder="Buscar lead por nome ou telefone..."
-                  value={leadSearch}
-                  onChange={(e) => setLeadSearch(e.target.value)}
+                  placeholder="Buscar contato por nome ou telefone..."
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
                 />
-                {dealForm.leadId && (
+                {selectedContact && (
                   <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                    <span className="flex-1 font-medium">
-                      {leadsData?.leads.find((l) => l.id === dealForm.leadId)?.name ?? 'Lead selecionado'}
-                    </span>
-                    <button type="button" onClick={() => setDealForm((f) => ({ ...f, leadId: '' }))}>
+                    <span className="flex-1 font-medium">{selectedContact.name}</span>
+                    <button type="button" onClick={() => setOppForm((f) => ({ ...f, contactId: '' }))}>
                       <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                     </button>
                   </div>
                 )}
-                {leadSearch && !dealForm.leadId && (
+                {contactSearch && !oppForm.contactId && (
                   <div className="rounded border divide-y max-h-36 overflow-y-auto">
-                    {(leadsData?.leads ?? []).map((lead) => (
+                    {(contactsData?.data ?? []).map((contact) => (
                       <button
-                        key={lead.id}
+                        key={contact.id}
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                        onClick={() => { setDealForm((f) => ({ ...f, leadId: lead.id })); setLeadSearch('') }}
+                        onClick={() => { setOppForm((f) => ({ ...f, contactId: contact.id })); setContactSearch('') }}
                       >
-                        <span className="font-medium">{lead.name}</span>
-                        {lead.company && <span className="text-muted-foreground ml-2 text-xs">— {lead.company.name}</span>}
+                        <span className="font-medium">{contact.name}</span>
+                        {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
                       </button>
                     ))}
-                    {leadsData?.leads.length === 0 && (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum lead encontrado</p>
+                    {(contactsData?.data ?? []).length === 0 && (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
                     )}
                   </div>
                 )}
@@ -381,16 +382,16 @@ export default function FunnelKanbanPage() {
                   min="0"
                   step="0.01"
                   placeholder="0,00"
-                  value={dealForm.value}
-                  onChange={(e) => setDealForm((f) => ({ ...f, value: e.target.value }))}
+                  value={oppForm.value}
+                  onChange={(e) => setOppForm((f) => ({ ...f, value: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Previsão de fechamento</Label>
                 <Input
                   type="date"
-                  value={dealForm.expectedClose}
-                  onChange={(e) => setDealForm((f) => ({ ...f, expectedClose: e.target.value }))}
+                  value={oppForm.expectedCloseDate}
+                  onChange={(e) => setOppForm((f) => ({ ...f, expectedCloseDate: e.target.value }))}
                 />
               </div>
             </div>
@@ -399,20 +400,20 @@ export default function FunnelKanbanPage() {
               <textarea
                 rows={2}
                 placeholder="Observações..."
-                value={dealForm.notes}
-                onChange={(e) => setDealForm((f) => ({ ...f, notes: e.target.value }))}
+                value={oppForm.notes}
+                onChange={(e) => setOppForm((f) => ({ ...f, notes: e.target.value }))}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
               />
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setDealModalOpen(false)}>
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setOppModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1" disabled={createDealMutation.isPending}>
-                {createDealMutation.isPending ? (
+              <Button type="submit" className="flex-1" disabled={createOppMutation.isPending}>
+                {createOppMutation.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</>
-                ) : 'Criar Deal'}
+                ) : 'Criar Oportunidade'}
               </Button>
             </div>
           </form>
@@ -422,15 +423,15 @@ export default function FunnelKanbanPage() {
   )
 }
 
-interface ClosedDealsTableProps {
-  deals: Deal[]
+interface ClosedOppsTableProps {
+  opportunities: Opportunity[]
   emptyMessage: string
-  onReopen: (dealId: string) => void
+  onReopen: (oppId: string) => void
   reopenPending: boolean
 }
 
-function ClosedDealsTable({ deals, emptyMessage, onReopen, reopenPending }: ClosedDealsTableProps) {
-  if (deals.length === 0) {
+function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending }: ClosedOppsTableProps) {
+  if (opportunities.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-12 text-center">
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
@@ -438,13 +439,13 @@ function ClosedDealsTable({ deals, emptyMessage, onReopen, reopenPending }: Clos
     )
   }
 
-  const total = deals.reduce((sum, d) => sum + (d.value ?? 0), 0)
+  const total = opportunities.reduce((sum, o) => sum + (o.value ?? 0), 0)
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
       {total > 0 && (
         <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{deals.length} deals</span>
+          <span className="text-xs text-muted-foreground">{opportunities.length} oportunidades</span>
           <span className="text-sm font-semibold">{formatCurrency(total)}</span>
         </div>
       )}
@@ -453,34 +454,30 @@ function ClosedDealsTable({ deals, emptyMessage, onReopen, reopenPending }: Clos
           <tr className="border-b text-xs text-muted-foreground">
             <th className="text-left px-4 py-2.5 font-medium">Título</th>
             <th className="text-left px-4 py-2.5 font-medium">Valor</th>
-            <th className="text-left px-4 py-2.5 font-medium">Lead</th>
+            <th className="text-left px-4 py-2.5 font-medium">Contato</th>
             <th className="text-left px-4 py-2.5 font-medium">Responsável</th>
-            <th className="text-left px-4 py-2.5 font-medium">Motivo</th>
             <th className="text-left px-4 py-2.5 font-medium">Data</th>
             <th className="px-4 py-2.5" />
           </tr>
         </thead>
         <tbody className="divide-y">
-          {deals.map((deal) => (
-            <tr key={deal.id} className="hover:bg-muted/30">
-              <td className="px-4 py-3 font-medium">{deal.title}</td>
+          {opportunities.map((opp) => (
+            <tr key={opp.id} className="hover:bg-muted/30">
+              <td className="px-4 py-3 font-medium">{opp.title}</td>
               <td className="px-4 py-3 text-muted-foreground">
-                {deal.value ? formatCurrency(deal.value) : '—'}
+                {opp.value ? formatCurrency(opp.value) : '—'}
               </td>
-              <td className="px-4 py-3 text-muted-foreground">{deal.lead?.name ?? '—'}</td>
-              <td className="px-4 py-3 text-muted-foreground">{deal.assignedTo.name}</td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {deal.lossReason && deal.lossReason !== 'Não especificado' ? deal.lossReason : '—'}
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">{formatDate(deal.updatedAt)}</td>
+              <td className="px-4 py-3 text-muted-foreground">{opp.contact?.name ?? '—'}</td>
+              <td className="px-4 py-3 text-muted-foreground">{opp.assignedTo.name}</td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDate(opp.updatedAt)}</td>
               <td className="px-4 py-3">
                 <Button
                   size="sm"
                   variant="ghost"
                   className="h-7 text-xs"
                   disabled={reopenPending}
-                  onClick={() => onReopen(deal.id)}
-                  title="Reabrir deal"
+                  onClick={() => onReopen(opp.id)}
+                  title="Reabrir oportunidade"
                 >
                   <RotateCcw className="h-3.5 w-3.5 mr-1" />
                   Reabrir

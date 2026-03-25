@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types'
 
 const loginSchema = z.object({
+  tenantSlug: z.string().min(1, 'Workspace obrigatório'),
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Senha obrigatória'),
 })
@@ -38,6 +39,7 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    defaultValues: { tenantSlug: 'cashmind' },
   })
 
   const onSubmit = async (data: LoginForm) => {
@@ -69,17 +71,12 @@ export default function LoginPage() {
     <div className="w-full max-w-sm">
       {/* Brand header — outside the card */}
       <div className="flex flex-col items-center mb-8">
-        {/* Brain icon */}
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm mb-4 shadow-lg">
           <Brain className="h-8 w-8 text-white" />
         </div>
-
-        {/* Platform name */}
         <h1 className="text-4xl font-bold text-white tracking-tight leading-none">
           CashMind
         </h1>
-
-        {/* Signature "by logo" */}
         <div className="flex items-center gap-1.5 mt-2">
           <span className="text-white/50 text-xs font-normal tracking-wide">by</span>
           <Image
@@ -105,6 +102,20 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="tenantSlug">Workspace</Label>
+            <Input
+              id="tenantSlug"
+              type="text"
+              placeholder="cashmind"
+              {...register('tenantSlug')}
+              disabled={isLoading}
+            />
+            {errors.tenantSlug && (
+              <p className="text-xs text-red-500">{errors.tenantSlug.message}</p>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input

@@ -16,7 +16,7 @@ export function usePermissions() {
   }
 
   function isAdminOrGestor(): boolean {
-    return user?.role === 'ADMIN' || user?.role === 'GESTOR'
+    return user?.role === 'ADMIN' || user?.role === 'MANAGER'
   }
 
   return { can, isAdmin, isAdminOrGestor, role: user?.role }

@@ -14,7 +14,6 @@ import {
   getMe,
 } from './auth.service'
 import { requirePermission } from '../../middleware/rbac'
-import type { UserRole } from '@prisma/client'
 
 export default async function authRoutes(app: FastifyInstance) {
   app.post('/auth/login', async (request, reply) => {
@@ -24,24 +23,24 @@ export default async function authRoutes(app: FastifyInstance) {
   })
 
   app.post('/auth/refresh', async (request, reply) => {
-    const input = refreshSchema.parse(request.body)
-    const result = await refreshAccessToken(app, input.refreshToken)
+    const { refreshToken } = refreshSchema.parse(request.body)
+    const result = await refreshAccessToken(app, refreshToken)
     return reply.send(result)
   })
 
   app.post('/auth/logout', async (request, reply) => {
-    const input = refreshSchema.parse(request.body)
-    await logoutUser(input.refreshToken)
+    const { refreshToken } = refreshSchema.parse(request.body)
+    await logoutUser(refreshToken)
     return reply.send({ success: true })
   })
 
   app.post(
     '/auth/invite',
-    { preHandler: [app.authenticate, requirePermission('*')] },
+    { preHandler: [app.authenticate, requirePermission('users:invite')] },
     async (request, reply) => {
       const input = inviteSchema.parse(request.body)
-      const user = request.user as { id: string; role: UserRole }
-      await inviteUser(input, user.id)
+      const user = request.user as { id: string; tenantId: string }
+      await inviteUser(input, user.id, user.tenantId)
       return reply.status(201).send({ success: true })
     }
   )

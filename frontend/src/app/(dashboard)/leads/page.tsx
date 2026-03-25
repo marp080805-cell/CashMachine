@@ -3,15 +3,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Lead, Channel } from '@/types'
+import type { Lead, Contact } from '@/types'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, Upload, X, Loader2, Filter } from 'lucide-react'
-import { formatDate, formatPhone } from '@/lib/utils'
-import Link from 'next/link'
+import { Plus, Search, X, Loader2, Filter } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
@@ -22,82 +21,55 @@ import {
 
 const statusLabels: Record<string, string> = {
   NEW: 'Novo',
-  CONTACTED: 'Contatado',
   QUALIFIED: 'Qualificado',
-  UNQUALIFIED: 'Desqualificado',
-  CUSTOMER: 'Cliente',
-  LOST: 'Perdido',
+  DISQUALIFIED: 'Desqualificado',
 }
 
-const statusVariants: Record<string, 'default' | 'secondary' | 'success' | 'warning' | 'danger'> = {
-  NEW: 'default',
-  CONTACTED: 'secondary',
+const statusVariants: Record<string, 'default' | 'secondary' | 'success' | 'danger'> = {
+  NEW: 'secondary',
   QUALIFIED: 'success',
-  UNQUALIFIED: 'danger',
-  CUSTOMER: 'success',
-  LOST: 'danger',
+  DISQUALIFIED: 'danger',
 }
-
-interface CustomField { key: string; value: string }
 
 interface LeadForm {
-  name: string
-  email: string
-  phone: string
-  whatsapp: string
-  position: string
-  companyName: string
-  channelId: string
+  contactId: string
+  source: string
   status: string
-  notes: string
-  tags: string
-  customFields: CustomField[]
+  score: string
 }
 
 const defaultForm: LeadForm = {
-  name: '',
-  email: '',
-  phone: '',
-  whatsapp: '',
-  position: '',
-  companyName: '',
-  channelId: '',
+  contactId: '',
+  source: '',
   status: 'NEW',
-  notes: '',
-  tags: '',
-  customFields: [],
+  score: '0',
 }
 
 export default function LeadsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [channelFilter, setChannelFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<LeadForm>(defaultForm)
+  const [contactSearch, setContactSearch] = useState('')
   const queryClient = useQueryClient()
 
-  const hasFilters = !!statusFilter || !!channelFilter
-
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', page, search, statusFilter, channelFilter],
+    queryKey: ['leads', page, search, statusFilter],
     queryFn: () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: '20',
-      })
+      const params = new URLSearchParams({ page: String(page), limit: '20' })
       if (search) params.set('search', search)
       if (statusFilter) params.set('status', statusFilter)
-      if (channelFilter) params.set('channelId', channelFilter)
-      return api.get<{ leads: Lead[]; pagination: { page: number; pages: number; total: number; limit: number } }>(
+      return api.get<{ data: Lead[]; total: number; page: number; limit: number }>(
         `/leads?${params.toString()}`
       )
     },
   })
 
-  const { data: channelsData } = useQuery({
-    queryKey: ['channels'],
-    queryFn: () => api.get<{ channels: Channel[] }>('/channels'),
+  const { data: contactsData } = useQuery({
+    queryKey: ['contacts-search-lead', contactSearch],
+    queryFn: () => api.get<{ data: Contact[] }>(`/contacts?limit=20${contactSearch ? `&search=${encodeURIComponent(contactSearch)}` : ''}`),
+    enabled: modalOpen,
   })
 
   const createMutation = useMutation({
@@ -106,6 +78,7 @@ export default function LeadsPage() {
       toast.success('Lead criado com sucesso!')
       setModalOpen(false)
       setForm(defaultForm)
+      setContactSearch('')
       void queryClient.invalidateQueries({ queryKey: ['leads'] })
     },
     onError: (err: unknown) => {
@@ -115,79 +88,46 @@ export default function LeadsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) { toast.error('Nome é obrigatório'); return }
-
-    const customFieldsObj = form.customFields.reduce<Record<string, string>>((acc, f) => {
-      if (f.key.trim()) acc[f.key.trim()] = f.value
-      return acc
-    }, {})
-
-    const tags = form.tags.split(',').map((t) => t.trim()).filter(Boolean)
+    if (!form.contactId) { toast.error('Selecione um contato'); return }
 
     createMutation.mutate({
-      name: form.name,
-      ...(form.email && { email: form.email }),
-      ...(form.phone && { phone: form.phone }),
-      ...(form.whatsapp && { whatsapp: form.whatsapp }),
-      ...(form.position && { position: form.position }),
-      ...(form.channelId && { channelId: form.channelId }),
+      contactId: form.contactId,
+      ...(form.source && { source: form.source }),
       status: form.status,
-      ...(form.notes && { notes: form.notes }),
-      ...(tags.length && { tags }),
-      ...(Object.keys(customFieldsObj).length && { customFields: customFieldsObj }),
+      score: parseInt(form.score, 10) || 0,
     })
   }
 
-  function addCustomField() {
-    setForm((f) => ({ ...f, customFields: [...f.customFields, { key: '', value: '' }] }))
-  }
-
-  function removeCustomField(idx: number) {
-    setForm((f) => ({ ...f, customFields: f.customFields.filter((_, i) => i !== idx) }))
-  }
-
-  function updateCustomField(idx: number, part: 'key' | 'value', val: string) {
-    setForm((f) => ({
-      ...f,
-      customFields: f.customFields.map((cf, i) => i === idx ? { ...cf, [part]: val } : cf),
-    }))
-  }
-
-  function clearFilters() {
-    setStatusFilter('')
-    setChannelFilter('')
-    setPage(1)
-  }
+  const selectedContact = contactsData?.data?.find((c) => c.id === form.contactId)
+  const pages = data ? Math.ceil(data.total / data.limit) : 1
 
   const columns = [
     {
-      key: 'name',
-      header: 'Nome',
+      key: 'contact',
+      header: 'Contato',
       render: (row: Lead) => (
-        <Link href={`/leads/${row.id}`} className="font-medium text-primary hover:underline">
-          {row.name}
-        </Link>
+        <span className="font-medium">{row.contact?.name ?? '—'}</span>
       ),
-    },
-    {
-      key: 'company',
-      header: 'Empresa',
-      render: (row: Lead) => <span className="text-sm">{row.company?.name ?? '—'}</span>,
     },
     {
       key: 'phone',
       header: 'Telefone',
       render: (row: Lead) => (
-        <span className="text-sm text-muted-foreground">
-          {row.phone ? formatPhone(row.phone) : '—'}
-        </span>
+        <span className="text-sm text-muted-foreground">{row.contact?.phone ?? '—'}</span>
       ),
     },
     {
-      key: 'channel',
-      header: 'Canal',
+      key: 'source',
+      header: 'Origem',
       render: (row: Lead) => (
-        <span className="text-sm">{row.channel?.name ?? '—'}</span>
+        <span className="text-sm">{row.source ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'score',
+      header: 'Score',
+      render: (row: Lead) => (
+        <span className="text-sm font-medium">{row.score}</span>
       ),
     },
     {
@@ -214,14 +154,13 @@ export default function LeadsPage() {
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, email ou telefone..."
+            placeholder="Buscar por nome ou telefone..."
             className="pl-9"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          {/* Status filter */}
           <Select
             value={statusFilter}
             onValueChange={(v) => { setStatusFilter(v === 'ALL' ? '' : v); setPage(1) }}
@@ -238,34 +177,13 @@ export default function LeadsPage() {
             </SelectContent>
           </Select>
 
-          {/* Channel filter */}
-          <Select
-            value={channelFilter}
-            onValueChange={(v) => { setChannelFilter(v === 'ALL' ? '' : v); setPage(1) }}
-          >
-            <SelectTrigger className="h-9 w-[160px]">
-              <SelectValue placeholder="Canal" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos os canais</SelectItem>
-              {(channelsData?.channels ?? []).map((ch) => (
-                <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Clear filters */}
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+          {statusFilter && (
+            <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(''); setPage(1) }} className="h-9">
               <X className="h-3.5 w-3.5 mr-1" />
               Limpar
             </Button>
           )}
 
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Importar CSV
-          </Button>
           <Button size="sm" onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Lead
@@ -275,95 +193,67 @@ export default function LeadsPage() {
 
       <DataTable
         columns={columns}
-        data={data?.leads ?? []}
+        data={data?.data ?? []}
         isLoading={isLoading}
         rowKey={(row) => row.id}
-        pagination={data?.pagination ? {
-          page: data.pagination.page,
-          pages: data.pagination.pages,
-          total: data.pagination.total,
+        pagination={data ? {
+          page: data.page,
+          pages,
+          total: data.total,
           onPageChange: setPage,
         } : undefined}
         emptyMessage="Nenhum lead encontrado"
       />
 
       {/* Novo Lead Modal */}
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setForm(defaultForm) }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setContactSearch('') } }}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Lead</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            {/* Dados básicos */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1.5">
-                <Label>Nome *</Label>
+            <div className="space-y-1.5">
+              <Label>Contato *</Label>
+              <div className="space-y-2">
                 <Input
-                  placeholder="Nome completo"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Buscar contato por nome ou telefone..."
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="email@exemplo.com"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Telefone</Label>
-                <Input
-                  placeholder="(11) 99999-9999"
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>WhatsApp</Label>
-                <Input
-                  placeholder="5511999999999"
-                  value={form.whatsapp}
-                  onChange={(e) => setForm((f) => ({ ...f, whatsapp: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cargo</Label>
-                <Input
-                  placeholder="Ex: CEO, Diretor..."
-                  value={form.position}
-                  onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Empresa</Label>
-                <Input
-                  placeholder="Nome da empresa"
-                  value={form.companyName}
-                  onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Canal de aquisição</Label>
-                <Select value={form.channelId} onValueChange={(v) => setForm((f) => ({ ...f, channelId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(channelsData?.channels ?? []).map((ch) => (
-                      <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                {selectedContact && (
+                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                    <span className="flex-1 font-medium">{selectedContact.name}</span>
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: '' }))}>
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                )}
+                {contactSearch && !form.contactId && (
+                  <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                    {(contactsData?.data ?? []).map((contact) => (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                        onClick={() => { setForm((f) => ({ ...f, contactId: contact.id })); setContactSearch('') }}
+                      >
+                        <span className="font-medium">{contact.name}</span>
+                        {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
+                    {(contactsData?.data ?? []).length === 0 && (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
+                    )}
+                  </div>
+                )}
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(statusLabels).map(([val, lbl]) => (
                       <SelectItem key={val} value={val}>{lbl}</SelectItem>
@@ -371,60 +261,25 @@ export default function LeadsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Tags <span className="text-muted-foreground text-xs">(separadas por vírgula)</span></Label>
+              <div className="space-y-1.5">
+                <Label>Score (0–100)</Label>
                 <Input
-                  placeholder="hot, indicação, B2B..."
-                  value={form.tags}
-                  onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
-                />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Notas</Label>
-                <textarea
-                  rows={2}
-                  placeholder="Observações sobre o lead..."
-                  value={form.notes}
-                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={form.score}
+                  onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))}
                 />
               </div>
             </div>
 
-            {/* Campos adicionais */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Campos adicionais</Label>
-                <Button type="button" size="sm" variant="outline" onClick={addCustomField}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Adicionar campo
-                </Button>
-              </div>
-              {form.customFields.map((cf, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    placeholder="Nome do campo"
-                    value={cf.key}
-                    onChange={(e) => updateCustomField(idx, 'key', e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    placeholder="Valor"
-                    value={cf.value}
-                    onChange={(e) => updateCustomField(idx, 'value', e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => removeCustomField(idx)}
-                    className="text-red-500 hover:text-red-600 shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+            <div className="space-y-1.5">
+              <Label>Origem</Label>
+              <Input
+                placeholder="Ex: Google Ads, Indicação..."
+                value={form.source}
+                onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+              />
             </div>
 
             <div className="flex gap-2 pt-2">

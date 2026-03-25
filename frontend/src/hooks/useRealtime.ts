@@ -1,28 +1,28 @@
 'use client'
 
 import { useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
+import { getSocket } from '@/lib/socket'
 
 export function useDashboardRealtime() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const channel = supabase
-      .channel('dashboard:updates')
-      .on('broadcast', { event: 'lead:created' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      })
-      .on('broadcast', { event: 'deal:moved' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      })
-      .on('broadcast', { event: 'task:completed' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      })
-      .subscribe()
+    const socket = getSocket()
+    if (!socket) return
+
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    }
+
+    socket.on('opportunity:moved', invalidate)
+    socket.on('opportunity:created', invalidate)
+    socket.on('task:completed', invalidate)
 
     return () => {
-      void supabase.removeChannel(channel)
+      socket.off('opportunity:moved', invalidate)
+      socket.off('opportunity:created', invalidate)
+      socket.off('task:completed', invalidate)
     }
   }, [queryClient])
 }

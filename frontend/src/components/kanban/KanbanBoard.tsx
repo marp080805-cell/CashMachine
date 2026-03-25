@@ -14,18 +14,22 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { KanbanColumn } from './KanbanColumn'
 import { KanbanCard } from './KanbanCard'
-import { DealConversationSheet } from './DealConversationSheet'
-import type { Deal, Funnel } from '@/types'
+import { OpportunitySheet } from './OpportunitySheet'
+import type { Opportunity, Pipeline, Stage } from '@/types'
 import { api } from '@/lib/api'
 
-interface KanbanBoardProps {
-  funnel: Omit<Funnel, 'stages'> & { stages: Array<{ id: string; name: string; position: number; color: string; funnelId: string; createdAt: string; deals: Deal[] }> }
-  onNewDeal?: (stageId: string) => void
+type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
+  stages: Array<Stage & { opportunities: Opportunity[] }>
 }
 
-export function KanbanBoard({ funnel, onNewDeal }: KanbanBoardProps) {
+interface KanbanBoardProps {
+  pipeline: PipelineWithOpportunities
+  onNewOpportunity?: (stageId: string) => void
+}
+
+export function KanbanBoard({ pipeline, onNewOpportunity }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const queryClient = useQueryClient()
 
   const sensors = useSensors(
@@ -33,16 +37,16 @@ export function KanbanBoard({ funnel, onNewDeal }: KanbanBoardProps) {
   )
 
   const moveMutation = useMutation({
-    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) =>
-      api.patch(`/deals/${dealId}/move`, { stageId }),
+    mutationFn: ({ opportunityId, stageId }: { opportunityId: string; stageId: string }) =>
+      api.put(`/opportunities/${opportunityId}/move`, { stageId }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['funnel', funnel.id] })
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', pipeline.id] })
     },
-    onError: () => toast.error('Erro ao mover deal'),
+    onError: () => toast.error('Erro ao mover oportunidade'),
   })
 
-  const allDeals = funnel.stages.flatMap((s) => s.deals)
-  const activeCard = activeId ? allDeals.find((d) => d.id === activeId) : null
+  const allOpportunities = pipeline.stages.flatMap((s) => s.opportunities)
+  const activeCard = activeId ? allOpportunities.find((o) => o.id === activeId) : null
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -50,16 +54,16 @@ export function KanbanBoard({ funnel, onNewDeal }: KanbanBoardProps) {
 
     if (!over) return
 
-    const dealId = active.id as string
+    const opportunityId = active.id as string
     const overId = over.id as string
 
-    const sourceStage = funnel.stages.find((s) => s.deals.some((d) => d.id === dealId))
-    const targetStage = funnel.stages.find((s) => s.id === overId || s.deals.some((d) => d.id === overId))
+    const sourceStage = pipeline.stages.find((s) => s.opportunities.some((o) => o.id === opportunityId))
+    const targetStage = pipeline.stages.find((s) => s.id === overId || s.opportunities.some((o) => o.id === overId))
 
     if (!sourceStage || !targetStage) return
     if (sourceStage.id === targetStage.id) return
 
-    moveMutation.mutate({ dealId, stageId: targetStage.id })
+    moveMutation.mutate({ opportunityId, stageId: targetStage.id })
   }
 
   return (
@@ -71,30 +75,30 @@ export function KanbanBoard({ funnel, onNewDeal }: KanbanBoardProps) {
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {funnel.stages
-            .sort((a, b) => a.position - b.position)
+          {pipeline.stages
+            .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((stage) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
-                deals={stage.deals}
-                onDealClick={setSelectedDeal}
-                onNewDeal={onNewDeal ? () => onNewDeal(stage.id) : undefined}
+                opportunities={stage.opportunities}
+                onOpportunityClick={setSelectedOpportunity}
+                onNewOpportunity={onNewOpportunity ? () => onNewOpportunity(stage.id) : undefined}
               />
             ))}
         </div>
 
         <DragOverlay>
           {activeCard && (
-            <KanbanCard deal={activeCard} onClick={() => {}} />
+            <KanbanCard opportunity={activeCard} onClick={() => {}} />
           )}
         </DragOverlay>
       </DndContext>
 
-      <DealConversationSheet
-        deal={selectedDeal}
-        onClose={() => setSelectedDeal(null)}
-        funnelId={funnel.id}
+      <OpportunitySheet
+        opportunity={selectedOpportunity}
+        onClose={() => setSelectedOpportunity(null)}
+        pipelineId={pipeline.id}
       />
     </>
   )

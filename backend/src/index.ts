@@ -9,24 +9,33 @@ import authPlugin from './plugins/auth'
 import corsPlugin from './plugins/cors'
 import socketPlugin from './plugins/socket'
 
+// Auth & Tenant
 import authRoutes from './modules/auth/auth.routes'
+import tenantsRoutes from './modules/tenants/tenants.routes'
+
+// Core entities
 import usersRoutes from './modules/users/users.routes'
-import leadsRoutes from './modules/leads/leads.routes'
+import contactsRoutes from './modules/contacts/contacts.routes'
 import companiesRoutes from './modules/companies/companies.routes'
-import funnelsRoutes from './modules/funnels/funnels.routes'
-import dealsRoutes from './modules/deals/deals.routes'
+import leadsRoutes from './modules/leads/leads.routes'
+import opportunitiesRoutes from './modules/opportunities/opportunities.routes'
+import pipelinesRoutes from './modules/pipelines/pipelines.routes'
+import originsRoutes from './modules/origins/origins.routes'
+import tagsRoutes from './modules/tags/tags.routes'
+import customFieldsRoutes from './modules/custom-fields/custom-fields.routes'
+
+// Supporting
 import activitiesRoutes from './modules/activities/activities.routes'
 import tasksRoutes from './modules/tasks/tasks.routes'
-import channelsRoutes from './modules/channels/channels.routes'
+import dashboardRoutes from './modules/dashboard/dashboard.routes'
+import reportsRoutes from './modules/reports/reports.routes'
+import notificationsRoutes from './modules/notifications/notifications.routes'
+
+// WhatsApp + AI (maintained)
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
 import aiRoutes from './modules/ai/ai.routes'
-import reportsRoutes from './modules/reports/reports.routes'
-import dashboardRoutes from './modules/dashboard/dashboard.routes'
-import notificationsRoutes from './modules/notifications/notifications.routes'
-import customFieldsRoutes from './modules/settings/custom-fields.routes'
-import dashboardConfigRoutes from './modules/settings/dashboard-config.routes'
-import goalsRoutes from './modules/settings/goals.routes'
 
+// Queues
 import { startAiSuggestionWorker } from './queues/ai-suggestion.queue'
 import { startNotificationWorker } from './queues/notification.queue'
 import { startEmailWorker } from './queues/email.queue'
@@ -60,23 +69,25 @@ async function bootstrap() {
     return reply.status(500).send({ error: 'Internal server error' })
   })
 
+  // Routes
   await app.register(authRoutes)
+  await app.register(tenantsRoutes)
   await app.register(usersRoutes)
-  await app.register(leadsRoutes)
+  await app.register(contactsRoutes)
   await app.register(companiesRoutes)
-  await app.register(funnelsRoutes)
-  await app.register(dealsRoutes)
+  await app.register(leadsRoutes)
+  await app.register(opportunitiesRoutes)
+  await app.register(pipelinesRoutes)
+  await app.register(originsRoutes)
+  await app.register(tagsRoutes)
+  await app.register(customFieldsRoutes)
   await app.register(activitiesRoutes)
   await app.register(tasksRoutes)
-  await app.register(channelsRoutes)
+  await app.register(dashboardRoutes)
+  await app.register(reportsRoutes)
+  await app.register(notificationsRoutes)
   await app.register(whatsappRoutes)
   await app.register(aiRoutes)
-  await app.register(reportsRoutes)
-  await app.register(dashboardRoutes)
-  await app.register(notificationsRoutes)
-  await app.register(customFieldsRoutes)
-  await app.register(dashboardConfigRoutes)
-  await app.register(goalsRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 
@@ -88,14 +99,29 @@ async function bootstrap() {
   startNotificationWorker()
   startEmailWorker()
 
-  // Create initial admin user from env if not exists
-  const existing = await prisma.user.findUnique({ where: { email: env.ADMIN_EMAIL } })
-  if (!existing) {
-    const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 10)
-    await prisma.user.create({
-      data: { email: env.ADMIN_EMAIL, name: env.ADMIN_NAME, passwordHash, role: 'ADMIN' },
+  // Bootstrap: criar tenant + admin se não existirem
+  const existingTenant = await prisma.tenant.findUnique({
+    where: { slug: env.ADMIN_TENANT_SLUG },
+  })
+
+  if (!existingTenant) {
+    const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 12)
+    const tenant = await prisma.tenant.create({
+      data: {
+        name: env.ADMIN_TENANT_NAME,
+        slug: env.ADMIN_TENANT_SLUG,
+        users: {
+          create: {
+            email: env.ADMIN_EMAIL,
+            name: env.ADMIN_NAME,
+            passwordHash,
+            role: 'ADMIN',
+            isActive: true,
+          },
+        },
+      },
     })
-    console.log(`Admin user created: ${env.ADMIN_EMAIL}`)
+    console.log(`Tenant criado: ${tenant.slug} | Admin: ${env.ADMIN_EMAIL}`)
   }
 
   await app.listen({ port: env.API_PORT, host: '0.0.0.0' })

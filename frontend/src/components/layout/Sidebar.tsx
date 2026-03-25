@@ -9,13 +9,14 @@ import {
   MessageSquare,
   Users,
   BarChart2,
-  Calendar,
   FileText,
-  TrendingUp,
   Mic,
   Settings,
   LogOut,
   Brain,
+  Building2,
+  UserCheck,
+  TrendingUp,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -25,10 +26,11 @@ import { Button } from '@/components/ui/button'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/funis', label: 'Funis CRM', icon: GitBranch, permission: 'funnels:view' },
+  { href: '/funis', label: 'Pipelines', icon: GitBranch, permission: 'pipelines:view' },
+  { href: '/contatos', label: 'Contatos', icon: Users, permission: 'contacts:view' },
+  { href: '/empresas', label: 'Empresas', icon: Building2, permission: 'contacts:view' },
+  { href: '/leads', label: 'Leads', icon: UserCheck, permission: 'leads:view' },
   { href: '/whatsapp', label: 'WhatsApp', icon: MessageSquare, permission: 'whatsapp:view_own' },
-  { href: '/leads', label: 'Leads', icon: Users, permission: 'leads:view' },
-  { href: '/planejamento', label: 'Planejamento', icon: Calendar, permission: 'planning:view' },
   { href: '/tarefas', label: 'Tarefas', icon: FileText, permission: 'tasks:view_own' },
   { href: '/relatorios', label: 'Relatórios', icon: BarChart2, permission: 'reports:view' },
   { href: '/performance', label: 'Performance', icon: TrendingUp, permission: 'performance:view' },
@@ -55,11 +57,9 @@ export function Sidebar({ className, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-2.5">
-          {/* Brain icon */}
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 flex-shrink-0">
             <Brain className="h-[18px] w-[18px] text-white" />
           </div>
-          {/* Name + signature */}
           <div className="flex flex-col justify-center leading-none">
             <span className="font-bold text-[15px] text-white tracking-tight">CashMind</span>
             <div className="flex items-center gap-1 mt-[3px]">

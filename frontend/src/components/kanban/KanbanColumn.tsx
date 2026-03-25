@@ -4,20 +4,20 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { KanbanCard } from './KanbanCard'
 import { formatCurrency } from '@/lib/utils'
-import type { Deal, FunnelStage } from '@/types'
+import type { Opportunity, Stage } from '@/types'
 import { Plus } from 'lucide-react'
 
 interface KanbanColumnProps {
-  stage: FunnelStage
-  deals: Deal[]
-  onDealClick: (deal: Deal) => void
-  onNewDeal?: () => void
+  stage: Stage & { opportunities: Opportunity[] }
+  opportunities: Opportunity[]
+  onOpportunityClick: (opportunity: Opportunity) => void
+  onNewOpportunity?: () => void
 }
 
-export function KanbanColumn({ stage, deals, onDealClick, onNewDeal }: KanbanColumnProps) {
+export function KanbanColumn({ stage, opportunities, onOpportunityClick, onNewOpportunity }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
 
-  const totalValue = deals.reduce((sum, d) => sum + (d.value ?? 0), 0)
+  const totalValue = opportunities.reduce((sum, o) => sum + (o.value ?? 0), 0)
 
   return (
     <div className="flex flex-col w-72 shrink-0">
@@ -29,18 +29,18 @@ export function KanbanColumn({ stage, deals, onDealClick, onNewDeal }: KanbanCol
           />
           <h3 className="text-sm font-semibold text-foreground">{stage.name}</h3>
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-            {deals.length}
+            {opportunities.length}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {totalValue > 0 && (
             <span className="text-xs text-muted-foreground">{formatCurrency(totalValue)}</span>
           )}
-          {onNewDeal && (
+          {onNewOpportunity && (
             <button
-              onClick={onNewDeal}
+              onClick={onNewOpportunity}
               className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Novo deal nesta etapa"
+              title="Nova oportunidade nesta etapa"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -54,9 +54,9 @@ export function KanbanColumn({ stage, deals, onDealClick, onNewDeal }: KanbanCol
           isOver ? 'bg-primary/5 ring-2 ring-primary/20' : 'bg-muted'
         }`}
       >
-        <SortableContext items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-          {deals.map((deal) => (
-            <KanbanCard key={deal.id} deal={deal} onClick={onDealClick} />
+        <SortableContext items={opportunities.map((o) => o.id)} strategy={verticalListSortingStrategy}>
+          {opportunities.map((opportunity) => (
+            <KanbanCard key={opportunity.id} opportunity={opportunity} onClick={onOpportunityClick} />
           ))}
         </SortableContext>
       </div>

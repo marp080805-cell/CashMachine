@@ -1,189 +1,338 @@
-export type UserRole = 'ADMIN' | 'GESTOR' | 'SDR' | 'CLOSER'
-export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'UNQUALIFIED' | 'CUSTOMER' | 'LOST'
-export type DealStatus = 'OPEN' | 'WON' | 'LOST' | 'FROZEN'
-export type FunnelType = 'PROSPECTING' | 'SALES' | 'POST_SALES' | 'CUSTOM'
-export type TaskType = 'CALL' | 'EMAIL' | 'MEETING' | 'VISIT' | 'PROPOSAL' | 'FOLLOW_UP' | 'OTHER'
-export type ActivityType = 'NOTE' | 'EMAIL' | 'CALL' | 'MEETING' | 'WHATSAPP_MESSAGE' | 'DEAL_MOVED' | 'DEAL_CREATED' | 'DEAL_WON' | 'DEAL_LOST' | 'TASK_COMPLETED' | 'FILE_UPLOADED' | 'AI_SUGGESTION'
-export type ChannelType = 'ONLINE_PAID' | 'ONLINE_ORGANIC' | 'PRESENTIAL_EVENT' | 'PRESENTIAL_COMMUNITY' | 'OFFLINE_REFERRAL_PARTNER' | 'OFFLINE_REFERRAL_CLIENT' | 'OUTBOUND' | 'CUSTOM'
-export type ChannelStatus = 'ACTIVE' | 'PAUSED' | 'TESTING' | 'INACTIVE'
+// ─── ENUMS ────────────────────────────────────────────────────────
+
+export type TenantPlan = 'FREE' | 'STANDARD' | 'PRO' | 'ENTERPRISE'
+export type UserRole = 'ADMIN' | 'MANAGER' | 'SDR' | 'CLOSER' | 'VIEWER'
+export type LeadStatus = 'NEW' | 'QUALIFIED' | 'DISQUALIFIED'
+export type OpportunityStatus = 'OPEN' | 'WON' | 'LOST'
+export type Temperature = 'COLD' | 'WARM' | 'HOT'
+export type PipelineType = 'SALES' | 'TREATMENT' | 'RESCUE' | 'RELATIONSHIP' | 'CUSTOM'
+export type TagCategory = 'QUALIFICATION' | 'TEMPERATURE' | 'STATUS' | 'CUSTOM'
+export type CustomFieldType = 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'DATETIME' | 'SELECT' | 'MULTISELECT' | 'CHECKBOX' | 'URL' | 'PHONE' | 'EMAIL' | 'CURRENCY'
+export type TaskType = 'FIRST_CONTACT' | 'FOLLOW_UP' | 'QUALIFY' | 'SCHEDULE_MEETING' | 'CONFIRM_PRESENCE' | 'PREPARE_BRIEFING' | 'SEND_PROPOSAL' | 'FOLLOW_UP_PROPOSAL' | 'CALL' | 'MEETING' | 'EMAIL' | 'REMINDER' | 'RESCUE_CONTACT' | 'CUSTOM'
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED' | 'OVERDUE'
+export type ActivityType = 'NOTE' | 'EMAIL' | 'CALL' | 'MEETING' | 'WHATSAPP_MESSAGE' | 'OPPORTUNITY_MOVED' | 'OPPORTUNITY_CREATED' | 'OPPORTUNITY_WON' | 'OPPORTUNITY_LOST' | 'TASK_COMPLETED' | 'FILE_UPLOADED' | 'AI_SUGGESTION' | 'STAGE_CHANGED' | 'HANDOFF'
 export type WhatsappStatus = 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'ERROR'
 export type MessageType = 'TEXT' | 'IMAGE' | 'AUDIO' | 'VIDEO' | 'DOCUMENT' | 'STICKER' | 'LOCATION'
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED'
 export type TranscriptionStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'ERROR'
-export type NotificationType = 'TASK_DUE' | 'DEAL_ASSIGNED' | 'WHATSAPP_MESSAGE' | 'AI_SUGGESTION' | 'REPORT_READY' | 'SYSTEM'
+export type NotificationType = 'TASK_DUE' | 'OPPORTUNITY_ASSIGNED' | 'WHATSAPP_MESSAGE' | 'AI_SUGGESTION' | 'REPORT_READY' | 'HANDOFF_RECEIVED' | 'SYSTEM'
+
+// ─── TENANT ───────────────────────────────────────────────────────
+
+export interface Tenant {
+  id: string
+  name: string
+  slug: string
+  plan: TenantPlan
+  settings: Record<string, unknown> | null
+  isActive: boolean
+  createdAt: string
+}
+
+// ─── USER ─────────────────────────────────────────────────────────
 
 export interface User {
   id: string
+  tenantId: string
   email: string
   name: string
   avatarUrl: string | null
   role: UserRole
   isActive: boolean
-  teamId: string | null
+  lastLoginAt: string | null
   permissions: string[]
+  tenant?: Pick<Tenant, 'id' | 'name' | 'slug' | 'plan'>
   createdAt?: string
-  updatedAt?: string
 }
 
-export interface Team {
-  id: string
-  name: string
-  createdAt: string
-}
+// ─── CONTACT ──────────────────────────────────────────────────────
 
-export interface Company {
+export interface Contact {
   id: string
-  name: string
-  cnpj: string | null
-  website: string | null
-  segment: string | null
-  city: string | null
-  state: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Channel {
-  id: string
-  name: string
-  type: ChannelType
-  status: ChannelStatus
-  priority: number
-  cplTarget: number | null
-  cacTarget: number | null
-  leadToCallRate: number
-  callToContractRate: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ChannelMetric {
-  id: string
-  channelId: string
-  month: number
-  year: number
-  leadsGoal: number
-  leadsGenerated: number
-  totalCost: number
-  callsReal: number
-  contractsReal: number
-  callsEstimated: number
-  contractsEstimated: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Lead {
-  id: string
+  tenantId: string
   name: string
   email: string | null
   phone: string | null
-  whatsapp: string | null
-  position: string | null
+  cpfCnpj: string | null
+  originId: string | null
+  origin: Pick<Origin, 'id' | 'name'> | null
+  subOriginId: string | null
+  subOrigin: Pick<SubOrigin, 'id' | 'name'> | null
   companyId: string | null
   company: Pick<Company, 'id' | 'name'> | null
-  channelId: string | null
-  channel: Pick<Channel, 'id' | 'name'> | null
-  status: LeadStatus
-  tags: string[]
+  firstContactDate: string | null
   notes: string | null
-  customFields: Record<string, unknown> | null
-  createdById: string
-  createdBy: Pick<User, 'id' | 'name' | 'avatarUrl'>
+  createdAt: string
+  updatedAt: string
+  opportunities?: OpportunitySummary[]
+  activities?: Activity[]
+  tasks?: Task[]
+}
+
+// ─── COMPANY ──────────────────────────────────────────────────────
+
+export interface Company {
+  id: string
+  tenantId: string
+  name: string
+  cnpj: string | null
+  segment: string | null
+  website: string | null
+  address: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+  _count?: { contacts: number; opportunities: number }
+}
+
+// ─── LEAD (pré-qualificação) ──────────────────────────────────────
+
+export interface Lead {
+  id: string
+  tenantId: string
+  contactId: string
+  contact: Contact
+  source: string | null
+  status: LeadStatus
+  score: number
   createdAt: string
   updatedAt: string
 }
 
-export interface FunnelStage {
+// ─── PIPELINE & STAGE ────────────────────────────────────────────
+
+export interface Stage {
   id: string
+  pipelineId: string
   name: string
-  position: number
   color: string
-  funnelId: string
+  sortOrder: number
+  isWon: boolean
+  isLost: boolean
+  requiredFields: string[] | null
+  visibleFields: string[] | null
+  description: string | null
   createdAt: string
+  _count?: { opportunities: number }
 }
 
-export interface Funnel {
+export interface Pipeline {
   id: string
+  tenantId: string
   name: string
+  prefix: string | null
   description: string | null
-  type: FunnelType
+  type: PipelineType
   isActive: boolean
-  position: number
-  stages: FunnelStage[]
+  sortOrder: number
+  defaultCloseDays: number | null
+  stages: Stage[]
   createdAt: string
   updatedAt: string
-  _count?: { deals: number }
+  _count?: { opportunities: number }
 }
 
-export interface Deal {
+// ─── OPPORTUNITY ──────────────────────────────────────────────────
+
+export type OpportunitySummary = {
   id: string
   title: string
+  status: OpportunityStatus
   value: number | null
-  probability: number | null
-  expectedClose: string | null
-  status: DealStatus
-  lossReason: string | null
-  notes: string | null
-  isFrozen: boolean
-  funnelId: string
-  funnel: Pick<Funnel, 'id' | 'name'>
-  stageId: string
-  stage: Pick<FunnelStage, 'id' | 'name' | 'color'>
-  leadId: string | null
-  lead: {
-    id: string
-    name: string
-    phone?: string | null
-    conversations?: Array<{
-      id: string
-      lastMessage: string | null
-      lastMessageAt: string | null
-      unreadCount: number
-    }>
-  } | null
+  stage: Pick<Stage, 'id' | 'name'>
+  pipeline: Pick<Pipeline, 'id' | 'name'>
+}
+
+export interface Opportunity {
+  id: string
+  tenantId: string
+  contactId: string
+  contact: Pick<Contact, 'id' | 'name' | 'phone' | 'email'>
   companyId: string | null
   company: Pick<Company, 'id' | 'name'> | null
+  pipelineId: string
+  pipeline: Pick<Pipeline, 'id' | 'name' | 'prefix'>
+  stageId: string
+  stage: Pick<Stage, 'id' | 'name' | 'color'>
   assignedToId: string
   assignedTo: Pick<User, 'id' | 'name' | 'avatarUrl'>
+  sdrId: string | null
+  sdr: Pick<User, 'id' | 'name'> | null
+  closerId: string | null
+  closer: Pick<User, 'id' | 'name'> | null
+  title: string
+  value: number | null
+  originId: string | null
+  origin: Pick<Origin, 'id' | 'name'> | null
+  subOriginId: string | null
+  subOrigin: Pick<SubOrigin, 'id' | 'name'> | null
+  expectedCloseDate: string | null
+  closedAt: string | null
+  lostReasonId: string | null
+  lostReason: Pick<LostReason, 'id' | 'name'> | null
+  rescueEligible: boolean
+  temperature: Temperature | null
+  qualificationScore: number | null
+  position: number
+  handoffAt: string | null
+  sdrBriefing: string | null
+  slaFirstContactAt: string | null
+  status: OpportunityStatus
+  notes: string | null
   createdAt: string
   updatedAt: string
+  stageHistories?: StageHistory[]
+  activities?: Activity[]
+  tasks?: Task[]
 }
+
+export interface StageHistory {
+  id: string
+  opportunityId: string
+  stageId: string
+  stage: Pick<Stage, 'id' | 'name'>
+  enteredAt: string
+  exitedAt: string | null
+  movedById: string
+  movedBy: Pick<User, 'id' | 'name'>
+  durationSeconds: number | null
+}
+
+// ─── ORIGIN ───────────────────────────────────────────────────────
+
+export interface SubOrigin {
+  id: string
+  originId: string
+  name: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface Origin {
+  id: string
+  tenantId: string
+  name: string
+  isActive: boolean
+  subOrigins: SubOrigin[]
+  createdAt: string
+}
+
+export interface LostReason {
+  id: string
+  tenantId: string
+  name: string
+  isActive: boolean
+  createdAt: string
+}
+
+// ─── TAGS ─────────────────────────────────────────────────────────
+
+export interface Tag {
+  id: string
+  tenantId: string
+  name: string
+  color: string
+  category: TagCategory
+  createdById: string
+  isLocked: boolean
+  createdAt: string
+}
+
+// ─── CAMPOS PERSONALIZADOS ────────────────────────────────────────
+
+export interface CustomField {
+  id: string
+  groupId: string
+  entityType: string
+  name: string
+  slug: string
+  fieldType: CustomFieldType
+  options: string[] | null
+  isRequiredGlobal: boolean
+  requiredInStages: string[] | null
+  visibleInStages: string[] | null
+  showInCard: boolean
+  tooltip: string | null
+  defaultValue: string | null
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+}
+
+export interface CustomFieldGroup {
+  id: string
+  tenantId: string
+  entityType: string
+  name: string
+  sortOrder: number
+  isCollapsedByDefault: boolean
+  customFields: CustomField[]
+  createdAt: string
+}
+
+export interface CustomFieldValue {
+  id: string
+  customFieldId: string
+  customField: Pick<CustomField, 'id' | 'name' | 'fieldType' | 'slug'>
+  entityType: string
+  entityId: string
+  valueText: string | null
+  valueNumber: number | null
+  valueDate: string | null
+  valueJson: unknown | null
+  updatedAt: string
+}
+
+// ─── ATIVIDADES ───────────────────────────────────────────────────
 
 export interface Activity {
   id: string
+  tenantId: string
   type: ActivityType
   description: string
   metadata: Record<string, unknown> | null
-  leadId: string | null
-  lead: Pick<Lead, 'id' | 'name'> | null
-  dealId: string | null
-  deal: Pick<Deal, 'id' | 'title'> | null
+  contactId: string | null
+  contact: Pick<Contact, 'id' | 'name'> | null
+  opportunityId: string | null
+  opportunity: Pick<Opportunity, 'id' | 'title'> | null
   userId: string
   user: Pick<User, 'id' | 'name' | 'avatarUrl'>
   createdAt: string
 }
 
+// ─── TAREFAS ──────────────────────────────────────────────────────
+
 export interface Task {
   id: string
+  tenantId: string
+  opportunityId: string | null
+  opportunity: Pick<Opportunity, 'id' | 'title'> | null
+  contactId: string | null
+  contact: Pick<Contact, 'id' | 'name'> | null
+  stageId: string | null
+  stage: Pick<Stage, 'id' | 'name'> | null
+  assignedToId: string
+  assignedTo: Pick<User, 'id' | 'name' | 'avatarUrl'>
+  createdById: string
   title: string
   description: string | null
   type: TaskType
-  dueDate: string
-  isCompleted: boolean
+  dueDate: string | null
   completedAt: string | null
-  leadId: string | null
-  lead: Pick<Lead, 'id' | 'name'> | null
-  dealId: string | null
-  deal: Pick<Deal, 'id' | 'title'> | null
-  assignedToId: string
-  assignedTo: Pick<User, 'id' | 'name' | 'avatarUrl'>
+  completionNotes: string | null
+  isAutomated: boolean
+  priority: TaskPriority
+  status: TaskStatus
   createdAt: string
   updatedAt: string
 }
 
+// ─── WHATSAPP ─────────────────────────────────────────────────────
+
 export interface WhatsappNumber {
   id: string
+  tenantId: string
   phone: string
   instanceName: string
   status: WhatsappStatus
@@ -201,8 +350,8 @@ export interface WhatsappConversation {
   remoteAvatar: string | null
   numberId: string
   number: Pick<WhatsappNumber, 'id' | 'phone' | 'status'>
-  leadId: string | null
-  lead: Pick<Lead, 'id' | 'name' | 'status'> | null
+  contactId: string | null
+  contact: Pick<Contact, 'id' | 'name' | 'phone'> | null
   lastMessage: string | null
   lastMessageAt: string | null
   unreadCount: number
@@ -226,14 +375,31 @@ export interface WhatsappMessage {
   createdAt: string
 }
 
+// ─── NOTIFICAÇÕES ─────────────────────────────────────────────────
+
+export interface Notification {
+  id: string
+  tenantId: string
+  userId: string
+  type: NotificationType
+  title: string
+  body: string
+  link: string | null
+  isRead: boolean
+  createdAt: string
+}
+
+// ─── TRANSCRICÕES ─────────────────────────────────────────────────
+
 export interface CallTranscription {
   id: string
+  tenantId: string
   title: string
   audioUrl: string | null
   transcript: string | null
   duration: number | null
-  leadId: string | null
-  dealId: string | null
+  contactId: string | null
+  opportunityId: string | null
   analysis: CallAnalysis | null
   status: TranscriptionStatus
   uploadedById: string
@@ -250,125 +416,48 @@ export interface CallAnalysis {
   justificativa_score: string
 }
 
-export interface Notification {
-  id: string
-  userId: string
-  type: NotificationType
-  title: string
-  body: string
-  link: string | null
-  isRead: boolean
-  createdAt: string
-}
+// ─── DASHBOARD ────────────────────────────────────────────────────
 
 export interface DashboardKPIs {
-  leadsThisMonth: number
-  leadsGoal: number
-  leadsAttainment: number
-  callsThisMonth: number
-  contractsThisMonth: number
-  contractsGoal: number
-  totalCost: number
-  cplAverage: number
-  cacAverage: number
-  conversionRate: number
+  openOpportunities: number
+  wonThisMonth: number
+  revenueWon: number
+  lostThisMonth: number
+  newContacts: number
+  winRate: number
 }
 
-export interface ChannelPerformance {
-  channelId: string
-  channelName: string
-  leadsGenerated: number
-  leadsGoal: number
-  attainment: number
-  cost: number
-  cpl: number
-  delta: number
+export interface PipelineStageSummary {
+  stageId: string
+  stageName: string
+  color: string
+  count: number
 }
 
-export interface MonthlyTrend {
-  month: string
-  leads: number
-  contracts: number
-  cost: number
-}
-
-export interface TeamPerformance {
-  userId: string
-  userName: string
-  leadsCreated: number
-  dealsCreated: number
-  tasksCompleted: number
-  callsMade: number
+export interface PipelineSummary {
+  pipelineId: string
+  pipelineName: string
+  openCount: number
+  stages: PipelineStageSummary[]
 }
 
 export interface DashboardSummary {
-  period: { month: number; year: number }
   kpis: DashboardKPIs
-  channelPerformance: ChannelPerformance[]
-  monthlyTrend: MonthlyTrend[]
-  teamPerformance: TeamPerformance[]
   recentActivities: Activity[]
   upcomingTasks: Task[]
+  pipelineSummary: PipelineSummary[]
 }
+
+// ─── RESPOSTAS PAGINADAS ──────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
   data: T[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    pages: number
-  }
+  total: number
+  page: number
+  limit: number
 }
 
 export interface ApiError {
   error: string
   details?: unknown
-}
-
-// ─── PERSONALIZAÇÃO ──────────────────────────────────────────────
-
-export type CustomFieldType = 'TEXT' | 'NUMBER' | 'SELECT' | 'MULTI_SELECT' | 'DATE' | 'BOOLEAN' | 'URL'
-export type GoalPeriod = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL'
-
-export interface CustomFieldOption {
-  label: string
-  value: string
-}
-
-export interface CustomFieldDefinition {
-  id: string
-  name: string
-  label: string
-  type: CustomFieldType
-  entity: string
-  options: CustomFieldOption[] | null
-  required: boolean
-  position: number
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-export interface DashboardWidget {
-  id: string
-  type: 'kpi' | 'chart' | 'table' | 'list'
-  label: string
-  enabled: boolean
-  position: number
-}
-
-export interface Goal {
-  id: string
-  name: string
-  metric: string
-  target: number
-  period: GoalPeriod
-  month: number | null
-  year: number
-  channelId: string | null
-  channel: Pick<Channel, 'id' | 'name'> | null
-  createdById: string
-  createdAt: string
-  updatedAt: string
 }

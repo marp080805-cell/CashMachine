@@ -5,69 +5,87 @@ import { prisma } from '../../lib/prisma'
 const createCompanySchema = z.object({
   name: z.string().min(1),
   cnpj: z.string().optional(),
-  website: z.string().url().optional(),
   segment: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
+  website: z.string().optional(),
+  address: z.string().optional(),
+  notes: z.string().optional(),
 })
 
 export default async function companiesRoutes(app: FastifyInstance) {
-  app.get(
-    '/companies',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const { search } = request.query as { search?: string }
+  app.get('/companies', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { tenantId } = request.user as { tenantId: string }
+    const { search, page = 1, limit = 20 } = request.query as any
 
-      const companies = await prisma.company.findMany({
-        where: search
-          ? { name: { contains: search, mode: 'insensitive' } }
-          : undefined,
+    const where = {
+      tenantId,
+      ...(search && { name: { contains: search, mode: 'insensitive' as const } }),
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.company.findMany({
+        where,
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
         orderBy: { name: 'asc' },
-        take: 50,
-      })
+        include: {
+          _count: { select: { contacts: true, opportunities: true } },
+        },
+      }),
+      prisma.company.count({ where }),
+    ])
 
-      return reply.send(companies)
-    }
-  )
+    return reply.send({ data, total, page: Number(page), limit: Number(limit) })
+  })
 
-  app.get(
-    '/companies/:id',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      const company = await prisma.company.findUniqueOrThrow({ where: { id } })
-      return reply.send(company)
-    }
-  )
+  app.get('/companies/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
 
-  app.post(
-    '/companies',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const input = createCompanySchema.parse(request.body)
-      const company = await prisma.company.create({ data: input })
-      return reply.status(201).send(company)
-    }
-  )
+    const company = await prisma.company.findFirstOrThrow({
+      where: { id, tenantId },
+      include: {
+        contacts: {
+          select: { id: true, name: true, email: true, phone: true },
+          take: 20,
+        },
+        opportunities: {
+          select: {
+            id: true, title: true, status: true, value: true,
+            stage: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+      },
+    })
 
-  app.patch(
-    '/companies/:id',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      const input = createCompanySchema.partial().parse(request.body)
-      const company = await prisma.company.update({ where: { id }, data: input })
-      return reply.send(company)
-    }
-  )
+    return reply.send(company)
+  })
 
-  app.delete(
-    '/companies/:id',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      await prisma.company.delete({ where: { id } })
-      return reply.status(204).send()
-    }
-  )
+  app.post('/companies', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const input = createCompanySchema.parse(request.body)
+    const { tenantId } = request.user as { tenantId: string }
+
+    const company = await prisma.company.create({ data: { ...input, tenantId } })
+    return reply.status(201).send(company)
+  })
+
+  app.patch('/companies/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    const input = createCompanySchema.partial().parse(request.body)
+
+    await prisma.company.findFirstOrThrow({ where: { id, tenantId } })
+    const company = await prisma.company.update({ where: { id }, data: input })
+    return reply.send(company)
+  })
+
+  app.delete('/companies/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.company.findFirstOrThrow({ where: { id, tenantId } })
+    await prisma.company.delete({ where: { id } })
+    return reply.send({ success: true })
+  })
 }

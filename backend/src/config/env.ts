@@ -12,8 +12,6 @@ const envSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   API_PORT: z.coerce.number().default(3011),
   API_URL: z.string().default('http://localhost:3011'),
-  // Public URL for webhook registration with Evolution API (must be internet-accessible)
-  // Default: same as API_URL. Override with e.g. https://cashmind.zi-ai.site/api
   WEBHOOK_BASE_URL: z.string().optional(),
   EVOLUTION_API_URL: z.string().default('http://localhost:8080'),
   EVOLUTION_API_KEY: z.string().default(''),
@@ -23,6 +21,9 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default('CashMind <noreply@cashmind.com>'),
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Tenant inicial criado automaticamente no boot
+  ADMIN_TENANT_NAME: z.string().default('CashMind'),
+  ADMIN_TENANT_SLUG: z.string().default('cashmind'),
   ADMIN_NAME: z.string().default('Admin'),
   ADMIN_EMAIL: z.string().email().default('admin@cashmind.com'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin@123'),

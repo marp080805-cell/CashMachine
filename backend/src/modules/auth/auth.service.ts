@@ -25,9 +25,18 @@ export async function loginUser(
   app: FastifyInstance,
   input: LoginInput
 ): Promise<{ accessToken: string; refreshToken: string; user: object }> {
-  const user = await prisma.user.findUnique({ where: { email: input.email } })
+  // Buscar tenant pelo slug
+  const tenant = await prisma.tenant.findUnique({ where: { slug: input.tenantSlug } })
+  if (!tenant || !tenant.isActive) {
+    throw new Error('Invalid credentials')
+  }
 
-  if (!user || !user.isActive) {
+  // Buscar usuário dentro do tenant
+  const user = await prisma.user.findFirst({
+    where: { tenantId: tenant.id, email: input.email, isActive: true },
+  })
+
+  if (!user) {
     throw new Error('Invalid credentials')
   }
 
@@ -36,7 +45,10 @@ export async function loginUser(
     throw new Error('Invalid credentials')
   }
 
-  const payload = { id: user.id, email: user.email, role: user.role }
+  // Atualizar lastLoginAt
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+
+  const payload = { id: user.id, email: user.email, role: user.role, tenantId: tenant.id }
   const accessToken = app.jwt.sign(payload)
 
   const refreshToken = uuidv4()
@@ -54,6 +66,9 @@ export async function loginUser(
       name: user.name,
       role: user.role,
       avatarUrl: user.avatarUrl,
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      tenantName: tenant.name,
       permissions,
     },
   }
@@ -73,7 +88,7 @@ export async function refreshAccessToken(
     throw new Error('User not found or inactive')
   }
 
-  const payload = { id: user.id, email: user.email, role: user.role }
+  const payload = { id: user.id, email: user.email, role: user.role, tenantId: user.tenantId }
   const accessToken = app.jwt.sign(payload)
 
   return { accessToken }
@@ -83,17 +98,21 @@ export async function logoutUser(refreshToken: string): Promise<void> {
   await redis.del(`${REFRESH_TOKEN_PREFIX}${refreshToken}`)
 }
 
-export async function inviteUser(input: InviteInput, invitedById: string): Promise<void> {
-  const existing = await prisma.user.findUnique({ where: { email: input.email } })
+export async function inviteUser(input: InviteInput, invitedById: string, tenantId: string): Promise<void> {
+  const existing = await prisma.user.findFirst({ where: { email: input.email, tenantId } })
   if (existing) {
     throw new Error('Email already registered')
   }
+
+  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } })
 
   const inviteToken = uuidv4()
   await redis.setex(`${INVITE_TOKEN_PREFIX}${inviteToken}`, 86400 * 7, JSON.stringify({
     email: input.email,
     name: input.name,
     role: input.role,
+    tenantId,
+    tenantSlug: tenant.slug,
     invitedById,
   }))
 
@@ -101,10 +120,10 @@ export async function inviteUser(input: InviteInput, invitedById: string): Promi
 
   await sendEmail({
     to: input.email,
-    subject: 'Você foi convidado para o CashMind',
+    subject: `Convite para ${tenant.name}`,
     html: `
       <h2>Olá, ${input.name}!</h2>
-      <p>Você foi convidado para acessar o CashMind como <strong>${input.role}</strong>.</p>
+      <p>Você foi convidado para acessar o <strong>${tenant.name}</strong> como <strong>${input.role}</strong>.</p>
       <p><a href="${inviteUrl}">Clique aqui para aceitar o convite</a></p>
       <p>Este link expira em 7 dias.</p>
     `,
@@ -117,18 +136,14 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<void> {
     throw new Error('Invalid or expired invite token')
   }
 
-  const { email, name, role } = JSON.parse(data) as { email: string; name: string; role: UserRole; invitedById: string }
+  const { email, name, role, tenantId } = JSON.parse(data) as {
+    email: string; name: string; role: UserRole; tenantId: string; invitedById: string
+  }
 
   const passwordHash = await bcrypt.hash(input.password, 12)
 
   await prisma.user.create({
-    data: {
-      email,
-      name,
-      role,
-      passwordHash,
-      isActive: true,
-    },
+    data: { email, name, role, passwordHash, isActive: true, tenantId },
   })
 
   await redis.del(`${INVITE_TOKEN_PREFIX}${input.token}`)
@@ -138,13 +153,9 @@ export async function getMe(userId: string): Promise<object> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      avatarUrl: true,
-      isActive: true,
-      teamId: true,
+      id: true, email: true, name: true, role: true,
+      avatarUrl: true, isActive: true, tenantId: true,
+      tenant: { select: { id: true, name: true, slug: true, plan: true } },
     },
   })
 
