@@ -17,6 +17,11 @@ const createDealSchema = z.object({
   assignedToId: z.string().min(1),
 })
 
+const updateDealSchema = createDealSchema.partial().extend({
+  status: z.enum(['OPEN', 'WON', 'LOST', 'FROZEN']).optional(),
+  lossReason: z.string().optional(),
+})
+
 const listDealsSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
@@ -157,7 +162,7 @@ export default async function dealsRoutes(app: FastifyInstance) {
     { preHandler: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      const input = createDealSchema.partial().parse(request.body)
+      const input = updateDealSchema.parse(request.body)
       const { customFields, ...dealData } = input
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const deal = await prisma.deal.update({

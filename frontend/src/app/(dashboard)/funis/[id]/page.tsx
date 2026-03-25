@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Settings, Plus, Loader2, Trash2, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Settings, Plus, Loader2, Trash2, X, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -22,6 +23,8 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle
 } from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 type FunnelWithDeals = Omit<Funnel, 'stages'> & {
   stages: Array<FunnelStage & { deals: Deal[] }>
@@ -58,6 +61,18 @@ export default function FunnelKanbanPage() {
     queryFn: () =>
       api.get<{ leads: Lead[] }>(`/leads?limit=20${leadSearch ? `&search=${encodeURIComponent(leadSearch)}` : ''}`),
     enabled: dealModalOpen,
+  })
+
+  const { data: lostDeals } = useQuery({
+    queryKey: ['deals-lost', id],
+    queryFn: () => api.get<{ deals: Deal[] }>(`/deals?funnelId=${id}&status=LOST&limit=100`),
+    enabled: !!id,
+  })
+
+  const { data: wonDeals } = useQuery({
+    queryKey: ['deals-won', id],
+    queryFn: () => api.get<{ deals: Deal[] }>(`/deals?funnelId=${id}&status=WON&limit=100`),
+    enabled: !!id,
   })
 
   const addStageMutation = useMutation({
@@ -100,6 +115,17 @@ export default function FunnelKanbanPage() {
     },
   })
 
+  const reopenDealMutation = useMutation({
+    mutationFn: (dealId: string) => api.patch(`/deals/${dealId}`, { status: 'OPEN' }),
+    onSuccess: () => {
+      toast.success('Deal reaberto!')
+      void queryClient.invalidateQueries({ queryKey: ['funnel', id] })
+      void queryClient.invalidateQueries({ queryKey: ['deals-lost', id] })
+      void queryClient.invalidateQueries({ queryKey: ['deals-won', id] })
+    },
+    onError: () => toast.error('Erro ao reabrir deal'),
+  })
+
   function openNewDeal(stageId?: string) {
     setDefaultStageId(stageId ?? funnel?.stages[0]?.id ?? '')
     setDealForm((f) => ({ ...f, stageId: stageId ?? funnel?.stages[0]?.id ?? '' }))
@@ -138,13 +164,20 @@ export default function FunnelKanbanPage() {
 
   if (!funnel) return null
 
+  const totalOpenValue = funnel.stages.reduce(
+    (sum, s) => sum + s.deals.reduce((acc, d) => acc + (d.value ?? 0), 0),
+    0
+  )
+  const totalOpenDeals = funnel.stages.reduce((sum, s) => sum + s.deals.length, 0)
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">{funnel.name}</h2>
           <p className="text-sm text-muted-foreground">
-            {funnel.stages.length} etapas · {funnel.stages.reduce((sum, s) => sum + s.deals.length, 0)} deals em aberto
+            {funnel.stages.length} etapas · {totalOpenDeals} deals em aberto
+            {totalOpenValue > 0 && ` · ${formatCurrency(totalOpenValue)} no pipeline`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -159,7 +192,48 @@ export default function FunnelKanbanPage() {
         </div>
       </div>
 
-      <KanbanBoard funnel={funnel} onNewDeal={openNewDeal} />
+      <Tabs defaultValue="kanban">
+        <TabsList className="mb-4">
+          <TabsTrigger value="kanban">
+            Kanban
+            <Badge variant="secondary" className="ml-2 text-xs">{totalOpenDeals}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="lost">
+            Perdidos
+            {(lostDeals?.deals.length ?? 0) > 0 && (
+              <Badge variant="danger" className="ml-2 text-xs">{lostDeals!.deals.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="won">
+            Ganhos
+            {(wonDeals?.deals.length ?? 0) > 0 && (
+              <Badge variant="success" className="ml-2 text-xs">{wonDeals!.deals.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="kanban">
+          <KanbanBoard funnel={funnel} onNewDeal={openNewDeal} />
+        </TabsContent>
+
+        <TabsContent value="lost">
+          <ClosedDealsTable
+            deals={lostDeals?.deals ?? []}
+            emptyMessage="Nenhum deal perdido neste funil"
+            onReopen={(dealId) => reopenDealMutation.mutate(dealId)}
+            reopenPending={reopenDealMutation.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="won">
+          <ClosedDealsTable
+            deals={wonDeals?.deals ?? []}
+            emptyMessage="Nenhum deal ganho neste funil"
+            onReopen={(dealId) => reopenDealMutation.mutate(dealId)}
+            reopenPending={reopenDealMutation.isPending}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Stage Management Sheet */}
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -344,6 +418,78 @@ export default function FunnelKanbanPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+interface ClosedDealsTableProps {
+  deals: Deal[]
+  emptyMessage: string
+  onReopen: (dealId: string) => void
+  reopenPending: boolean
+}
+
+function ClosedDealsTable({ deals, emptyMessage, onReopen, reopenPending }: ClosedDealsTableProps) {
+  if (deals.length === 0) {
+    return (
+      <div className="rounded-lg border bg-card p-12 text-center">
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  const total = deals.reduce((sum, d) => sum + (d.value ?? 0), 0)
+
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      {total > 0 && (
+        <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">{deals.length} deals</span>
+          <span className="text-sm font-semibold">{formatCurrency(total)}</span>
+        </div>
+      )}
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-xs text-muted-foreground">
+            <th className="text-left px-4 py-2.5 font-medium">Título</th>
+            <th className="text-left px-4 py-2.5 font-medium">Valor</th>
+            <th className="text-left px-4 py-2.5 font-medium">Lead</th>
+            <th className="text-left px-4 py-2.5 font-medium">Responsável</th>
+            <th className="text-left px-4 py-2.5 font-medium">Motivo</th>
+            <th className="text-left px-4 py-2.5 font-medium">Data</th>
+            <th className="px-4 py-2.5" />
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {deals.map((deal) => (
+            <tr key={deal.id} className="hover:bg-muted/30">
+              <td className="px-4 py-3 font-medium">{deal.title}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {deal.value ? formatCurrency(deal.value) : '—'}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">{deal.lead?.name ?? '—'}</td>
+              <td className="px-4 py-3 text-muted-foreground">{deal.assignedTo.name}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {deal.lossReason && deal.lossReason !== 'Não especificado' ? deal.lossReason : '—'}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDate(deal.updatedAt)}</td>
+              <td className="px-4 py-3">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  disabled={reopenPending}
+                  onClick={() => onReopen(deal.id)}
+                  title="Reabrir deal"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reabrir
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

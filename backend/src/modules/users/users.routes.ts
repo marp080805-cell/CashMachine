@@ -8,7 +8,7 @@ import type { UserRole } from '@prisma/client'
 export default async function usersRoutes(app: FastifyInstance) {
   app.get(
     '/users',
-    { preHandler: [app.authenticate, requirePermission('*')] },
+    { preHandler: [app.authenticate] },
     async (request, reply) => {
       const users = await prisma.user.findMany({
         select: {

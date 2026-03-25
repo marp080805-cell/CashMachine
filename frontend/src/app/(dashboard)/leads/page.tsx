@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, Upload, X, Loader2 } from 'lucide-react'
+import { Plus, Search, Upload, X, Loader2, Filter } from 'lucide-react'
 import { formatDate, formatPhone } from '@/lib/utils'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -71,16 +71,28 @@ const defaultForm: LeadForm = {
 export default function LeadsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [channelFilter, setChannelFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<LeadForm>(defaultForm)
   const queryClient = useQueryClient()
 
+  const hasFilters = !!statusFilter || !!channelFilter
+
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', page, search],
-    queryFn: () =>
-      api.get<{ leads: Lead[]; pagination: { page: number; pages: number; total: number; limit: number } }>(
-        `/leads?page=${page}&limit=20${search ? `&search=${encodeURIComponent(search)}` : ''}`
-      ),
+    queryKey: ['leads', page, search, statusFilter, channelFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '20',
+      })
+      if (search) params.set('search', search)
+      if (statusFilter) params.set('status', statusFilter)
+      if (channelFilter) params.set('channelId', channelFilter)
+      return api.get<{ leads: Lead[]; pagination: { page: number; pages: number; total: number; limit: number } }>(
+        `/leads?${params.toString()}`
+      )
+    },
   })
 
   const { data: channelsData } = useQuery({
@@ -141,6 +153,12 @@ export default function LeadsPage() {
     }))
   }
 
+  function clearFilters() {
+    setStatusFilter('')
+    setChannelFilter('')
+    setPage(1)
+  }
+
   const columns = [
     {
       key: 'name',
@@ -192,8 +210,8 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome, email ou telefone..."
@@ -202,7 +220,48 @@ export default function LeadsPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Status filter */}
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => { setStatusFilter(v === 'ALL' ? '' : v); setPage(1) }}
+          >
+            <SelectTrigger className="h-9 w-[160px]">
+              <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Todos os status</SelectItem>
+              {Object.entries(statusLabels).map(([val, lbl]) => (
+                <SelectItem key={val} value={val}>{lbl}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Channel filter */}
+          <Select
+            value={channelFilter}
+            onValueChange={(v) => { setChannelFilter(v === 'ALL' ? '' : v); setPage(1) }}
+          >
+            <SelectTrigger className="h-9 w-[160px]">
+              <SelectValue placeholder="Canal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Todos os canais</SelectItem>
+              {(channelsData?.channels ?? []).map((ch) => (
+                <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Clear filters */}
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+              <X className="h-3.5 w-3.5 mr-1" />
+              Limpar
+            </Button>
+          )}
+
           <Button variant="outline" size="sm">
             <Upload className="h-4 w-4 mr-2" />
             Importar CSV

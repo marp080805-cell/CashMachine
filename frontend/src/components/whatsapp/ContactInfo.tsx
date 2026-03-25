@@ -1,16 +1,54 @@
 'use client'
 
-import { ExternalLink } from 'lucide-react'
+import { useState } from 'react'
+import { ExternalLink, Link as LinkIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import type { WhatsappConversation } from '@/types'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import type { WhatsappConversation, Lead } from '@/types'
 import Link from 'next/link'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api } from '@/lib/api'
+import { toast } from 'sonner'
 
 interface ContactInfoProps {
   conversation: WhatsappConversation
 }
 
 export function ContactInfo({ conversation }: ContactInfoProps) {
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const queryClient = useQueryClient()
+
+  const { data: leadsData } = useQuery({
+    queryKey: ['leads-link-search', searchQuery],
+    queryFn: () =>
+      api.get<{ leads: Lead[] }>(
+        `/leads?limit=10${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+      ),
+    enabled: showLinkModal,
+  })
+
+  const linkMutation = useMutation({
+    mutationFn: (leadId: string) =>
+      api.post(`/whatsapp/conversations/${conversation.id}/link-lead`, { leadId }),
+    onSuccess: () => {
+      toast.success('Lead vinculado!')
+      setShowLinkModal(false)
+      setSearchQuery('')
+      void queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] })
+    },
+    onError: () => toast.error('Erro ao vincular lead'),
+  })
+
+  function handleClose(open: boolean) {
+    setShowLinkModal(open)
+    if (!open) setSearchQuery('')
+  }
+
   return (
     <div className="w-72 border-l bg-card p-4 overflow-y-auto">
       <div className="text-center mb-6">
@@ -39,11 +77,65 @@ export function ContactInfo({ conversation }: ContactInfoProps) {
       ) : (
         <div className="rounded-lg border border-dashed p-4 text-center">
           <p className="text-xs text-muted-foreground mb-3">Nenhum lead vinculado</p>
-          <Button size="sm" variant="outline" className="text-xs">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs"
+            onClick={() => setShowLinkModal(true)}
+          >
+            <LinkIcon className="h-3 w-3 mr-1" />
             Vincular Lead
           </Button>
         </div>
       )}
+
+      <Dialog open={showLinkModal} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Vincular Lead à Conversa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <Input
+              placeholder="Buscar lead por nome ou telefone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+            <div className="rounded-md border divide-y max-h-64 overflow-y-auto">
+              {(leadsData?.leads ?? []).length === 0 ? (
+                <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  {searchQuery ? 'Nenhum lead encontrado' : 'Digite para buscar leads...'}
+                </p>
+              ) : (
+                (leadsData?.leads ?? []).map((lead) => (
+                  <button
+                    key={lead.id}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted flex items-center justify-between gap-2 disabled:opacity-50"
+                    onClick={() => linkMutation.mutate(lead.id)}
+                    disabled={linkMutation.isPending}
+                  >
+                    <div className="min-w-0">
+                      <span className="font-medium">{lead.name}</span>
+                      {lead.company && (
+                        <span className="text-muted-foreground ml-2 text-xs truncate">
+                          — {lead.company.name}
+                        </span>
+                      )}
+                    </div>
+                    {linkMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                    ) : (
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {lead.status}
+                      </Badge>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
