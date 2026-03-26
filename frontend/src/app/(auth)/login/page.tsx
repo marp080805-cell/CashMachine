@@ -15,7 +15,6 @@ import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types'
 
 const loginSchema = z.object({
-  tenantSlug: z.string().min(1, 'Workspace obrigatório'),
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Senha obrigatória'),
 })
@@ -39,7 +38,6 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { tenantSlug: 'cashmind' },
   })
 
   const onSubmit = async (data: LoginForm) => {
@@ -49,7 +47,7 @@ export default function LoginPage() {
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, tenantSlug: 'seuresultado' }),
       })
 
       if (!response.ok) {
@@ -102,20 +100,6 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="tenantSlug">Workspace</Label>
-            <Input
-              id="tenantSlug"
-              type="text"
-              placeholder="cashmind"
-              {...register('tenantSlug')}
-              disabled={isLoading}
-            />
-            {errors.tenantSlug && (
-              <p className="text-xs text-red-500">{errors.tenantSlug.message}</p>
-            )}
-          </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
