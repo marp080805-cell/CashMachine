@@ -173,8 +173,8 @@ export default function TarefasPage() {
         <div className="space-y-2">
           {tasks?.map((task) => {
             const Icon = taskTypeIcons[task.type] ?? FileText
-            const overdueTask = isOverdue(task.dueDate)
-            const todayTask = isTaskToday(task.dueDate)
+            const overdueTask = task.dueDate ? isOverdue(task.dueDate) : false
+            const todayTask = task.dueDate ? isTaskToday(task.dueDate) : false
 
             return (
               <div
