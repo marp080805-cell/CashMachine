@@ -174,8 +174,8 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
           entityId: input.entityId,
         },
       },
-      create: { ...inputRest, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, updatedById: userId },
-      update: { ...inputRest, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, updatedById: userId },
+      create: { ...inputRest, valueJson: valueJson === null ? Prisma.DbNull : valueJson as Prisma.InputJsonValue | undefined, updatedById: userId },
+      update: { ...inputRest, valueJson: valueJson === null ? Prisma.DbNull : valueJson as Prisma.InputJsonValue | undefined, updatedById: userId },
     })
 
     return reply.send(value)
@@ -206,8 +206,8 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
               entityId,
             },
           },
-          create: { ...v, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, entityType, entityId, updatedById: userId },
-          update: { ...v, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, entityType, entityId, updatedById: userId },
+          create: { ...v, valueJson: valueJson === null ? Prisma.DbNull : valueJson as Prisma.InputJsonValue | undefined, entityType, entityId, updatedById: userId },
+          update: { ...v, valueJson: valueJson === null ? Prisma.DbNull : valueJson as Prisma.InputJsonValue | undefined, entityType, entityId, updatedById: userId },
         })
       )
     )
