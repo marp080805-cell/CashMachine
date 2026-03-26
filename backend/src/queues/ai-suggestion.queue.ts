@@ -9,10 +9,10 @@ export function startAiSuggestionWorker(io: { to: (room: string) => { emit: (eve
   const worker = new Worker(
     'ai-suggestions',
     async (job) => {
-      const { conversationId, incomingMessage, leadId } = job.data as {
+      const { conversationId, incomingMessage, contactId } = job.data as {
         conversationId: string
         incomingMessage: string
-        leadId?: string
+        contactId?: string
       }
 
       const conversation = await prisma.whatsappConversation.findUnique({
@@ -25,13 +25,13 @@ export function startAiSuggestionWorker(io: { to: (room: string) => { emit: (eve
       if (!conversation) return
 
       let leadContext: string | null = null
-      if (leadId) {
-        const lead = await prisma.lead.findUnique({
-          where: { id: leadId },
-          select: { name: true, status: true, position: true, company: { select: { name: true } } },
+      if (contactId) {
+        const lead = await prisma.lead.findFirst({
+          where: { contactId },
+          select: { status: true, score: true, contact: { select: { name: true } } },
         })
         if (lead) {
-          leadContext = `Nome: ${lead.name}, Empresa: ${lead.company?.name ?? 'N/A'}, Cargo: ${lead.position ?? 'N/A'}, Status: ${lead.status}`
+          leadContext = `Nome: ${lead.contact?.name ?? 'N/A'}, Status: ${lead.status}, Score: ${lead.score}`
         }
       }
 

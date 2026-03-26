@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 
 const createOpportunitySchema = z.object({
@@ -201,7 +202,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
         tenantId,
         type: 'STAGE_CHANGED',
         description: `Movido para etapa`,
-        metadata: { fromStageId: opportunity.stageId, toStageId: stageId },
+        metadata: { fromStageId: opportunity.stageId, toStageId: stageId } as Prisma.InputJsonValue,
         opportunityId: id,
         userId,
       },

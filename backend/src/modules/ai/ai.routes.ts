@@ -36,7 +36,7 @@ export default async function aiRoutes(app: FastifyInstance) {
     '/transcriptions',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const user = request.user as { id: string }
+      const user = request.user as { id: string; tenantId: string }
 
       const data = await request.file()
 
@@ -80,6 +80,7 @@ export default async function aiRoutes(app: FastifyInstance) {
           title,
           audioUrl,
           uploadedById: user.id,
+          tenantId: user.tenantId,
           status: 'PENDING',
         },
       })
@@ -88,7 +89,7 @@ export default async function aiRoutes(app: FastifyInstance) {
         await transcriptionQueue.add('transcribe', {
           transcriptionId: transcription.id,
           audioUrl,
-          dealId: null,
+          opportunityId: null,
         })
       }
 
@@ -106,7 +107,7 @@ export default async function aiRoutes(app: FastifyInstance) {
         where: { id: conversationId },
         include: {
           messages: { orderBy: { timestamp: 'desc' }, take: 10 },
-          lead: true,
+          contact: true,
         },
       })
 
@@ -117,12 +118,12 @@ export default async function aiRoutes(app: FastifyInstance) {
 
       const { generateWhatsappSuggestion } = await import('./ai.service')
       const suggestion = await generateWhatsappSuggestion(
-        conversation.messages.reverse().map((m) => ({
+        conversation.messages.reverse().map((m: { content: string | null; fromMe: boolean; timestamp: Date }) => ({
           content: m.content ?? '',
           fromMe: m.fromMe,
           timestamp: m.timestamp.toISOString(),
         })),
-        conversation.lead ? `Nome: ${conversation.lead.name}, Status: ${conversation.lead.status}` : null,
+        conversation.contact ? `Nome: ${conversation.contact.name}` : null,
         lastMessage.content
       )
 
