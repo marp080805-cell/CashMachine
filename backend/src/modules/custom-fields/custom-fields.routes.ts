@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { requirePermission } from '../../middleware/rbac'
 
@@ -164,6 +165,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
       valueJson: z.unknown().nullable().optional(),
     }).parse(request.body)
 
+    const { valueJson, ...inputRest } = input
     const value = await prisma.customFieldValue.upsert({
       where: {
         customFieldId_entityType_entityId: {
@@ -172,8 +174,8 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
           entityId: input.entityId,
         },
       },
-      create: { ...input, updatedById: userId },
-      update: { ...input, updatedById: userId },
+      create: { ...inputRest, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, updatedById: userId },
+      update: { ...inputRest, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, updatedById: userId },
     })
 
     return reply.send(value)
@@ -195,7 +197,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
     }).parse(request.body)
 
     const results = await Promise.all(
-      values.map((v) =>
+      values.map(({ valueJson, ...v }) =>
         prisma.customFieldValue.upsert({
           where: {
             customFieldId_entityType_entityId: {
@@ -204,8 +206,8 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
               entityId,
             },
           },
-          create: { ...v, entityType, entityId, updatedById: userId },
-          update: { ...v, entityType, entityId, updatedById: userId },
+          create: { ...v, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, entityType, entityId, updatedById: userId },
+          update: { ...v, valueJson: valueJson as Prisma.InputJsonValue | null | undefined, entityType, entityId, updatedById: userId },
         })
       )
     )

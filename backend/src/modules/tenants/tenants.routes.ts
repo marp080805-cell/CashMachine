@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { requirePermission } from '../../middleware/rbac'
 
@@ -92,14 +93,14 @@ export default async function tenantsRoutes(app: FastifyInstance) {
     { preHandler: [app.authenticate, requirePermission('admin:tenant')] },
     async (request, reply) => {
       const user = request.user as { tenantId: string }
-      const input = z.object({
+      const { settings, ...rest } = z.object({
         name: z.string().min(1).optional(),
         settings: z.record(z.unknown()).optional(),
       }).parse(request.body)
 
       const tenant = await prisma.tenant.update({
         where: { id: user.tenantId },
-        data: input,
+        data: { ...rest, ...(settings !== undefined && { settings: settings as Prisma.InputJsonValue }) },
         select: { id: true, name: true, slug: true, plan: true, settings: true },
       })
       return reply.send(tenant)
