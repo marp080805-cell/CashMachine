@@ -27,10 +27,10 @@ const statusLabels: Record<string, string> = {
   DISQUALIFIED: 'Desqualificado',
 }
 
-const statusVariants: Record<string, 'default' | 'secondary' | 'success' | 'danger'> = {
+const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   NEW: 'secondary',
-  QUALIFIED: 'success',
-  DISQUALIFIED: 'danger',
+  QUALIFIED: 'default',
+  DISQUALIFIED: 'destructive',
 }
 
 export default function LeadDetailPage() {

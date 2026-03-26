@@ -204,13 +204,13 @@ export default function PipelineKanbanPage() {
           <TabsTrigger value="lost">
             Perdidos
             {(lostOpps?.data.length ?? 0) > 0 && (
-              <Badge variant="danger" className="ml-2 text-xs">{lostOpps!.data.length}</Badge>
+              <Badge variant="destructive" className="ml-2 text-xs">{lostOpps!.data.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="won">
             Ganhos
             {(wonOpps?.data.length ?? 0) > 0 && (
-              <Badge variant="success" className="ml-2 text-xs">{wonOpps!.data.length}</Badge>
+              <Badge variant="secondary" className="ml-2 text-xs">{wonOpps!.data.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>

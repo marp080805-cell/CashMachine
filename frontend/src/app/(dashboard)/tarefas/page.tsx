@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
-import type { Task, Lead, User } from '@/types'
+import type { Task, User } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,6 +28,7 @@ const taskTypeIcons: Record<string, React.ElementType> = {
   VISIT: Calendar,
   PROPOSAL: FileText,
   FOLLOW_UP: Phone,
+  FIRST_CONTACT: Phone,
   OTHER: FileText,
 }
 
@@ -35,9 +36,9 @@ const taskTypeLabels: Record<string, string> = {
   CALL: 'Ligação',
   EMAIL: 'Email',
   MEETING: 'Reunião',
-  VISIT: 'Visita',
-  PROPOSAL: 'Proposta',
+  FIRST_CONTACT: 'Primeiro Contato',
   FOLLOW_UP: 'Follow-up',
+  SEND_PROPOSAL: 'Enviar Proposta',
   OTHER: 'Outro',
 }
 
@@ -55,7 +56,6 @@ interface TaskForm {
   title: string
   type: string
   dueDate: string
-  leadId: string
   description: string
 }
 
@@ -63,7 +63,6 @@ const defaultForm: TaskForm = {
   title: '',
   type: 'CALL',
   dueDate: '',
-  leadId: '',
   description: '',
 }
 
@@ -71,20 +70,12 @@ export default function TarefasPage() {
   const [filter, setFilter] = useState<FilterTab>('today')
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<TaskForm>(defaultForm)
-  const [leadSearch, setLeadSearch] = useState('')
   const queryClient = useQueryClient()
   const { user } = useAuth()
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', filter],
     queryFn: () => api.get<Task[]>(`/tasks?filter=${filter}`),
-  })
-
-  const { data: leadsData } = useQuery({
-    queryKey: ['leads-search-tasks', leadSearch],
-    queryFn: () =>
-      api.get<{ leads: Lead[] }>(`/leads?limit=10${leadSearch ? `&search=${encodeURIComponent(leadSearch)}` : ''}`),
-    enabled: modalOpen,
   })
 
   const completeMutation = useMutation({
@@ -102,7 +93,6 @@ export default function TarefasPage() {
       toast.success('Tarefa criada!')
       setModalOpen(false)
       setForm(defaultForm)
-      setLeadSearch('')
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
     onError: () => toast.error('Erro ao criar tarefa'),
@@ -119,7 +109,6 @@ export default function TarefasPage() {
       type: form.type,
       dueDate: new Date(form.dueDate).toISOString(),
       assignedToId: user.id,
-      ...(form.leadId && { leadId: form.leadId }),
       ...(form.description && { description: form.description }),
     })
   }
@@ -173,6 +162,7 @@ export default function TarefasPage() {
         <div className="space-y-2">
           {tasks?.map((task) => {
             const Icon = taskTypeIcons[task.type] ?? FileText
+            const isCompleted = task.status === 'COMPLETED'
             const overdueTask = task.dueDate ? isOverdue(task.dueDate) : false
             const todayTask = task.dueDate ? isTaskToday(task.dueDate) : false
 
@@ -181,22 +171,22 @@ export default function TarefasPage() {
                 key={task.id}
                 className={cn(
                   'flex items-center gap-4 rounded-lg border bg-card p-4',
-                  task.isCompleted && 'opacity-60',
-                  overdueTask && !task.isCompleted && 'border-red-200',
-                  todayTask && !task.isCompleted && !overdueTask && 'border-amber-200'
+                  isCompleted && 'opacity-60',
+                  overdueTask && !isCompleted && 'border-red-200',
+                  todayTask && !isCompleted && !overdueTask && 'border-amber-200'
                 )}
               >
                 <button
-                  onClick={() => !task.isCompleted && completeMutation.mutate(task.id)}
-                  disabled={task.isCompleted || completeMutation.isPending}
+                  onClick={() => !isCompleted && completeMutation.mutate(task.id)}
+                  disabled={isCompleted || completeMutation.isPending}
                   className={cn(
                     'flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors',
-                    task.isCompleted
+                    isCompleted
                       ? 'border-primary bg-primary text-white'
                       : 'border-muted-foreground hover:border-primary'
                   )}
                 >
-                  {task.isCompleted && <CheckSquare className="h-3 w-3" />}
+                  {isCompleted && <CheckSquare className="h-3 w-3" />}
                 </button>
 
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -204,26 +194,31 @@ export default function TarefasPage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className={cn('text-sm font-medium', task.isCompleted && 'line-through')}>{task.title}</p>
+                  <p className={cn('text-sm font-medium', isCompleted && 'line-through')}>{task.title}</p>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                    {task.lead && (
-                      <Link href={`/leads/${task.lead.id}`} className="hover:underline text-primary">
-                        {task.lead.name}
+                    {task.contact && (
+                      <Link href={`/contatos/${task.contact.id}`} className="hover:underline text-primary">
+                        {task.contact.name}
                       </Link>
                     )}
-                    {task.deal && <span>{task.deal.title}</span>}
-                    <span>·</span>
-                    <span>{formatDateTime(task.dueDate)}</span>
+                    {task.opportunity && <span>{task.opportunity.title}</span>}
+                    {task.dueDate && (
+                      <>
+                        <span>·</span>
+                        <span>{formatDateTime(task.dueDate)}</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 <Badge
-                  variant={
-                    task.isCompleted ? 'success' : overdueTask ? 'danger' : todayTask ? 'warning' : 'secondary'
-                  }
-                  className="shrink-0"
+                  variant={isCompleted ? 'outline' : overdueTask ? 'destructive' : 'secondary'}
+                  className={cn(
+                    'shrink-0',
+                    todayTask && !isCompleted && !overdueTask && 'bg-amber-100 text-amber-700 border-amber-200'
+                  )}
                 >
-                  {task.isCompleted ? 'Concluída' : overdueTask ? 'Atrasada' : todayTask ? 'Hoje' : 'Futura'}
+                  {isCompleted ? 'Concluída' : overdueTask ? 'Atrasada' : todayTask ? 'Hoje' : 'Futura'}
                 </Badge>
               </div>
             )
@@ -232,7 +227,7 @@ export default function TarefasPage() {
       )}
 
       {/* Nova Tarefa Modal */}
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setLeadSearch('') } }}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setForm(defaultForm) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nova Tarefa</DialogTitle>
@@ -266,39 +261,6 @@ export default function TarefasPage() {
                   onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
                 />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Vincular a um Lead</Label>
-              <Input
-                placeholder="Buscar lead..."
-                value={leadSearch}
-                onChange={(e) => setLeadSearch(e.target.value)}
-              />
-              {form.leadId ? (
-                <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                  <span className="flex-1 font-medium">
-                    {leadsData?.leads.find((l) => l.id === form.leadId)?.name ?? 'Lead vinculado'}
-                  </span>
-                  <button type="button" onClick={() => { setForm((f) => ({ ...f, leadId: '' })); setLeadSearch('') }}
-                    className="text-muted-foreground hover:text-foreground text-xs">✕</button>
-                </div>
-              ) : leadSearch ? (
-                <div className="rounded border divide-y max-h-32 overflow-y-auto">
-                  {(leadsData?.leads ?? []).map((lead) => (
-                    <button
-                      key={lead.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                      onClick={() => { setForm((f) => ({ ...f, leadId: lead.id })); setLeadSearch('') }}
-                    >
-                      {lead.name}
-                    </button>
-                  ))}
-                  {leadsData?.leads.length === 0 && (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum lead encontrado</p>
-                  )}
-                </div>
-              ) : null}
             </div>
             <div className="space-y-1.5">
               <Label>Descrição</Label>

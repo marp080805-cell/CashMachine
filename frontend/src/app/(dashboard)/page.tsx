@@ -178,7 +178,7 @@ export default function DashboardPage() {
                             {task.dueDate && ` · ${formatDate(task.dueDate)}`}
                           </p>
                         </div>
-                        <Badge variant={overdue ? 'danger' : today ? 'warning' : 'secondary'}>
+                        <Badge variant={overdue ? 'destructive' : 'secondary'}>
                           {overdue ? 'Atrasada' : today ? 'Hoje' : 'Futura'}
                         </Badge>
                       </div>

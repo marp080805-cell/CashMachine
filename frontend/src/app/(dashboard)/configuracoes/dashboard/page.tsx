@@ -114,7 +114,7 @@ export default function DashboardConfigPage() {
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span>{enabledCount} de {widgets.length} blocos visíveis</span>
-        {dirty && <Badge variant="warning" className="text-xs">Alterações não salvas</Badge>}
+        {dirty && <Badge variant="outline" className="text-xs">Alterações não salvas</Badge>}
       </div>
 
       {isLoading ? (
