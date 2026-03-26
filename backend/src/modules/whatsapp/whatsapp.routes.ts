@@ -234,6 +234,53 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     return reply.send({ success: true })
   })
 
+  // Merge de conversas duplicadas (mesmo telefone, variantes 9/8-dígito BR)
+  app.post('/whatsapp/conversations/merge-duplicates', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { tenantId } = request.user as { tenantId: string }
+
+    const numberIds = await prisma.whatsappNumber.findMany({
+      where: { tenantId },
+      select: { id: true },
+    }).then((ns) => ns.map((n) => n.id))
+
+    const allConvs = await prisma.whatsappConversation.findMany({
+      where: { numberId: { in: numberIds } },
+      orderBy: [{ contactId: 'asc' }, { lastMessageAt: 'desc' }],
+    })
+
+    const merged: string[] = []
+
+    // Agrupa por numberId + sufixo de 8 dígitos
+    const groups = new Map<string, typeof allConvs>()
+    for (const conv of allConvs) {
+      const key = `${conv.numberId}:${conv.remotePhone.slice(-8)}`
+      const g = groups.get(key) ?? []
+      g.push(conv)
+      groups.set(key, g)
+    }
+
+    for (const group of groups.values()) {
+      if (group.length <= 1) continue
+      // canonical = primeiro com contactId, ou simplesmente o primeiro
+      const canonical = group.find((c) => c.contactId !== null) ?? group[0]!
+      const duplicates = group.filter((c) => c.id !== canonical.id)
+
+      for (const dup of duplicates) {
+        await prisma.whatsappMessage.updateMany({
+          where: { conversationId: dup.id },
+          data: { conversationId: canonical.id },
+        })
+        await prisma.notification.deleteMany({ where: { link: { contains: dup.id } } })
+        try {
+          await prisma.whatsappConversation.delete({ where: { id: dup.id } })
+          merged.push(dup.id)
+        } catch { /* ignore */ }
+      }
+    }
+
+    return reply.send({ merged: merged.length, ids: merged })
+  })
+
   // Vincular conversa a um Contact
   app.post('/whatsapp/conversations/:id/link-contact', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }

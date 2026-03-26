@@ -108,54 +108,75 @@ export async function handleIncomingWebhook(
   if (!whatsappNumber) return
 
   const remotePhone = parsed.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
+  const phoneVariants = getBrPhoneVariants(remotePhone)
 
-  // 1ª tentativa: lookup exato por remoteJid
-  let conversation = await prisma.whatsappConversation.findUnique({
+  // Lookup exato por remoteJid
+  let exactMatch = await prisma.whatsappConversation.findUnique({
     where: { numberId_remoteJid: { numberId: whatsappNumber.id, remoteJid: parsed.remoteJid } },
   })
 
-  // 2ª tentativa: variantes 9-dígito / 8-dígito (problema Evolution API BR)
-  if (!conversation) {
-    const phoneVariants = getBrPhoneVariants(remotePhone)
-    if (phoneVariants.length > 1) {
-      const found = await prisma.whatsappConversation.findFirst({
-        where: { numberId: whatsappNumber.id, remotePhone: { in: phoneVariants } },
-        orderBy: { lastMessageAt: 'desc' },
+  // Buscar TODAS as conversas para variantes deste telefone (inclui o exato e variantes BR)
+  const allVariantConvs = await prisma.whatsappConversation.findMany({
+    where: { numberId: whatsappNumber.id, remotePhone: { in: phoneVariants } },
+    orderBy: [
+      { contactId: 'asc' }, // conversas com contactId primeiro (null fica por último)
+      { lastMessageAt: 'desc' },
+    ],
+  })
+
+  // Conversa "principal": prefere a que tem contactId
+  const withContact = allVariantConvs.find((c) => c.contactId !== null)
+  const canonical = withContact ?? exactMatch ?? allVariantConvs[0] ?? null
+
+  let conversation = canonical
+
+  // Se temos duplicatas, fazer merge: mover mensagens das outras para a canonical e deletá-las
+  if (canonical && allVariantConvs.length > 1) {
+    const duplicates = allVariantConvs.filter((c) => c.id !== canonical.id)
+    for (const dup of duplicates) {
+      await prisma.whatsappMessage.updateMany({
+        where: { conversationId: dup.id },
+        data: { conversationId: canonical.id },
       })
-      if (found) {
-        // Atualiza o remoteJid para o formato atual para matches futuros
-        conversation = await prisma.whatsappConversation.update({
-          where: { id: found.id },
-          data: {
-            remoteJid: parsed.remoteJid,
-            remotePhone,
-            remoteName: parsed.remoteName ?? found.remoteName,
-          },
-        })
+      // Deletar notificações da duplicata antes de deletar a conversa
+      await prisma.notification.deleteMany({
+        where: { link: { contains: dup.id } },
+      })
+      try {
+        await prisma.whatsappConversation.delete({ where: { id: dup.id } })
+      } catch {
+        // ignora caso já deletada por race condition
       }
     }
   }
 
-  if (!conversation) {
-    // Buscar Contact pelo telefone (variantes + sufixo)
-    const phoneVariants = getBrPhoneVariants(remotePhone)
-    let contactMatch = await prisma.contact.findFirst({
-      where: { tenantId: whatsappNumber.tenantId, phone: { in: phoneVariants } },
+  // Garantir que a canonical usa o remoteJid atual (para match futuro)
+  if (conversation) {
+    conversation = await prisma.whatsappConversation.update({
+      where: { id: conversation.id },
+      data: {
+        remoteJid: parsed.remoteJid,
+        remotePhone,
+        remoteName: parsed.remoteName ?? conversation.remoteName,
+        lastMessage: parsed.content,
+        lastMessageAt: parsed.timestamp,
+        unreadCount: parsed.fromMe ? conversation.unreadCount : conversation.unreadCount + 1,
+      },
     })
-
-    if (!contactMatch) {
-      contactMatch = await prisma.contact.findFirst({
-        where: {
-          tenantId: whatsappNumber.tenantId,
-          phone: { contains: remotePhone.slice(-8) },
-        },
-      })
-    }
+  } else {
+    // Nenhuma conversa existente — buscar ou criar contato
+    const contactMatch = await prisma.contact.findFirst({
+      where: { tenantId: whatsappNumber.tenantId, phone: { in: phoneVariants } },
+    }) ?? await prisma.contact.findFirst({
+      where: {
+        tenantId: whatsappNumber.tenantId,
+        phone: { contains: remotePhone.slice(-8) },
+      },
+    })
 
     let contactId = contactMatch?.id
 
     if (!contactId && !parsed.fromMe) {
-      // Criar contato automaticamente para mensagens recebidas
       const newContact = await prisma.contact.create({
         data: {
           tenantId: whatsappNumber.tenantId,
@@ -176,16 +197,6 @@ export async function handleIncomingWebhook(
         lastMessage: parsed.content,
         lastMessageAt: parsed.timestamp,
         unreadCount: parsed.fromMe ? 0 : 1,
-      },
-    })
-  } else {
-    await prisma.whatsappConversation.update({
-      where: { id: conversation.id },
-      data: {
-        lastMessage: parsed.content,
-        lastMessageAt: parsed.timestamp,
-        remoteName: parsed.remoteName ?? conversation.remoteName,
-        unreadCount: parsed.fromMe ? conversation.unreadCount : conversation.unreadCount + 1,
       },
     })
   }
