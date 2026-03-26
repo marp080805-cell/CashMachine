@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Pipeline, Opportunity, Stage, Contact } from '@/types'
@@ -32,6 +32,7 @@ type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
 
 export default function PipelineKanbanPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const queryClient = useQueryClient()
   const { user } = useAuth()
 
@@ -49,6 +50,11 @@ export default function PipelineKanbanPage() {
   const [contactSearch, setContactSearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
+
+  const { data: allPipelines } = useQuery({
+    queryKey: ['pipelines'],
+    queryFn: () => api.get<Pipeline[]>('/pipelines'),
+  })
 
   const { data: pipeline, isLoading } = useQuery({
     queryKey: ['pipeline', id],
@@ -175,15 +181,34 @@ export default function PipelineKanbanPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">{pipeline.name}</h2>
-          <p className="text-sm text-muted-foreground">
-            {pipeline.stages.length} etapas · {totalOpenOpps} oportunidades em aberto
-            {totalOpenValue > 0 && ` · ${formatCurrency(totalOpenValue)} no pipeline`}
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Pipeline selector */}
+          {(allPipelines?.length ?? 0) > 1 ? (
+            <Select value={id} onValueChange={(v) => router.push(`/funis/${v}`)}>
+              <SelectTrigger className="w-56 font-semibold text-base h-9 border-0 shadow-none px-2 focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(allPipelines ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                      {p.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <h2 className="text-lg font-semibold text-foreground truncate">{pipeline.name}</h2>
+          )}
+          <p className="text-sm text-muted-foreground whitespace-nowrap">
+            {totalOpenOpps} em aberto
+            {totalOpenValue > 0 && ` · ${formatCurrency(totalOpenValue)}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button size="sm" onClick={() => openNewOpp()}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Oportunidade

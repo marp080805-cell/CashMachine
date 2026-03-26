@@ -1,18 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import type { Pipeline } from '@/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { GitBranch, Plus, Loader2 } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
-import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
@@ -37,6 +35,7 @@ const DEFAULT_STAGES = [
 ]
 
 export default function FunisPage() {
+  const router = useRouter()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState({
     name: '',
@@ -51,6 +50,13 @@ export default function FunisPage() {
     queryFn: () => api.get<Pipeline[]>('/pipelines'),
   })
 
+  // Redireciona para o primeiro pipeline automaticamente
+  useEffect(() => {
+    if (pipelines && pipelines.length > 0) {
+      router.replace(`/funis/${pipelines[0].id}`)
+    }
+  }, [pipelines, router])
+
   const createMutation = useMutation({
     mutationFn: async (body: { name: string; description: string; type: string }) => {
       const pipeline = await api.post<Pipeline>('/pipelines', body)
@@ -60,11 +66,12 @@ export default function FunisPage() {
       }
       return pipeline
     },
-    onSuccess: () => {
+    onSuccess: (pipeline) => {
       toast.success('Pipeline criado!')
       setModalOpen(false)
       setForm({ name: '', description: '', type: 'SALES', stages: DEFAULT_STAGES.map((s, i) => ({ ...s, sortOrder: i })) })
       void queryClient.invalidateQueries({ queryKey: ['pipelines'] })
+      router.push(`/funis/${pipeline.id}`)
     },
     onError: () => toast.error('Erro ao criar pipeline'),
   })
@@ -88,15 +95,27 @@ export default function FunisPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="flex justify-end">
-          <Skeleton className="h-9 w-36" />
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-40" />
-          ))}
-        </div>
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="w-72 shrink-0 space-y-2">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-[400px] w-full" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Se tem pipelines, está redirecionando — mostra skeleton
+  if (pipelines && pipelines.length > 0) {
+    return (
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="w-72 shrink-0 space-y-2">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-[400px] w-full" />
+          </div>
+        ))}
       </div>
     )
   }
@@ -110,51 +129,17 @@ export default function FunisPage() {
         </Button>
       </div>
 
-      {!pipelines?.length ? (
-        <EmptyState
-          icon={GitBranch}
-          title="Nenhum pipeline cadastrado"
-          description="Crie seu primeiro pipeline de vendas para começar"
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {pipelines.map((pipeline) => (
-            <Link key={pipeline.id} href={`/funis/${pipeline.id}`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{pipeline.name}</CardTitle>
-                    <Badge variant="secondary" className="text-xs shrink-0">
-                      {pipelineTypeLabels[pipeline.type] ?? pipeline.type}
-                    </Badge>
-                  </div>
-                  {pipeline.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">{pipeline.description}</p>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <GitBranch className="h-4 w-4" />
-                    <span>{pipeline.stages.length} etapas</span>
-                    <span>·</span>
-                    <span>{pipeline._count?.opportunities ?? 0} oportunidades</span>
-                  </div>
-                  <div className="flex gap-1 mt-3">
-                    {pipeline.stages.slice(0, 6).map((stage) => (
-                      <div
-                        key={stage.id}
-                        className="h-2 flex-1 rounded-full"
-                        style={{ backgroundColor: stage.color }}
-                        title={stage.name}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+      <EmptyState
+        icon={GitBranch}
+        title="Nenhum pipeline cadastrado"
+        description="Crie seu primeiro pipeline de vendas para começar"
+        action={
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Criar Pipeline
+          </Button>
+        }
+      />
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">

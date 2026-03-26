@@ -377,7 +377,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Input value={opportunity.stage.name} disabled />
+                        <Input value={opportunity.stage?.name ?? '—'} disabled />
                       )}
                     </div>
                     <div className="space-y-1">
@@ -428,8 +428,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Etapa</p>
                     <div className="flex items-center gap-1.5">
-                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: opportunity.stage.color }} />
-                      <p className="text-sm">{opportunity.stage.name}</p>
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: opportunity.stage?.color ?? '#888' }} />
+                      <p className="text-sm">{opportunity.stage?.name ?? '—'}</p>
                     </div>
                   </div>
                   <div>
