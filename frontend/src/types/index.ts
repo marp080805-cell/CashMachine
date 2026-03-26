@@ -477,3 +477,84 @@ export interface ApiError {
   error: string
   details?: unknown
 }
+
+// ─── CHANNEL (canais de marketing) ────────────────────────────────
+
+export interface Channel {
+  id: string
+  name: string
+  type: string
+  status: string
+  cplTarget: number | null
+  cacTarget: number | null
+  leadToCallRate: number
+  callToContractRate: number
+  priority: number
+  isActive: boolean
+  createdAt: string
+}
+
+export interface ChannelMetric {
+  leadsGoal: number
+  leadsGenerated: number
+  totalCost: number
+  callsReal: number
+  contractsReal: number
+}
+
+export interface ChannelPerformance {
+  channelName: string
+  leadsGoal: number
+  leadsGenerated: number
+}
+
+// ─── GOAL (metas) ─────────────────────────────────────────────────
+
+export type GoalPeriod = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
+
+export interface Goal {
+  id: string
+  name: string
+  metric: string
+  target: number
+  period: GoalPeriod
+  month: number | null
+  year: number
+  channelId: string | null
+  channel: Pick<Channel, 'id' | 'name'> | null
+  createdAt: string
+}
+
+// ─── DASHBOARD WIDGET ─────────────────────────────────────────────
+
+export interface DashboardWidget {
+  id: string
+  type: string
+  label: string
+  enabled: boolean
+}
+
+// ─── MONTHLY TREND ────────────────────────────────────────────────
+
+export interface MonthlyTrend {
+  month: string
+  leads: number
+  contracts: number
+}
+
+// ─── DEAL (legado — use Opportunity) ──────────────────────────────
+
+export interface Deal {
+  id: string
+  title: string
+  status: 'OPEN' | 'WON' | 'LOST'
+  value: number
+  probability: number | null
+  expectedClose: string | null
+  notes: string | null
+  isFrozen: boolean
+  lead: { id: string; name: string } | null
+  company: { id: string; name: string } | null
+  assignedTo: { id: string; name: string }
+  createdAt: string
+}
