@@ -241,6 +241,22 @@ export interface Tag {
 
 // ─── CAMPOS PERSONALIZADOS ────────────────────────────────────────
 
+export interface CustomFieldOption {
+  label: string
+  value: string
+}
+
+// Simplified definition used by settings pages
+export interface CustomFieldDefinition {
+  id: string
+  name: string
+  label: string
+  type: CustomFieldType
+  required: boolean
+  options: CustomFieldOption[] | null
+  position: number
+}
+
 export interface CustomField {
   id: string
   groupId: string

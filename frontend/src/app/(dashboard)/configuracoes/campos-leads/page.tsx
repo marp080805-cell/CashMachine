@@ -18,23 +18,23 @@ import {
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, GripVertical, X, ChevronUp, ChevronDown } from 'lucide-react'
 
-const TYPE_LABELS: Record<CustomFieldType, string> = {
+const TYPE_LABELS: Partial<Record<CustomFieldType, string>> = {
   TEXT: 'Texto',
   NUMBER: 'Número',
   SELECT: 'Seleção única',
-  MULTI_SELECT: 'Seleção múltipla',
+  MULTISELECT: 'Seleção múltipla',
   DATE: 'Data',
-  BOOLEAN: 'Sim/Não',
+  CHECKBOX: 'Sim/Não',
   URL: 'URL',
 }
 
-const TYPE_COLORS: Record<CustomFieldType, string> = {
+const TYPE_COLORS: Partial<Record<CustomFieldType, string>> = {
   TEXT: 'bg-blue-100 text-blue-700',
   NUMBER: 'bg-purple-100 text-purple-700',
   SELECT: 'bg-green-100 text-green-700',
-  MULTI_SELECT: 'bg-teal-100 text-teal-700',
+  MULTISELECT: 'bg-teal-100 text-teal-700',
   DATE: 'bg-orange-100 text-orange-700',
-  BOOLEAN: 'bg-pink-100 text-pink-700',
+  CHECKBOX: 'bg-pink-100 text-pink-700',
   URL: 'bg-gray-100 text-gray-700',
 }
 
@@ -127,7 +127,7 @@ export default function CamposLeadsPage() {
       required: form.required,
       entity: 'lead',
     }
-    if (['SELECT', 'MULTI_SELECT'].includes(form.type)) {
+    if (['SELECT', 'MULTISELECT'].includes(form.type)) {
       body.options = form.options
     }
     if (editingId) {
@@ -321,7 +321,7 @@ export default function CamposLeadsPage() {
               <Label htmlFor="required" className="cursor-pointer">Campo obrigatório</Label>
             </div>
 
-            {['SELECT', 'MULTI_SELECT'].includes(form.type) && (
+            {['SELECT', 'MULTISELECT'].includes(form.type) && (
               <div className="space-y-2">
                 <Label>Opções</Label>
                 <div className="flex gap-2">
