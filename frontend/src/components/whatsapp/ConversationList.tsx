@@ -104,9 +104,9 @@ export function ConversationList({ conversations, activeId, onSelect, onSearch }
                     </span>
                   )}
                 </div>
-                {conv.lead && (
+                {conv.contact && (
                   <Badge variant="secondary" className="mt-1 text-[10px] h-4 px-1.5">
-                    {conv.lead.name}
+                    {conv.contact.name}
                   </Badge>
                 )}
               </div>

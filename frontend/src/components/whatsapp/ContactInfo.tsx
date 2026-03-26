@@ -33,15 +33,15 @@ export function ContactInfo({ conversation }: ContactInfoProps) {
   })
 
   const linkMutation = useMutation({
-    mutationFn: (leadId: string) =>
-      api.post(`/whatsapp/conversations/${conversation.id}/link-lead`, { leadId }),
+    mutationFn: (contactId: string) =>
+      api.post(`/whatsapp/conversations/${conversation.id}/link-contact`, { contactId }),
     onSuccess: () => {
-      toast.success('Lead vinculado!')
+      toast.success('Contato vinculado!')
       setShowLinkModal(false)
       setSearchQuery('')
       void queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] })
     },
-    onError: () => toast.error('Erro ao vincular lead'),
+    onError: () => toast.error('Erro ao vincular contato'),
   })
 
   function handleClose(open: boolean) {
@@ -59,24 +59,26 @@ export function ContactInfo({ conversation }: ContactInfoProps) {
         <p className="text-sm text-muted-foreground">{conversation.remotePhone}</p>
       </div>
 
-      {conversation.lead ? (
+      {conversation.contact ? (
         <div className="space-y-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead vinculado</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contato vinculado</h4>
           <div className="rounded-lg border p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{conversation.lead.name}</span>
-              <Link href={`/leads/${conversation.lead.id}`}>
+              <span className="text-sm font-medium">{conversation.contact.name}</span>
+              <Link href={`/contatos/${conversation.contact.id}`}>
                 <Button variant="ghost" size="icon" className="h-6 w-6">
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               </Link>
             </div>
-            <Badge variant="secondary" className="text-xs">{conversation.lead.status}</Badge>
+            {conversation.contact.phone && (
+              <Badge variant="secondary" className="text-xs">{conversation.contact.phone}</Badge>
+            )}
           </div>
         </div>
       ) : (
         <div className="rounded-lg border border-dashed p-4 text-center">
-          <p className="text-xs text-muted-foreground mb-3">Nenhum lead vinculado</p>
+          <p className="text-xs text-muted-foreground mb-3">Nenhum contato vinculado</p>
           <Button
             size="sm"
             variant="outline"
@@ -84,7 +86,7 @@ export function ContactInfo({ conversation }: ContactInfoProps) {
             onClick={() => setShowLinkModal(true)}
           >
             <LinkIcon className="h-3 w-3 mr-1" />
-            Vincular Lead
+            Vincular Contato
           </Button>
         </div>
       )}
@@ -92,7 +94,7 @@ export function ContactInfo({ conversation }: ContactInfoProps) {
       <Dialog open={showLinkModal} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Vincular Lead à Conversa</DialogTitle>
+            <DialogTitle>Vincular Contato à Conversa</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <Input
@@ -111,14 +113,14 @@ export function ContactInfo({ conversation }: ContactInfoProps) {
                   <button
                     key={lead.id}
                     className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted flex items-center justify-between gap-2 disabled:opacity-50"
-                    onClick={() => linkMutation.mutate(lead.id)}
+                    onClick={() => linkMutation.mutate(lead.contactId)}
                     disabled={linkMutation.isPending}
                   >
                     <div className="min-w-0">
-                      <span className="font-medium">{lead.name}</span>
-                      {lead.company && (
+                      <span className="font-medium">{lead.contact.name}</span>
+                      {lead.contact.company && (
                         <span className="text-muted-foreground ml-2 text-xs truncate">
-                          — {lead.company.name}
+                          — {lead.contact.company.name}
                         </span>
                       )}
                     </div>
