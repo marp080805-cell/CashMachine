@@ -532,6 +532,7 @@ export interface DashboardWidget {
   type: string
   label: string
   enabled: boolean
+  position: number
 }
 
 // ─── MONTHLY TREND ────────────────────────────────────────────────
