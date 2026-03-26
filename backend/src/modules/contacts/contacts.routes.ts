@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { normalizePhone } from '../../lib/phone'
 
 const createContactSchema = z.object({
   name: z.string().min(1),
@@ -99,8 +100,10 @@ export default async function contactsRoutes(app: FastifyInstance) {
     const input = createContactSchema.parse(request.body)
     const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
 
+    const phone = normalizePhone(input.phone) ?? input.phone ?? undefined
+
     const contact = await prisma.contact.create({
-      data: { ...input, tenantId },
+      data: { ...input, phone, tenantId },
       include: {
         origin: { select: { id: true, name: true } },
         subOrigin: { select: { id: true, name: true } },
@@ -128,9 +131,14 @@ export default async function contactsRoutes(app: FastifyInstance) {
 
     await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
 
+    const normalizedInput = {
+      ...input,
+      ...(input.phone !== undefined && { phone: normalizePhone(input.phone) ?? input.phone }),
+    }
+
     const contact = await prisma.contact.update({
       where: { id },
-      data: input,
+      data: normalizedInput,
       include: {
         origin: { select: { id: true, name: true } },
         subOrigin: { select: { id: true, name: true } },

@@ -4,31 +4,7 @@ import { parseWebhookMessage } from './evolution.client'
 import { aiSuggestionQueue } from '../../queues'
 import type { FastifyInstance } from 'fastify'
 import type { MessageType, MessageStatus } from '@prisma/client'
-
-/**
- * Gera variantes do número de telefone BR para lidar com o problema
- * 9-dígito vs 8-dígito na Evolution API.
- * Ex: 5535997452928 → também tenta 553597452928 (e vice-versa)
- */
-function getBrPhoneVariants(phone: string): string[] {
-  const variants = new Set([phone])
-
-  if (phone.startsWith('55') && phone.length >= 12) {
-    const local = phone.slice(2)
-
-    // 11 dígitos com 9 → tenta sem o 9
-    if (local.length === 11 && local[2] === '9') {
-      variants.add(`55${local.slice(0, 2)}${local.slice(3)}`)
-    }
-
-    // 10 dígitos sem 9 → tenta com o 9
-    if (local.length === 10) {
-      variants.add(`55${local.slice(0, 2)}9${local.slice(2)}`)
-    }
-  }
-
-  return [...variants]
-}
+import { getPhoneVariants } from '../../lib/phone'
 
 export async function handleIncomingWebhook(
   app: FastifyInstance,
@@ -108,7 +84,7 @@ export async function handleIncomingWebhook(
   if (!whatsappNumber) return
 
   const remotePhone = parsed.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
-  const phoneVariants = getBrPhoneVariants(remotePhone)
+  const phoneVariants = getPhoneVariants(remotePhone)
 
   // Lookup exato por remoteJid
   let exactMatch = await prisma.whatsappConversation.findUnique({

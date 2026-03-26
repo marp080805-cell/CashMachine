@@ -12,6 +12,7 @@ import {
 import { handleIncomingWebhook } from './whatsapp.service'
 import type { EvolutionWebhookPayload } from './evolution.client'
 import { env } from '../../config/env'
+import { normalizePhone, getPhoneVariants } from '../../lib/phone'
 
 export default async function whatsappRoutes(app: FastifyInstance) {
   app.get('/whatsapp/numbers', { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -310,11 +311,8 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       prisma.whatsappNumber.findFirstOrThrow({ where: { id: numberId, tenantId } }),
     ])
 
-    const rawPhone = (contact.phone ?? '').replace(/\D/g, '')
-    if (!rawPhone) return reply.status(400).send({ error: 'Contato sem número de telefone' })
-
-    let phone = rawPhone
-    if (!phone.startsWith('55') && phone.length <= 11) phone = `55${phone}`
+    const phone = normalizePhone(contact.phone)
+    if (!phone) return reply.status(400).send({ error: 'Contato sem número de telefone' })
 
     const remoteJid = `${phone}@s.whatsapp.net`
     const creds = number.apiUrl && number.apiKey ? { baseUrl: number.apiUrl, apiKey: number.apiKey } : undefined
