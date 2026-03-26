@@ -138,12 +138,13 @@ export default async function whatsappRoutes(app: FastifyInstance) {
 
   app.get('/whatsapp/conversations', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { tenantId, id: userId, role } = request.user as { tenantId: string; id: string; role: string }
-    const { page = 1, limit = 20, archived = false, unreadOnly = false, search } = z.object({
+    const { page = 1, limit = 20, archived = false, unreadOnly = false, search, contactId } = z.object({
       page: z.coerce.number().default(1),
       limit: z.coerce.number().default(20),
       archived: z.coerce.boolean().default(false),
       unreadOnly: z.coerce.boolean().default(false),
       search: z.string().optional(),
+      contactId: z.string().uuid().optional(),
     }).parse(request.query)
 
     const isManager = ['ADMIN', 'MANAGER'].includes(role)
@@ -154,6 +155,7 @@ export default async function whatsappRoutes(app: FastifyInstance) {
 
     const where: any = { numberId: { in: numberIds }, isArchived: archived }
     if (unreadOnly) where.unreadCount = { gt: 0 }
+    if (contactId) where.contactId = contactId
     if (search) {
       where.OR = [
         { remoteName: { contains: search, mode: 'insensitive' } },

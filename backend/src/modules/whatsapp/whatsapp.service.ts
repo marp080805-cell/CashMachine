@@ -5,6 +5,31 @@ import { aiSuggestionQueue } from '../../queues'
 import type { FastifyInstance } from 'fastify'
 import type { MessageType, MessageStatus } from '@prisma/client'
 
+/**
+ * Gera variantes do número de telefone BR para lidar com o problema
+ * 9-dígito vs 8-dígito na Evolution API.
+ * Ex: 5535997452928 → também tenta 553597452928 (e vice-versa)
+ */
+function getBrPhoneVariants(phone: string): string[] {
+  const variants = new Set([phone])
+
+  if (phone.startsWith('55') && phone.length >= 12) {
+    const local = phone.slice(2)
+
+    // 11 dígitos com 9 → tenta sem o 9
+    if (local.length === 11 && local[2] === '9') {
+      variants.add(`55${local.slice(0, 2)}${local.slice(3)}`)
+    }
+
+    // 10 dígitos sem 9 → tenta com o 9
+    if (local.length === 10) {
+      variants.add(`55${local.slice(0, 2)}9${local.slice(2)}`)
+    }
+  }
+
+  return [...variants]
+}
+
 export async function handleIncomingWebhook(
   app: FastifyInstance,
   instanceName: string,
@@ -84,18 +109,48 @@ export async function handleIncomingWebhook(
 
   const remotePhone = parsed.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
 
+  // 1ª tentativa: lookup exato por remoteJid
   let conversation = await prisma.whatsappConversation.findUnique({
     where: { numberId_remoteJid: { numberId: whatsappNumber.id, remoteJid: parsed.remoteJid } },
   })
 
+  // 2ª tentativa: variantes 9-dígito / 8-dígito (problema Evolution API BR)
   if (!conversation) {
-    // Buscar Contact pelo telefone (dentro do mesmo tenant)
-    const contactMatch = await prisma.contact.findFirst({
-      where: {
-        tenantId: whatsappNumber.tenantId,
-        phone: { contains: remotePhone },
-      },
+    const phoneVariants = getBrPhoneVariants(remotePhone)
+    if (phoneVariants.length > 1) {
+      const found = await prisma.whatsappConversation.findFirst({
+        where: { numberId: whatsappNumber.id, remotePhone: { in: phoneVariants } },
+        orderBy: { lastMessageAt: 'desc' },
+      })
+      if (found) {
+        // Atualiza o remoteJid para o formato atual para matches futuros
+        conversation = await prisma.whatsappConversation.update({
+          where: { id: found.id },
+          data: {
+            remoteJid: parsed.remoteJid,
+            remotePhone,
+            remoteName: parsed.remoteName ?? found.remoteName,
+          },
+        })
+      }
+    }
+  }
+
+  if (!conversation) {
+    // Buscar Contact pelo telefone (variantes + sufixo)
+    const phoneVariants = getBrPhoneVariants(remotePhone)
+    let contactMatch = await prisma.contact.findFirst({
+      where: { tenantId: whatsappNumber.tenantId, phone: { in: phoneVariants } },
     })
+
+    if (!contactMatch) {
+      contactMatch = await prisma.contact.findFirst({
+        where: {
+          tenantId: whatsappNumber.tenantId,
+          phone: { contains: remotePhone.slice(-8) },
+        },
+      })
+    }
 
     let contactId = contactMatch?.id
 

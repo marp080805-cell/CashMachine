@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -96,6 +96,29 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     queryFn: () => api.get<{ numbers: WhatsappNumber[] }>('/whatsapp/numbers'),
     enabled: !!opportunity?.contact && !activeConversationId,
   })
+
+  // Carregar conversa existente para este contato ao abrir o sheet
+  const { data: existingConvsData } = useQuery({
+    queryKey: ['whatsapp-conversations-contact', opportunity?.contactId],
+    queryFn: () =>
+      api.get<{ conversations: Array<{ id: string }> }>(
+        `/whatsapp/conversations?contactId=${opportunity!.contactId}&limit=1`
+      ),
+    enabled: !!opportunity?.contactId,
+  })
+
+  // Reset ao trocar de oportunidade
+  useEffect(() => {
+    setActiveConversationId(undefined)
+  }, [opportunity?.id])
+
+  // Auto-load conversa existente do contato
+  useEffect(() => {
+    const convId = existingConvsData?.conversations?.[0]?.id
+    if (convId) {
+      setActiveConversationId(convId)
+    }
+  }, [existingConvsData])
 
   const { data: usersData } = useQuery({
     queryKey: ['users'],
