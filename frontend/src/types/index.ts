@@ -510,7 +510,7 @@ export interface ChannelPerformance {
 
 // ─── GOAL (metas) ─────────────────────────────────────────────────
 
-export type GoalPeriod = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
+export type GoalPeriod = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL'
 
 export interface Goal {
   id: string
