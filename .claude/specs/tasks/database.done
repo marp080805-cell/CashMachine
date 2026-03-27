@@ -1,0 +1,90 @@
+# DATABASE AGENT — CONCLUÍDO
+
+**Executado por:** ORCHESTRATOR (Claude Sonnet 4.6)
+**Data:** 2026-03-26
+**Commit:** 16341fe
+
+## O que foi feito
+
+### Schema Prisma — backend/prisma/schema.prisma completamente reescrito com:
+
+#### Models NOVOS criados:
+1. **TaskTemplate** — templates reutilizáveis para criação automática de tarefas
+2. **CalendarIntegration** — integração com Google Calendar e Outlook (com tokens encryptados)
+3. **UserAvailability** — disponibilidade semanal do usuário para agendamentos
+4. **Meeting** — reuniões vinculadas a oportunidade + contato + host/organizer
+5. **BookingPage** — páginas públicas de agendamento (estilo Calendly)
+6. **OpportunityAssignment** — histórico de responsáveis por oportunidade (SDR/Closer/Manager)
+7. **StageTrigger** — automações visuais por etapa (Digital Pipeline, Camada 1)
+8. **StageTriggerLog** — log de execuções de automações
+9. **SalesBot** — fluxos no-code do builder visual (Camada 2)
+10. **SalesBotExecution** — execuções de bots por oportunidade
+11. **MessageTemplate** — templates de mensagem (WhatsApp/Email)
+12. **Conversation** — inbox unificado (novo modelo, coexiste com WhatsappConversation)
+13. **Message** — mensagens do inbox unificado
+14. **AIAgent** — configuração de agentes de IA
+15. **AISuggestion** — sugestões da IA com log de ação tomada
+16. **Recording** — gravações de calls com transcrição e análise IA
+17. **Goal** — metas de venda (revenue, MRR, deal_count, etc.)
+18. **GoalBreakdown** — breakdown de metas por canal/origem
+19. **DailyMetrics** — tabela materializada para dashboard (updated por cron)
+20. **Form** — formulários embeddable com UTM tracking
+21. **FormSubmission** — submissões de formulários
+22. **AccountTemplate** — snapshots de conta para marketplace
+
+#### Models EXPANDIDOS:
+- **Tenant**: + openaiApiKey, openaiModel, + todas as novas relações
+- **User**: + notificationPreferences, + 15 novas relações
+- **Contact**: + cpf, dateOfBirth, avatarUrl, address (JSON), socialProfiles (JSON), isBlacklisted
+- **Company**: + phone, employeeCount, annualRevenue, addressJson
+- **Lead**: + sourceDetail, qualifiedAt, disqualifiedReason, convertedToOpportunityId
+- **Pipeline**: + sdrStages, closerStages, handoffStageId, handoffRequiredFields, autoAssignCloser, fixedCloserId, roundRobinUserIds
+- **Stage**: + type (StageType), probability, autoCreateTasks (manteve isWon/isLost para compatibilidade)
+- **Opportunity**: + monthlyValue, installments, installmentValue, paymentDetails, channel, lostReasonDetail, qualificationNotes, firstContactDate, scheduledDate, attendedDate, proposalSentDate, wonDate, lostDate
+- **Task**: + dueDateRelativeTo, dueOffsetMinutes, completedById, completedBy, slaMinutes, slaBreach, automationId, meetingId, templateId, NPS_FOLLOW_UP e SEND_RECORDING_ACTION no enum
+
+#### Enums NOVOS:
+- AutoAssignMode (MANUAL/ROUND_ROBIN/BY_SPECIALTY/FIXED)
+- StageType (NORMAL/WON/LOST)
+- AssignmentRole (SDR/CLOSER/MANAGER)
+- CalendarProvider (GOOGLE_CALENDAR/OUTLOOK)
+- DayOfWeek (MON-SUN)
+- MeetingType (6 tipos)
+- LocationType (IN_PERSON/VIDEO_CALL/PHONE_CALL)
+- MeetingStatus (6 status)
+- MeetingOutcome (POSITIVE/NEUTRAL/NEGATIVE)
+- TriggerEvent (10 tipos)
+- TriggerActionType (16 tipos)
+- TriggerLogStatus (SUCCESS/FAILED/SKIPPED/QUEUED)
+- SalesBotType (CONVERSATION_BOT/INTERNAL_WORKFLOW/HYBRID)
+- BotExecutionStatus (5 status)
+- MessageChannel (WHATSAPP/EMAIL/SMS/INSTAGRAM/WEBCHAT)
+- ConversationStatus (OPEN/WAITING/CLOSED)
+- MessageDirection (INBOUND/OUTBOUND)
+- MessageSender (USER/AUTOMATION/AI_AGENT)
+- AIAgentType (4 tipos)
+- AISuggestionAction (4 ações)
+- RecordingStatus (6 status)
+- GoalPeriodType (MONTHLY/QUARTERLY/YEARLY/CUSTOM)
+- GoalType (8 tipos)
+- GoalScope (GLOBAL/BY_USER/BY_TEAM/BY_CHANNEL)
+
+#### Enums EXPANDIDOS:
+- TenantPlan: STANDARD → STARTER
+- LeadStatus: + NURTURING
+- TaskType: + NPS_FOLLOW_UP, SEND_RECORDING_ACTION
+- TagCategory: + AI_CONTROL
+- NotificationType: + MEETING_SCHEDULED, MEETING_REMINDER
+- CustomFieldType: + DECIMAL, RADIO, FILE
+
+### Retrocompatibilidade garantida:
+- WhatsappConversation, WhatsappMessage, CallTranscription MANTIDOS
+- cpfCnpj no Contact MANTIDO (novo campo cpf adicionado em paralelo)
+- isWon/isLost no Stage MANTIDOS (novo campo type adicionado)
+
+## Próximos passos (execução na VPS)
+```bash
+cd /opt/cashmachine/CashMachine && git pull origin claude/cashmachine-b2b-platform-pL5Y2
+cd backend && npx prisma generate
+npx prisma migrate dev --name "feat_full_crm_schema_v2"
+```
