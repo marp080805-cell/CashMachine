@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/funis', label: 'Pipelines', icon: GitBranch, permission: 'pipelines:view' },
+  { href: '/funis', label: 'Funis', icon: GitBranch, permission: 'pipelines:view' },
   { href: '/contatos', label: 'Contatos', icon: Users, permission: 'contacts:view' },
   { href: '/empresas', label: 'Empresas', icon: Building2, permission: 'contacts:view' },
   { href: '/leads', label: 'Leads', icon: UserCheck, permission: 'leads:view' },

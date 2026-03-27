@@ -137,7 +137,7 @@ export default function PipelineKanbanPage() {
       return pl
     },
     onSuccess: (pl) => {
-      toast.success('Pipeline criado!')
+      toast.success('Funil criado!')
       setNewPipelineOpen(false)
       setNewPipelineForm({ name: '', description: '', type: 'SALES' })
       void queryClient.invalidateQueries({ queryKey: ['pipelines'] })
@@ -240,7 +240,7 @@ export default function PipelineKanbanPage() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setNewPipelineOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Novo pipeline
+              Novo funil
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -523,11 +523,11 @@ export default function PipelineKanbanPage() {
       {/* ── DIALOG: NOVO PIPELINE ── */}
       <Dialog open={newPipelineOpen} onOpenChange={setNewPipelineOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Novo Pipeline</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Novo Funil</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nome *</Label>
-              <Input placeholder="Ex: Pipeline de Vendas"
+              <Input placeholder="Ex: Funil de Vendas"
                 value={newPipelineForm.name}
                 onChange={(e) => setNewPipelineForm((f) => ({ ...f, name: e.target.value }))}
               />
@@ -548,7 +548,7 @@ export default function PipelineKanbanPage() {
               <Button className="flex-1" disabled={createPipelineMutation.isPending || !newPipelineForm.name.trim()}
                 onClick={() => createPipelineMutation.mutate(newPipelineForm)}
               >
-                {createPipelineMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : 'Criar Pipeline'}
+                {createPipelineMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : 'Criar Funil'}
               </Button>
             </div>
           </div>
