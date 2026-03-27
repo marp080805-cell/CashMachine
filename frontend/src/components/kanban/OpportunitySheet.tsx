@@ -272,14 +272,14 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   // Meetings tab
   const { data: meetingsData, isLoading: meetingsLoading } = useQuery({
     queryKey: ['meetings', opportunity?.id],
-    queryFn: () => api.get<OppMeeting[]>(`/meetings?opportunityId=${opportunity!.id}`),
+    queryFn: () => api.get<{ meetings: OppMeeting[]; total: number }>(`/meetings?opportunityId=${opportunity!.id}`),
     enabled: activeTab === 'meetings' && !!opportunity?.id,
   })
 
   // Conversations tab
   const { data: conversationsData, isLoading: convsLoading } = useQuery({
     queryKey: ['conversations', opportunity?.id],
-    queryFn: () => api.get<OppConversation[]>(`/conversations?opportunityId=${opportunity!.id}`),
+    queryFn: () => api.get<{ conversations: OppConversation[]; total: number }>(`/conversations?opportunityId=${opportunity!.id}`),
     enabled: activeTab === 'conversations' && !!opportunity?.id,
   })
 
@@ -538,8 +538,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const tabTasks = tasksTabData ?? []
   const cfGroups = cfGroupsData ?? []
   const cfValues = cfValuesData ?? []
-  const meetings = meetingsData ?? []
-  const conversations = conversationsData ?? []
+  const meetings = meetingsData?.meetings ?? []
+  const conversations = conversationsData?.conversations ?? []
   const timeline = timelineData ?? []
 
   function openEdit() {
