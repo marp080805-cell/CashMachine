@@ -349,9 +349,12 @@ function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: ()
     try {
       const formData = new FormData()
       formData.append('file', file)
-      if (opportunityId) formData.append('opportunityId', opportunityId)
 
-      const res = await fetch(`${API_URL}/recordings/upload`, {
+      const uploadUrl = opportunityId
+        ? `${API_URL}/recordings/upload?opportunityId=${encodeURIComponent(opportunityId)}`
+        : `${API_URL}/recordings/upload`
+
+      const res = await fetch(uploadUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token ?? ''}` },
         body: formData,

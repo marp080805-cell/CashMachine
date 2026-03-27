@@ -45,18 +45,32 @@ const STAGE_TYPES = [
 ]
 
 const TRIGGER_EVENTS = [
-  { value: 'STAGE_ENTERED', label: 'Entrou na etapa' },
-  { value: 'STAGE_LEFT', label: 'Saiu da etapa' },
-  { value: 'DEAL_WON', label: 'Negócio ganho' },
-  { value: 'DEAL_LOST', label: 'Negócio perdido' },
+  { value: 'ON_ENTER', label: 'Entrou na etapa' },
+  { value: 'ON_EXIT', label: 'Saiu da etapa' },
+  { value: 'ON_CREATE_IN_STAGE', label: 'Criado na etapa' },
+  { value: 'ON_ENTER_OR_CREATE', label: 'Entrou ou foi criado' },
+  { value: 'ON_RESPONSIBLE_CHANGED', label: 'Responsável alterado' },
+  { value: 'AFTER_TIME_IN_STAGE', label: 'Após tempo na etapa' },
+  { value: 'ON_FIELD_CHANGED', label: 'Campo alterado' },
+  { value: 'ON_MESSAGE_RECEIVED', label: 'Mensagem recebida' },
+  { value: 'SCHEDULED', label: 'Agendado' },
 ]
 
 const ACTION_TYPES = [
-  { value: 'SEND_EMAIL', label: 'Enviar e-mail' },
-  { value: 'SEND_WHATSAPP', label: 'Enviar WhatsApp' },
   { value: 'CREATE_TASK', label: 'Criar tarefa' },
-  { value: 'SEND_NOTIFICATION', label: 'Enviar notificação' },
+  { value: 'SEND_EMAIL', label: 'Enviar e-mail' },
+  { value: 'SEND_MESSAGE', label: 'Enviar mensagem' },
+  { value: 'CHANGE_RESPONSIBLE', label: 'Alterar responsável' },
+  { value: 'CHANGE_STAGE', label: 'Mover de etapa' },
+  { value: 'MOVE_TO_PIPELINE', label: 'Mover para funil' },
+  { value: 'SET_FIELD', label: 'Definir campo' },
+  { value: 'ADD_TAG', label: 'Adicionar tag' },
+  { value: 'REMOVE_TAG', label: 'Remover tag' },
+  { value: 'CREATE_OPPORTUNITY', label: 'Criar oportunidade' },
   { value: 'WEBHOOK', label: 'Webhook' },
+  { value: 'NOTIFY_USER', label: 'Notificar usuário' },
+  { value: 'SALESBOT', label: 'SalesBot' },
+  { value: 'SCHEDULE_MEETING', label: 'Agendar reunião' },
 ]
 
 const actionTypeIcons: Record<string, React.ElementType> = {
@@ -74,7 +88,7 @@ const stageTypeBadge: Record<string, string> = {
 }
 
 const emptyStageForm = { name: '', type: 'NORMAL', probability: 50, color: '#6366f1' }
-const emptyTriggerForm = { name: '', triggerEvent: 'STAGE_ENTERED', actionType: 'SEND_WHATSAPP' }
+const emptyTriggerForm = { name: '', triggerEvent: 'ON_ENTER', actionType: 'SEND_MESSAGE' }
 
 export default function FunilDetailPage() {
   const params = useParams()
@@ -129,7 +143,7 @@ export default function FunilDetailPage() {
     setSavingStage(true)
     try {
       if (editingStage) {
-        const updated = await api.patch<Stage>(`/stages/${editingStage.id}`, stageForm)
+        const updated = await api.patch<Stage>(`/pipelines/${id}/stages/${editingStage.id}`, stageForm)
         setPipeline((prev) => prev ? {
           ...prev,
           stages: prev.stages?.map((s) => s.id === editingStage.id ? { ...s, ...updated } : s),
@@ -149,7 +163,7 @@ export default function FunilDetailPage() {
 
   async function handleDeleteStage(stageId: string) {
     if (!confirm('Excluir esta etapa?')) return
-    await api.delete(`/stages/${stageId}`)
+    await api.delete(`/pipelines/${id}/stages/${stageId}`)
     setPipeline((prev) => prev ? {
       ...prev,
       stages: prev.stages?.filter((s) => s.id !== stageId),
@@ -166,7 +180,7 @@ export default function FunilDetailPage() {
     if (!triggerStageId) return
     setSavingTrigger(true)
     try {
-      const created = await api.post<StageTrigger>(`/stages/${triggerStageId}/triggers`, triggerForm)
+      const created = await api.post<StageTrigger>('/stage-triggers', { ...triggerForm, stageId: triggerStageId, pipelineId: id })
       setPipeline((prev) => prev ? {
         ...prev,
         stages: prev.stages?.map((s) =>
