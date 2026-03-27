@@ -36,7 +36,7 @@ export default function TagsPage() {
 
   async function load() {
     try {
-      const data = await api.get('/tags')
+      const data = await api.get<Tag[]>('/tags')
       setTags(data)
     } finally {
       setLoading(false)
@@ -61,10 +61,10 @@ export default function TagsPage() {
     setSaving(true)
     try {
       if (editing) {
-        const updated = await api.patch(`/tags/${editing.id}`, form)
+        const updated = await api.patch<Tag>(`/tags/${editing.id}`, form)
         setTags((prev) => prev.map((t) => (t.id === editing.id ? updated : t)))
       } else {
-        const created = await api.post('/tags', form)
+        const created = await api.post<Tag>('/tags', form)
         setTags((prev) => [...prev, created])
       }
       setOpen(false)

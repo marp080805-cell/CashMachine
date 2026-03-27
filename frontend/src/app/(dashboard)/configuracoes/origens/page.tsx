@@ -32,10 +32,10 @@ export default function OrigensPage() {
 
   async function load() {
     try {
-      const data = await api.get('/origins?includeSubOrigins=true')
+      const data = await api.get<Origin[]>('/origins?includeSubOrigins=true')
       setOrigins(data)
     } catch {
-      const data = await api.get('/origins')
+      const data = await api.get<Origin[]>('/origins')
       setOrigins(data)
     } finally {
       setLoading(false)
@@ -88,22 +88,22 @@ export default function OrigensPage() {
     setSaving(true)
     try {
       if (editingSubOrigin) {
-        const updated = await api.patch(`/origins/sub-origins/${editingSubOrigin.sub.id}`, { name })
+        const updated = await api.patch<SubOrigin>(`/origins/sub-origins/${editingSubOrigin.sub.id}`, { name })
         setOrigins((prev) => prev.map((o) =>
           o.id === editingSubOrigin.parentId
             ? { ...o, subOrigins: o.subOrigins.map((s) => s.id === editingSubOrigin.sub.id ? updated : s) }
             : o
         ))
       } else if (newSubOriginFor) {
-        const created = await api.post(`/origins/${newSubOriginFor}/sub-origins`, { name })
+        const created = await api.post<SubOrigin>(`/origins/${newSubOriginFor}/sub-origins`, { name })
         setOrigins((prev) => prev.map((o) =>
           o.id === newSubOriginFor ? { ...o, subOrigins: [...(o.subOrigins || []), created] } : o
         ))
       } else if (editingOrigin) {
-        const updated = await api.patch(`/origins/${editingOrigin.id}`, { name })
+        const updated = await api.patch<Origin>(`/origins/${editingOrigin.id}`, { name })
         setOrigins((prev) => prev.map((o) => (o.id === editingOrigin.id ? { ...o, ...updated } : o)))
       } else {
-        const created = await api.post('/origins', { name })
+        const created = await api.post<Origin>('/origins', { name })
         setOrigins((prev) => [...prev, { ...created, subOrigins: [] }])
       }
       setOpen(false)

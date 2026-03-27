@@ -26,7 +26,7 @@ export default function MotivosPerdaPage() {
 
   async function load() {
     try {
-      const data = await api.get('/lost-reasons')
+      const data = await api.get<LostReason[]>('/lost-reasons')
       setReasons(data)
     } finally {
       setLoading(false)
@@ -51,10 +51,10 @@ export default function MotivosPerdaPage() {
     setSaving(true)
     try {
       if (editing) {
-        const updated = await api.patch(`/lost-reasons/${editing.id}`, { name })
+        const updated = await api.patch<LostReason>(`/lost-reasons/${editing.id}`, { name })
         setReasons((prev) => prev.map((r) => (r.id === editing.id ? updated : r)))
       } else {
-        const created = await api.post('/lost-reasons', { name })
+        const created = await api.post<LostReason>('/lost-reasons', { name })
         setReasons((prev) => [...prev, created])
       }
       setOpen(false)
@@ -64,7 +64,7 @@ export default function MotivosPerdaPage() {
   }
 
   async function toggleActive(reason: LostReason) {
-    const updated = await api.patch(`/lost-reasons/${reason.id}`, { isActive: !reason.isActive })
+    const updated = await api.patch<LostReason>(`/lost-reasons/${reason.id}`, { isActive: !reason.isActive })
     setReasons((prev) => prev.map((r) => (r.id === reason.id ? updated : r)))
   }
 

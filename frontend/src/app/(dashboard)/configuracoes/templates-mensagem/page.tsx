@@ -36,7 +36,7 @@ export default function TemplatesMensagemPage() {
 
   async function load() {
     try {
-      const data = await api.get('/message-templates')
+      const data = await api.get<MessageTemplate[]>('/message-templates')
       setTemplates(data)
     } finally {
       setLoading(false)
@@ -62,10 +62,10 @@ export default function TemplatesMensagemPage() {
     try {
       const payload = { ...form, subject: form.channel === 'EMAIL' ? form.subject : undefined }
       if (editing) {
-        const updated = await api.patch(`/message-templates/${editing.id}`, payload)
+        const updated = await api.patch<MessageTemplate>(`/message-templates/${editing.id}`, payload)
         setTemplates((prev) => prev.map((t) => (t.id === editing.id ? updated : t)))
       } else {
-        const created = await api.post('/message-templates', payload)
+        const created = await api.post<MessageTemplate>('/message-templates', payload)
         setTemplates((prev) => [...prev, created])
       }
       setOpen(false)
