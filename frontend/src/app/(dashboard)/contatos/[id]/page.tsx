@@ -1028,24 +1028,8 @@ export default function ContactProfilePage() {
                   <Input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>WhatsApp</Label>
-                  <Input value={editForm.whatsapp} onChange={(e) => setEditForm((f) => ({ ...f, whatsapp: e.target.value }))} placeholder="+55 (11) 99999-9999" />
-                </div>
-                <div className="space-y-1.5">
                   <Label>Telefone</Label>
-                  <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(11) 3333-3333" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Celular</Label>
-                  <Input value={editForm.mobile} onChange={(e) => setEditForm((f) => ({ ...f, mobile: e.target.value }))} placeholder="(11) 99999-9999" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Fax</Label>
-                  <Input value={editForm.fax} onChange={(e) => setEditForm((f) => ({ ...f, fax: e.target.value }))} placeholder="(11) 3333-3333" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Ramal</Label>
-                  <Input value={editForm.extension} onChange={(e) => setEditForm((f) => ({ ...f, extension: e.target.value }))} placeholder="00" />
+                  <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(11) 99999-9999" />
                 </div>
               </div>
             </div>
