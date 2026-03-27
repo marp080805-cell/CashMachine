@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -79,9 +79,61 @@ interface CompanyForm {
   notes: string
   contactId: string
   contactLabel: string
+  opportunityId: string
+  opportunityLabel: string
 }
 
-const defaultForm: CompanyForm = { name: '', cnpj: '', segment: '', website: '', notes: '', contactId: '', contactLabel: '' }
+const defaultForm: CompanyForm = { name: '', cnpj: '', segment: '', website: '', notes: '', contactId: '', contactLabel: '', opportunityId: '', opportunityLabel: '' }
+
+interface OppOption { id: string; title: string }
+
+function OppSearchCompany({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data } = useQuery({
+    queryKey: ['opps-search-empresa', q],
+    queryFn: () => api.get<{ data: OppOption[] }>(`/opportunities?search=${encodeURIComponent(q)}&limit=8`),
+    enabled: q.length > 0,
+  })
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="flex-1 font-medium">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar oportunidade..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => q && setOpen(true)}
+      />
+      {open && (data?.data?.length ?? 0) > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+          {data!.data.map((o) => (
+            <button key={o.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onMouseDown={() => { onChange(o.id, o.title); setQ(''); setOpen(false) }}>
+              {o.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function EmpresasPage() {
   const [page, setPage] = useState(1)
@@ -117,9 +169,10 @@ export default function EmpresasPage() {
   const createMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const company = await api.post<Company>('/companies', body)
-      if (form.contactId) {
-        await api.patch(`/contacts/${form.contactId}`, { companyId: company.id })
-      }
+      await Promise.all([
+        form.contactId && api.patch(`/contacts/${form.contactId}`, { companyId: company.id }),
+        form.opportunityId && api.patch(`/opportunities/${form.opportunityId}`, { companyId: company.id }),
+      ])
       return company
     },
     onSuccess: () => {
@@ -315,6 +368,14 @@ export default function EmpresasPage() {
                 value={form.contactId}
                 label={form.contactLabel}
                 onChange={(id, name) => setForm((f) => ({ ...f, contactId: id, contactLabel: name }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vincular oportunidade</Label>
+              <OppSearchCompany
+                value={form.opportunityId}
+                label={form.opportunityLabel}
+                onChange={(id, name) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: name }))}
               />
             </div>
             <div className="space-y-1.5">

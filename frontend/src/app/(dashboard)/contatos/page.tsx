@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, X, Building2, Loader2 } from 'lucide-react'
+import { Plus, Search, X, Building2, Loader2, TrendingUp } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -22,9 +22,61 @@ interface ContactForm {
   notes: string
   companyId: string
   companyLabel: string
+  opportunityId: string
+  opportunityLabel: string
 }
 
-const defaultForm: ContactForm = { name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '' }
+const defaultForm: ContactForm = { name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', opportunityId: '', opportunityLabel: '' }
+
+interface Opportunity { id: string; title: string }
+
+function OppSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data } = useQuery({
+    queryKey: ['opps-search-contact', q],
+    queryFn: () => api.get<{ data: Opportunity[] }>(`/opportunities?search=${encodeURIComponent(q)}&limit=8`),
+    enabled: q.length > 0,
+  })
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="flex-1 font-medium">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar oportunidade..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => q && setOpen(true)}
+      />
+      {open && (data?.data?.length ?? 0) > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+          {data!.data.map((o) => (
+            <button key={o.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onMouseDown={() => { onChange(o.id, o.title); setQ(''); setOpen(false) }}>
+              {o.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface Company { id: string; name: string }
 
@@ -95,7 +147,13 @@ export default function ContatosPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.post<Contact>('/contacts', body),
+    mutationFn: async (body: Record<string, unknown>) => {
+      const contact = await api.post<Contact>('/contacts', body)
+      if (form.opportunityId) {
+        await api.patch(`/opportunities/${form.opportunityId}`, { contactId: contact.id })
+      }
+      return contact
+    },
     onSuccess: () => {
       toast.success('Contato criado!')
       setModalOpen(false)
@@ -215,6 +273,14 @@ export default function ContatosPage() {
                 value={form.companyId}
                 label={form.companyLabel}
                 onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vincular a oportunidade</Label>
+              <OppSearch
+                value={form.opportunityId}
+                label={form.opportunityLabel}
+                onChange={(id, name) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: name }))}
               />
             </div>
             <div className="space-y-1.5">

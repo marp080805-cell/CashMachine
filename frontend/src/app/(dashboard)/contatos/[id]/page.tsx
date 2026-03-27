@@ -641,59 +641,110 @@ export default function ContactProfilePage() {
 
         {/* ── Tab: Oportunidades ── */}
         <TabsContent value="opportunities" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                {opps.filter((o) => o.status === 'OPEN').length} abertas
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                {opps.filter((o) => o.status === 'WON').length} ganhas
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                {opps.filter((o) => o.status === 'LOST').length} perdidas
+              </span>
+            </div>
+            <Button size="sm" onClick={() => setNewOppOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />Nova Oportunidade
+            </Button>
+          </div>
+
           {oppsLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : opps.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p>Nenhuma oportunidade vinculada</p>
-              <Button size="sm" className="mt-3" onClick={() => setNewOppOpen(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />Nova Oportunidade
-              </Button>
+              <Trophy className="h-8 w-8 mx-auto mb-3 opacity-30" />
+              <p>Nenhuma oportunidade ainda</p>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
               {opps.map((opp) => (
-                <div key={opp.id} className="rounded-lg border bg-card p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm leading-snug">{opp.title}</p>
-                    <Badge
-                      variant="secondary"
-                      className={cn('text-xs shrink-0', statusColors[opp.status] ?? '')}
-                    >
-                      {statusLabels[opp.status] ?? opp.status}
-                    </Badge>
-                  </div>
+                <div
+                  key={opp.id}
+                  className={cn(
+                    'rounded-lg border bg-card p-4 cursor-pointer hover:bg-accent/50 transition-colors',
+                    opp.status === 'WON' && 'border-green-200 bg-green-50/30',
+                    opp.status === 'LOST' && 'border-red-200 bg-red-50/30',
+                  )}
+                  onClick={() => setSelectedOpp(opp)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm">{opp.title}</p>
+                        <Badge
+                          variant="secondary"
+                          className={cn('text-xs', statusColors[opp.status] ?? '')}
+                        >
+                          {statusLabels[opp.status] ?? opp.status}
+                        </Badge>
+                      </div>
 
-                  {/* Pipeline → Stage breadcrumb */}
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span>{opp.pipeline.name}</span>
-                    <span className="text-muted-foreground/40">›</span>
-                    <div className="flex items-center gap-1">
-                      <div
-                        className="h-2 w-2 rounded-full shrink-0"
-                        style={{ backgroundColor: opp.stage.color }}
-                      />
-                      <span>{opp.stage.name}</span>
+                      {/* Pipeline → Stage */}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                        <span>{opp.pipeline.name}</span>
+                        <span className="opacity-40">›</span>
+                        <div className="flex items-center gap-1">
+                          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: opp.stage.color }} />
+                          <span>{opp.stage.name}</span>
+                        </div>
+                        {opp.origin && (
+                          <>
+                            <span className="opacity-40">•</span>
+                            <span>{opp.origin.name}</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Assignees */}
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        {opp.sdr && <span>SDR: <span className="font-medium text-foreground">{opp.sdr.name}</span></span>}
+                        {opp.closer && <span>Closer: <span className="font-medium text-foreground">{opp.closer.name}</span></span>}
+                        {!opp.sdr && !opp.closer && <span>Resp: <span className="font-medium text-foreground">{opp.assignedTo.name}</span></span>}
+                      </div>
+
+                      {/* Dates row */}
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>Criado {formatDate(opp.createdAt)}</span>
+                        {opp.status === 'WON' && opp.closedAt && (
+                          <span className="text-green-600 font-medium">Ganho {formatDate(opp.closedAt)}</span>
+                        )}
+                        {opp.status === 'LOST' && opp.closedAt && (
+                          <span className="text-red-600 font-medium">
+                            Perdido {formatDate(opp.closedAt)}
+                            {opp.lostReason && `: ${opp.lostReason.name}`}
+                          </span>
+                        )}
+                        {opp.expectedCloseDate && opp.status === 'OPEN' && (
+                          <span>Prev. fechamento {formatDate(opp.expectedCloseDate)}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <p className={cn(
+                        'text-sm font-bold',
+                        opp.status === 'WON' && 'text-green-600',
+                        opp.status === 'LOST' && 'text-red-500 line-through',
+                      )}>
+                        {opp.value != null ? formatCurrency(opp.value) : '—'}
+                      </p>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">
-                      {opp.value != null ? formatCurrency(opp.value) : '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{formatDate(opp.createdAt)}</p>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-xs"
-                    onClick={() => setSelectedOpp(opp)}
-                  >
-                    Ver detalhes
-                  </Button>
                 </div>
               ))}
             </div>
