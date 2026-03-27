@@ -25,9 +25,33 @@ interface ContactForm {
   companyLabel: string
   opportunityId: string
   opportunityLabel: string
+  cpf: string
+  role: string
+  nationality: string
+  category: string
+  website: string
+  birthday: string
+  addrZip: string
+  addrCountry: string
+  addrState: string
+  addrCity: string
+  addrNeighborhood: string
+  addrStreet: string
+  addrNumber: string
+  addrComplement: string
+  socialLinkedin: string
+  socialInstagram: string
+  socialFacebook: string
+  socialTwitter: string
+  socialSkype: string
 }
 
-const defaultForm: ContactForm = { name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', opportunityId: '', opportunityLabel: '' }
+const defaultForm: ContactForm = {
+  name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', opportunityId: '', opportunityLabel: '',
+  cpf: '', role: '', nationality: '', category: '', website: '', birthday: '',
+  addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
+  socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '', socialSkype: '',
+}
 
 interface Opportunity { id: string; title: string }
 
@@ -170,12 +194,24 @@ export default function ContatosPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) { toast.error('Nome é obrigatório'); return }
+    const address = { zip: form.addrZip, country: form.addrCountry, state: form.addrState, city: form.addrCity, neighborhood: form.addrNeighborhood, street: form.addrStreet, number: form.addrNumber, complement: form.addrComplement }
+    const hasAddress = Object.values(address).some(Boolean)
+    const socialProfiles = { linkedin: form.socialLinkedin, instagram: form.socialInstagram, facebook: form.socialFacebook, twitter: form.socialTwitter, skype: form.socialSkype }
+    const hasSocial = Object.values(socialProfiles).some(Boolean)
     createMutation.mutate({
       name: form.name,
-      ...(form.email && { email: form.email }),
-      ...(form.phone && { phone: form.phone }),
-      ...(form.notes && { notes: form.notes }),
-      ...(form.companyId && { companyId: form.companyId }),
+      email: form.email || undefined,
+      phone: form.phone || undefined,
+      notes: form.notes || undefined,
+      cpf: form.cpf || undefined,
+      role: form.role || undefined,
+      nationality: form.nationality || undefined,
+      category: form.category || undefined,
+      website: form.website || undefined,
+      dateOfBirth: form.birthday ? new Date(form.birthday).toISOString() : undefined,
+      companyId: form.companyId || undefined,
+      ...(hasAddress ? { address } : {}),
+      ...(hasSocial ? { socialProfiles } : {}),
     })
   }
 
@@ -252,72 +288,151 @@ export default function ContatosPage() {
       />
 
       <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setForm(defaultForm) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Contato</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome *</Label>
-              <Input
-                placeholder="Nome completo"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="email@exemplo.com"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
+          <form onSubmit={handleSubmit} className="space-y-6 py-2">
+
+            {/* Dados básicos */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Nome *</Label>
+                  <Input placeholder="Nome completo" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>CPF</Label>
+                  <Input placeholder="000.000.000-00" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nacionalidade</Label>
+                  <Input placeholder="Ex: Brasileira" value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Empresa</Label>
+                  <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cargo</Label>
+                  <Input placeholder="Ex: Diretor Comercial" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Categoria</Label>
+                  <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Aniversário</Label>
+                  <Input type="date" value={form.birthday} onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Site</Label>
+                  <Input placeholder="https://..." value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Descrição</Label>
+                  <textarea rows={2} placeholder="Observações..." value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Telefone</Label>
-                <Input
-                  placeholder="(11) 99999-9999"
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                />
+            </div>
+
+            {/* Informações para contato */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Informações para contato</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>E-mail</Label>
+                  <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Telefone</Label>
+                  <Input placeholder="(11) 99999-9999" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                </div>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Empresa</Label>
-              <CompanySearch
-                value={form.companyId}
-                label={form.companyLabel}
-                onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))}
-              />
+
+            {/* Dados de endereço */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados de endereço</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label>CEP</Label>
+                  <Input placeholder="00000-000" value={form.addrZip} onChange={(e) => setForm((f) => ({ ...f, addrZip: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Input placeholder="Brasil" value={form.addrCountry} onChange={(e) => setForm((f) => ({ ...f, addrCountry: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
+                  <Input placeholder="SP" value={form.addrState} onChange={(e) => setForm((f) => ({ ...f, addrState: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input placeholder="São Paulo" value={form.addrCity} onChange={(e) => setForm((f) => ({ ...f, addrCity: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Bairro</Label>
+                  <Input placeholder="Bairro" value={form.addrNeighborhood} onChange={(e) => setForm((f) => ({ ...f, addrNeighborhood: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número</Label>
+                  <Input placeholder="123" value={form.addrNumber} onChange={(e) => setForm((f) => ({ ...f, addrNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Rua</Label>
+                  <Input placeholder="Rua Example" value={form.addrStreet} onChange={(e) => setForm((f) => ({ ...f, addrStreet: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Complemento</Label>
+                  <Input placeholder="Sala 10" value={form.addrComplement} onChange={(e) => setForm((f) => ({ ...f, addrComplement: e.target.value }))} />
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Vincular a oportunidade</Label>
-              <OppSearch
-                value={form.opportunityId}
-                label={form.opportunityLabel}
-                onChange={(id, name) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: name }))}
-              />
+
+            {/* Redes sociais */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Redes sociais</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>LinkedIn</Label>
+                  <Input placeholder="linkedin.com/in/usuario" value={form.socialLinkedin} onChange={(e) => setForm((f) => ({ ...f, socialLinkedin: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Instagram</Label>
+                  <Input placeholder="instagram.com/usuario" value={form.socialInstagram} onChange={(e) => setForm((f) => ({ ...f, socialInstagram: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Facebook</Label>
+                  <Input placeholder="facebook.com/usuario" value={form.socialFacebook} onChange={(e) => setForm((f) => ({ ...f, socialFacebook: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>X (Twitter)</Label>
+                  <Input placeholder="x.com/usuario" value={form.socialTwitter} onChange={(e) => setForm((f) => ({ ...f, socialTwitter: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Skype</Label>
+                  <Input placeholder="usuario.skype" value={form.socialSkype} onChange={(e) => setForm((f) => ({ ...f, socialSkype: e.target.value }))} />
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Notas</Label>
-              <textarea
-                rows={2}
-                placeholder="Observações..."
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
+
+            {/* Vincular */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Vincular</h3>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Vincular a oportunidade</Label>
+                  <OppSearch value={form.opportunityId} label={form.opportunityLabel} onChange={(id, name) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: name }))} />
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>
-                Cancelar
-              </Button>
+
+            <div className="flex gap-2 pt-1 border-t">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={createMutation.isPending}>
-                {createMutation.isPending ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</>
-                ) : 'Criar Contato'}
+                {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : 'Criar Contato'}
               </Button>
             </div>
           </form>
