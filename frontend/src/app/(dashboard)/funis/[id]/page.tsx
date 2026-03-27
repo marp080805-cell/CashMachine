@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
-  Settings, Plus, Loader2, Trash2, X, RotateCcw, LayoutKanban, List,
+  Settings, Plus, Loader2, Trash2, X, RotateCcw, Columns, List,
   ChevronDown, Search, GitBranch, Trophy, XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -256,7 +256,7 @@ export default function PipelineKanbanPage() {
               viewMode === 'kanban' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <LayoutKanban className="h-4 w-4" />
+            <Columns className="h-4 w-4" />
           </button>
           <button
             onClick={() => setViewMode('list')}
