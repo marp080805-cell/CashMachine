@@ -331,7 +331,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
     // Desativar assignments anteriores
     await prisma.opportunityAssignment.updateMany({
       where: { opportunityId: id, isCurrent: true, role: 'CLOSER' },
-      data: { isCurrent: false, endedAt: new Date() },
+      data: { isCurrent: false, unassignedAt: new Date() },
     })
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -372,15 +372,16 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
   // Gerenciar tags da oportunidade
   app.post('/opportunities/:id/tags', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { tenantId } = request.user as { tenantId: string }
+    const { id: userId } = request.user as { tenantId: string; id: string }
     const { tagId } = z.object({ tagId: z.string().uuid() }).parse(request.body)
 
-    await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
+    await prisma.opportunity.findFirstOrThrow({ where: { id } })
 
-    const assignment = await prisma.tagAssignment.upsert({
-      where: { tagId_opportunityId: { tagId, opportunityId: id } },
-      create: { tagId, opportunityId: id, tenantId },
-      update: {},
+    const existing = await prisma.tagAssignment.findFirst({ where: { tagId, opportunityId: id } })
+    if (existing) return reply.send(existing)
+
+    const assignment = await prisma.tagAssignment.create({
+      data: { tagId, opportunityId: id, entityType: 'opportunity', entityId: id, assignedById: userId },
     })
 
     return reply.status(201).send(assignment)

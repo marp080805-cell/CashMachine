@@ -245,7 +245,7 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
                 closer: { select: { id: true, name: true } },
                 origin: { select: { id: true, name: true } },
                 subOrigin: { select: { id: true, name: true } },
-                tags: { include: { tag: { select: { id: true, name: true, color: true } } } },
+                tagAssignments: { include: { tag: { select: { id: true, name: true, color: true } } } },
                 tasks: {
                   where: { status: { in: ['PENDING', 'IN_PROGRESS'] } },
                   orderBy: { dueDate: 'asc' },
