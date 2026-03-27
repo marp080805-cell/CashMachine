@@ -8,12 +8,19 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2 } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import Link from 'next/link'
+
+interface ContactItem { id: string; name: string; email?: string; phone?: string }
+interface OppItem { id: string; title: string; value?: number; status: string; pipeline?: { name: string }; stage?: { name: string } }
 
 interface CompanyForm {
   name: string
@@ -30,7 +37,20 @@ export default function EmpresasPage() {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<CompanyForm>(defaultForm)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const queryClient = useQueryClient()
+
+  const { data: companyContacts } = useQuery({
+    queryKey: ['company-contacts', selectedCompany?.id],
+    queryFn: () => api.get<ContactItem[]>(`/companies/${selectedCompany!.id}/contacts`),
+    enabled: !!selectedCompany,
+  })
+
+  const { data: companyOpps } = useQuery({
+    queryKey: ['company-opps', selectedCompany?.id],
+    queryFn: () => api.get<OppItem[]>(`/companies/${selectedCompany!.id}/opportunities`),
+    enabled: !!selectedCompany,
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['companies', page, search],
@@ -123,9 +143,73 @@ export default function EmpresasPage() {
         data={data?.data ?? []}
         isLoading={isLoading}
         rowKey={(row) => row.id}
+        onRowClick={(row) => setSelectedCompany(row)}
         pagination={data ? { page: data.page, pages, total: data.total, onPageChange: setPage } : undefined}
         emptyMessage="Nenhuma empresa encontrada"
       />
+
+      {/* Company Detail Sheet */}
+      <Sheet open={!!selectedCompany} onOpenChange={(open) => !open && setSelectedCompany(null)}>
+        <SheetContent className="w-full sm:max-w-lg flex flex-col p-0">
+          <SheetHeader className="px-6 py-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <SheetTitle className="text-base">{selectedCompany?.name}</SheetTitle>
+                {selectedCompany?.segment && <p className="text-xs text-muted-foreground">{selectedCompany.segment}</p>}
+              </div>
+            </div>
+          </SheetHeader>
+          <Tabs defaultValue="contacts" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="mx-6 mt-4 w-auto justify-start">
+              <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />Contatos ({companyContacts?.length ?? 0})</TabsTrigger>
+              <TabsTrigger value="opps"><TrendingUp className="h-3.5 w-3.5 mr-1" />Oportunidades ({companyOpps?.length ?? 0})</TabsTrigger>
+              <TabsTrigger value="info">Dados</TabsTrigger>
+            </TabsList>
+            <TabsContent value="contacts" className="flex-1 overflow-y-auto px-6 py-3 space-y-2 mt-0">
+              {(companyContacts ?? []).length === 0
+                ? <p className="text-sm text-muted-foreground py-4">Nenhum contato vinculado</p>
+                : (companyContacts ?? []).map((c) => (
+                  <Link key={c.id} href={`/contatos/${c.id}`}
+                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
+                    onClick={() => setSelectedCompany(null)}>
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{c.name}</p>
+                      {c.email && <p className="text-xs text-muted-foreground truncate">{c.email}</p>}
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                ))}
+            </TabsContent>
+            <TabsContent value="opps" className="flex-1 overflow-y-auto px-6 py-3 space-y-2 mt-0">
+              {(companyOpps ?? []).length === 0
+                ? <p className="text-sm text-muted-foreground py-4">Nenhuma oportunidade vinculada</p>
+                : (companyOpps ?? []).map((o) => (
+                  <div key={o.id} className="p-3 rounded-lg border space-y-1">
+                    <p className="text-sm font-medium">{o.title}</p>
+                    <div className="flex items-center gap-2">
+                      {o.pipeline && <span className="text-xs text-muted-foreground">{o.pipeline.name}</span>}
+                      {o.stage && <><span className="text-xs text-muted-foreground">›</span><span className="text-xs text-muted-foreground">{o.stage.name}</span></>}
+                      <Badge variant="outline" className="text-xs ml-auto">{o.status}</Badge>
+                    </div>
+                    {o.value && <p className="text-xs font-medium text-green-600">R$ {o.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>}
+                  </div>
+                ))}
+            </TabsContent>
+            <TabsContent value="info" className="px-6 py-3 space-y-3 mt-0">
+              {selectedCompany?.cnpj && <div><p className="text-xs text-muted-foreground">CNPJ</p><p className="text-sm">{selectedCompany.cnpj}</p></div>}
+              {selectedCompany?.website && <div><p className="text-xs text-muted-foreground">Website</p><a href={selectedCompany.website} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">{selectedCompany.website}</a></div>}
+              {selectedCompany?.notes && <div><p className="text-xs text-muted-foreground">Notas</p><p className="text-sm">{selectedCompany.notes}</p></div>}
+              <div><p className="text-xs text-muted-foreground">Criado em</p><p className="text-sm">{formatDate(selectedCompany?.createdAt ?? '')}</p></div>
+            </TabsContent>
+          </Tabs>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setForm(defaultForm) }}>
         <DialogContent className="sm:max-w-md">

@@ -353,7 +353,13 @@ export default function LeadsPage() {
                 />
                 {selectedContact && (
                   <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                    <span className="flex-1 font-medium">{selectedContact.name}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{selectedContact.name}</p>
+                      {selectedContact.phone && <p className="text-xs text-muted-foreground">{selectedContact.phone}</p>}
+                      {(selectedContact as Contact & { company?: { name: string } }).company?.name && (
+                        <p className="text-xs text-muted-foreground">🏢 {(selectedContact as Contact & { company?: { name: string } }).company!.name}</p>
+                      )}
+                    </div>
                     <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: '' }))}>
                       <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                     </button>

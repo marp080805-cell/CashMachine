@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Contact } from '@/types'
@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2 } from 'lucide-react'
+import { Plus, Search, X, Building2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -20,9 +20,61 @@ interface ContactForm {
   email: string
   phone: string
   notes: string
+  companyId: string
+  companyLabel: string
 }
 
-const defaultForm: ContactForm = { name: '', email: '', phone: '', notes: '' }
+const defaultForm: ContactForm = { name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '' }
+
+interface Company { id: string; name: string }
+
+function CompanySearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data } = useQuery({
+    queryKey: ['companies-search', q],
+    queryFn: () => api.get<{ data: Company[] }>(`/companies?search=${encodeURIComponent(q)}&limit=8`),
+    enabled: q.length > 0,
+  })
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="flex-1 font-medium">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar empresa..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => q && setOpen(true)}
+      />
+      {open && (data?.data?.length ?? 0) > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+          {data!.data.map((c) => (
+            <button key={c.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onMouseDown={() => { onChange(c.id, c.name); setQ(''); setOpen(false) }}>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ContatosPage() {
   const [page, setPage] = useState(1)
@@ -63,6 +115,7 @@ export default function ContatosPage() {
       ...(form.email && { email: form.email }),
       ...(form.phone && { phone: form.phone }),
       ...(form.notes && { notes: form.notes }),
+      ...(form.companyId && { companyId: form.companyId }),
     })
   }
 
@@ -155,6 +208,14 @@ export default function ContatosPage() {
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <CompanySearch
+                value={form.companyId}
+                label={form.companyLabel}
+                onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Notas</Label>
