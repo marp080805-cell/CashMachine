@@ -196,18 +196,16 @@ export default function PipelineKanbanPage() {
 
   if (!pipeline) return null
 
-  const totalOpenValue = pipeline.stages.reduce(
-    (sum, s) => sum + s.opportunities.reduce((acc, o) => acc + (o.value ?? 0), 0), 0
-  )
-  const totalOpenOpps = pipeline.stages.reduce((sum, s) => sum + s.opportunities.length, 0)
   const lostCount = lostOpps?.data.length ?? 0
   const wonCount = wonOpps?.data.length ?? 0
   const closedCount = lostCount + wonCount
 
-  // Filtro de busca para lista
   const allOpenOpps = pipeline.stages.flatMap((s) =>
     s.opportunities.map((o) => ({ ...o, stageName: s.name, stageColor: s.color }))
   )
+  const totalOpenOpps = allOpenOpps.length
+  const totalOpenValue = allOpenOpps.reduce((sum, o) => sum + Number(o.value ?? 0), 0)
+
   const filteredOpps = search
     ? allOpenOpps.filter((o) =>
         o.title.toLowerCase().includes(search.toLowerCase()) ||

@@ -9,7 +9,7 @@ import { MobileNav } from '@/components/layout/MobileNav'
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
-  '/funis': 'Funis CRM',
+  '/funis': 'Pipelines',
   '/whatsapp': 'WhatsApp',
   '/leads': 'Leads',
   '/planejamento': 'Planejamento de Canais',
@@ -28,7 +28,7 @@ const pageTitles: Record<string, string> = {
 
 function getTitle(pathname: string): string {
   if (pageTitles[pathname]) return pageTitles[pathname]
-  if (pathname.startsWith('/funis/')) return 'Kanban do Funil'
+  if (pathname.startsWith('/funis/')) return 'Pipelines'
   if (pathname.startsWith('/leads/')) return 'Detalhes do Lead'
   return 'CashMind'
 }
