@@ -28,11 +28,20 @@ import customFieldsRoutes from './modules/custom-fields/custom-fields.routes'
 import activitiesRoutes from './modules/activities/activities.routes'
 import tasksRoutes from './modules/tasks/tasks.routes'
 import dashboardRoutes from './modules/dashboard/dashboard.routes'
+import analyticsRoutes from './modules/dashboard/analytics.routes'
 import reportsRoutes from './modules/reports/reports.routes'
 import notificationsRoutes from './modules/notifications/notifications.routes'
 
 // New modules
 import goalsRoutes from './modules/goals/goals.routes'
+import meetingsRoutes from './modules/meetings/meetings.routes'
+import conversationsRoutes from './modules/conversations/conversations.routes'
+import aiAgentsRoutes from './modules/ai-agents/ai-agents.routes'
+import stageTriggerRoutes from './modules/stage-triggers/stage-triggers.routes'
+import salebotsRoutes from './modules/salesbots/salesbots.routes'
+import recordingsRoutes from './modules/recordings/recordings.routes'
+import formsRoutes from './modules/forms/forms.routes'
+import accountTemplatesRoutes from './modules/account-templates/account-templates.routes'
 
 // WhatsApp + AI (maintained)
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
@@ -43,6 +52,10 @@ import { startAiSuggestionWorker } from './queues/ai-suggestion.queue'
 import { startNotificationWorker } from './queues/notification.queue'
 import { startEmailWorker } from './queues/email.queue'
 import { startTranscriptionWorker } from './queues/transcription.queue'
+import { startStageTriggerWorker } from './queues/trigger.queue'
+import { startBotExecutionWorker } from './queues/bot-execution.queue'
+import { startRecordingAnalysisWorker } from './queues/recording-analysis.queue'
+import { startDailyMetricsWorker } from './queues/daily-metrics.queue'
 
 const app = Fastify({
   logger: env.NODE_ENV === 'development',
@@ -87,9 +100,18 @@ async function bootstrap() {
   await app.register(activitiesRoutes)
   await app.register(tasksRoutes)
   await app.register(dashboardRoutes)
+  await app.register(analyticsRoutes)
   await app.register(reportsRoutes)
   await app.register(notificationsRoutes)
   await app.register(goalsRoutes)
+  await app.register(meetingsRoutes)
+  await app.register(conversationsRoutes)
+  await app.register(aiAgentsRoutes)
+  await app.register(stageTriggerRoutes)
+  await app.register(salebotsRoutes)
+  await app.register(recordingsRoutes)
+  await app.register(formsRoutes)
+  await app.register(accountTemplatesRoutes)
   await app.register(whatsappRoutes)
   await app.register(aiRoutes)
 
@@ -102,6 +124,10 @@ async function bootstrap() {
 
   startNotificationWorker()
   startEmailWorker()
+  startStageTriggerWorker()
+  startBotExecutionWorker()
+  startRecordingAnalysisWorker()
+  startDailyMetricsWorker()
 
   // Bootstrap: criar tenant + admin se não existirem
   const existingTenant = await prisma.tenant.findUnique({
