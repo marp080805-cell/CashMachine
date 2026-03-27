@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Pencil, Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react'
@@ -11,11 +12,14 @@ import { api } from '@/lib/api'
 interface SubOrigin {
   id: string
   name: string
+  isActive: boolean
+  originId: string
 }
 
 interface Origin {
   id: string
   name: string
+  isActive: boolean
   subOrigins: SubOrigin[]
 }
 
@@ -32,9 +36,6 @@ export default function OrigensPage() {
 
   async function load() {
     try {
-      const data = await api.get<Origin[]>('/origins?includeSubOrigins=true')
-      setOrigins(data)
-    } catch {
       const data = await api.get<Origin[]>('/origins')
       setOrigins(data)
     } finally {
@@ -88,16 +89,21 @@ export default function OrigensPage() {
     setSaving(true)
     try {
       if (editingSubOrigin) {
-        const updated = await api.patch<SubOrigin>(`/origins/sub-origins/${editingSubOrigin.sub.id}`, { name })
+        // PATCH /origins/:parentId/sub-origins/:subId
+        const updated = await api.patch<SubOrigin>(
+          `/origins/${editingSubOrigin.parentId}/sub-origins/${editingSubOrigin.sub.id}`,
+          { name }
+        )
         setOrigins((prev) => prev.map((o) =>
           o.id === editingSubOrigin.parentId
             ? { ...o, subOrigins: o.subOrigins.map((s) => s.id === editingSubOrigin.sub.id ? updated : s) }
             : o
         ))
       } else if (newSubOriginFor) {
+        // POST /origins/:id/sub-origins
         const created = await api.post<SubOrigin>(`/origins/${newSubOriginFor}/sub-origins`, { name })
         setOrigins((prev) => prev.map((o) =>
-          o.id === newSubOriginFor ? { ...o, subOrigins: [...(o.subOrigins || []), created] } : o
+          o.id === newSubOriginFor ? { ...o, subOrigins: [...(o.subOrigins ?? []), created] } : o
         ))
       } else if (editingOrigin) {
         const updated = await api.patch<Origin>(`/origins/${editingOrigin.id}`, { name })
@@ -112,18 +118,24 @@ export default function OrigensPage() {
     }
   }
 
-  async function deleteOrigin(id: string) {
-    if (!confirm('Excluir esta origem e todas as sub-origens?')) return
-    await api.delete(`/origins/${id}`)
-    setOrigins((prev) => prev.filter((o) => o.id !== id))
+  async function toggleOriginActive(origin: Origin) {
+    const updated = await api.patch<Origin>(`/origins/${origin.id}`, { isActive: !origin.isActive })
+    setOrigins((prev) => prev.map((o) => (o.id === origin.id ? { ...o, ...updated } : o)))
   }
 
-  async function deleteSubOrigin(subId: string, parentId: string) {
-    if (!confirm('Excluir esta sub-origem?')) return
-    await api.delete(`/origins/sub-origins/${subId}`)
+  async function toggleSubOriginActive(sub: SubOrigin, parentId: string) {
+    const updated = await api.patch<SubOrigin>(`/origins/${parentId}/sub-origins/${sub.id}`, { isActive: !sub.isActive })
     setOrigins((prev) => prev.map((o) =>
-      o.id === parentId ? { ...o, subOrigins: o.subOrigins.filter((s) => s.id !== subId) } : o
+      o.id === parentId
+        ? { ...o, subOrigins: o.subOrigins.map((s) => s.id === sub.id ? updated : s) }
+        : o
     ))
+  }
+
+  async function deleteOrigin(id: string) {
+    if (!confirm('Desativar esta origem? Ela será marcada como inativa.')) return
+    await api.patch(`/origins/${id}`, { isActive: false })
+    setOrigins((prev) => prev.filter((o) => o.id !== id))
   }
 
   const modalTitle = editingSubOrigin ? 'Editar Sub-origem'
@@ -137,7 +149,7 @@ export default function OrigensPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Origens</h2>
+          <h2 className="text-lg font-semibold">Origens e Sub-origens</h2>
           <p className="text-sm text-muted-foreground">De onde vêm seus leads (canais de captação)</p>
         </div>
         <Button onClick={openCreateOrigin} size="sm">
@@ -164,6 +176,11 @@ export default function OrigensPage() {
               <span className="text-xs text-muted-foreground">
                 {origin.subOrigins?.length ?? 0} sub-origens
               </span>
+              <Switch
+                checked={origin.isActive}
+                onCheckedChange={() => void toggleOriginActive(origin)}
+                title={origin.isActive ? 'Ativa — clique para desativar' : 'Inativa — clique para ativar'}
+              />
               <Button
                 variant="ghost" size="sm" className="h-7 text-xs"
                 onClick={() => openCreateSubOrigin(origin.id)}
@@ -176,25 +193,37 @@ export default function OrigensPage() {
               <Button
                 variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => void deleteOrigin(origin.id)}
+                title="Desativar origem"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
 
-            {expanded.has(origin.id) && origin.subOrigins?.map((sub) => (
-              <div key={sub.id} className="flex items-center gap-2 px-4 py-2 pl-12 bg-muted/30">
-                <span className="flex-1 text-sm text-muted-foreground">{sub.name}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSubOrigin(sub, origin.id)}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                  onClick={() => void deleteSubOrigin(sub.id, origin.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+            {expanded.has(origin.id) && (
+              <div className="border-t divide-y">
+                {(origin.subOrigins?.length ?? 0) === 0 ? (
+                  <div className="px-4 py-2 pl-12 text-sm text-muted-foreground italic">
+                    Nenhuma sub-origem
+                  </div>
+                ) : (
+                  origin.subOrigins.map((sub) => (
+                    <div key={sub.id} className="flex items-center gap-2 px-4 py-2 pl-12 bg-muted/30">
+                      <span className="flex-1 text-sm">{sub.name}</span>
+                      <Switch
+                        checked={sub.isActive}
+                        onCheckedChange={() => void toggleSubOriginActive(sub, origin.id)}
+                      />
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7"
+                        onClick={() => openEditSubOrigin(sub, origin.id)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))
+                )}
               </div>
-            ))}
+            )}
           </div>
         ))}
       </div>
@@ -210,7 +239,8 @@ export default function OrigensPage() {
               className="mt-1.5"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Instagram, Google Ads, Indicação..."
+              placeholder={newSubOriginFor ? 'Ex: Stories, Feed, DM...' : 'Ex: Instagram, Google Ads, Indicação...'}
+              autoFocus
             />
           </div>
           <DialogFooter>

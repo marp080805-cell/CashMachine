@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Pencil, Trash2, Plus } from 'lucide-react'
+import { Pencil, Trash2, Plus, Lock } from 'lucide-react'
 import { api } from '@/lib/api'
 
 interface Tag {
@@ -19,12 +19,23 @@ interface Tag {
   isLocked: boolean
 }
 
-const CATEGORIES = ['SALES', 'SUPPORT', 'MARKETING', 'AI_CONTROL'] as const
-const categoryLabels: Record<string, string> = {
-  SALES: 'Vendas', SUPPORT: 'Suporte', MARKETING: 'Marketing', AI_CONTROL: 'IA',
+const CATEGORIES = [
+  { value: 'QUALIFICATION', label: 'Qualificação' },
+  { value: 'TEMPERATURE', label: 'Temperatura' },
+  { value: 'STATUS', label: 'Status' },
+  { value: 'AI_CONTROL', label: 'Controle IA' },
+  { value: 'CUSTOM', label: 'Personalizada' },
+] as const
+
+const categoryColors: Record<string, string> = {
+  QUALIFICATION: 'bg-blue-100 text-blue-700',
+  TEMPERATURE:   'bg-orange-100 text-orange-700',
+  STATUS:        'bg-green-100 text-green-700',
+  AI_CONTROL:    'bg-purple-100 text-purple-700',
+  CUSTOM:        'bg-gray-100 text-gray-700',
 }
 
-const emptyForm = { name: '', color: '#6366f1', category: 'SALES', isLocked: false }
+const emptyForm = { name: '', color: '#6366f1', category: 'CUSTOM', isLocked: false }
 
 export default function TagsPage() {
   const [tags, setTags] = useState<Tag[]>([])
@@ -74,7 +85,7 @@ export default function TagsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir esta tag?')) return
+    if (!confirm('Excluir esta tag? Esta ação não pode ser desfeita.')) return
     await api.delete(`/tags/${id}`)
     setTags((prev) => prev.filter((t) => t.id !== id))
   }
@@ -100,30 +111,30 @@ export default function TagsPage() {
         {tags.map((tag) => (
           <div key={tag.id} className="flex items-center gap-3 px-4 py-3">
             <span
-              className="h-4 w-4 rounded-full flex-shrink-0"
+              className="h-4 w-4 rounded-full flex-shrink-0 border border-black/10"
               style={{ backgroundColor: tag.color }}
             />
             <span className="flex-1 font-medium text-sm">{tag.name}</span>
-            <Badge variant="outline" className="text-xs">
-              {categoryLabels[tag.category] ?? tag.category}
-            </Badge>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${categoryColors[tag.category] ?? 'bg-gray-100 text-gray-700'}`}>
+              {CATEGORIES.find((c) => c.value === tag.category)?.label ?? tag.category}
+            </span>
             {tag.isLocked && (
-              <Badge variant="secondary" className="text-xs">Bloqueada</Badge>
+              <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" title="Tag bloqueada" />
             )}
             <div className="flex gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(tag)}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
-              {!tag.isLocked && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => void handleDelete(tag.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                disabled={tag.isLocked}
+                onClick={() => void handleDelete(tag.id)}
+                title={tag.isLocked ? 'Tag bloqueada — não pode ser excluída' : 'Excluir tag'}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         ))}
@@ -158,6 +169,12 @@ export default function TagsPage() {
                   className="font-mono text-sm"
                   placeholder="#6366f1"
                 />
+                <span
+                  className="h-7 px-2 rounded text-xs font-medium flex items-center flex-shrink-0"
+                  style={{ backgroundColor: form.color + '33', color: form.color, border: `1px solid ${form.color}66` }}
+                >
+                  Preview
+                </span>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -171,7 +188,7 @@ export default function TagsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{categoryLabels[c]}</SelectItem>
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -181,7 +198,7 @@ export default function TagsPage() {
                 checked={form.isLocked}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, isLocked: v }))}
               />
-              <Label>Bloqueada (não pode ser excluída)</Label>
+              <Label>Bloqueada (não pode ser excluída por usuários)</Label>
             </div>
           </div>
           <DialogFooter>
