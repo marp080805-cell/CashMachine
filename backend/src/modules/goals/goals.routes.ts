@@ -4,21 +4,23 @@ import { prisma } from '../../lib/prisma'
 
 const goalSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(['REVENUE', 'MRR', 'DEAL_COUNT', 'NEW_LEADS', 'MEETINGS_BOOKED', 'CALLS_MADE', 'PROPOSALS_SENT', 'CONVERSION_RATE']),
+  type: z.enum(['REVENUE', 'MRR', 'DEAL_COUNT', 'NEW_LEADS', 'MEETINGS_BOOKED', 'CONVERSION_SDR', 'CONVERSION_CLOSER', 'CPL']),
   periodType: z.enum(['MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']),
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
   targetValue: z.number(),
   scope: z.enum(['GLOBAL', 'BY_USER', 'BY_TEAM', 'BY_CHANNEL']).default('GLOBAL'),
-  pipelineId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
+  originId: z.string().uuid().optional(),
 })
 
 const breakdownSchema = z.object({
-  label: z.string().min(1),
-  targetValue: z.number(),
-  originId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
+  originId: z.string().uuid(),
+  subOriginId: z.string().uuid().optional(),
+  targetLeads: z.number().int().optional(),
+  targetCpl: z.number().optional(),
+  targetConversionToMeeting: z.number().optional(),
+  targetConversionToSale: z.number().optional(),
 })
 
 async function computeGoalProgress(goal: {
@@ -26,31 +28,29 @@ async function computeGoalProgress(goal: {
   type: string
   startDate: Date
   endDate: Date
-  pipelineId: string | null
   tenantId: string
 }): Promise<number> {
-  const { type, startDate, endDate, pipelineId, tenantId } = goal
+  const { type, startDate, endDate, tenantId } = goal
   const dateRange = { gte: startDate, lte: endDate }
-  const pipelineFilter = pipelineId ? { pipelineId } : {}
 
   switch (type) {
     case 'REVENUE': {
       const agg = await prisma.opportunity.aggregate({
-        where: { tenantId, status: 'WON', wonDate: dateRange, ...pipelineFilter },
+        where: { tenantId, status: 'WON', wonDate: dateRange },
         _sum: { value: true },
       })
-      return agg._sum.value ?? 0
+      return Number(agg._sum.value ?? 0)
     }
     case 'MRR': {
       const agg = await prisma.opportunity.aggregate({
-        where: { tenantId, status: 'WON', wonDate: dateRange, ...pipelineFilter },
+        where: { tenantId, status: 'WON', wonDate: dateRange },
         _sum: { monthlyValue: true },
       })
-      return agg._sum.monthlyValue ?? 0
+      return Number(agg._sum.monthlyValue ?? 0)
     }
     case 'DEAL_COUNT': {
       return prisma.opportunity.count({
-        where: { tenantId, status: 'WON', wonDate: dateRange, ...pipelineFilter },
+        where: { tenantId, status: 'WON', wonDate: dateRange },
       })
     }
     case 'NEW_LEADS': {
@@ -76,7 +76,6 @@ export default async function goalsRoutes(app: FastifyInstance) {
       where: { tenantId },
       orderBy: { startDate: 'desc' },
       include: {
-        pipeline: { select: { id: true, name: true } },
         user: { select: { id: true, name: true, avatarUrl: true } },
         _count: { select: { breakdowns: true } },
       },
@@ -90,8 +89,7 @@ export default async function goalsRoutes(app: FastifyInstance) {
     const { tenantId } = request.user as { tenantId: string }
 
     const goal = await prisma.goal.create({
-      data: { ...input, tenantId },
-      include: { pipeline: { select: { id: true, name: true } } },
+      data: { ...input, targetValue: input.targetValue, tenantId },
     })
 
     return reply.status(201).send(goal)
@@ -109,7 +107,8 @@ export default async function goalsRoutes(app: FastifyInstance) {
     const results = await Promise.all(
       goals.map(async (goal) => {
         const currentValue = await computeGoalProgress(goal)
-        const progress = goal.targetValue > 0 ? (currentValue / goal.targetValue) * 100 : 0
+        const target = Number(goal.targetValue)
+        const progress = target > 0 ? (currentValue / target) * 100 : 0
         return { ...goal, currentValue, progress: Math.min(progress, 100) }
       })
     )
@@ -125,14 +124,14 @@ export default async function goalsRoutes(app: FastifyInstance) {
     const goal = await prisma.goal.findFirstOrThrow({
       where: { id, tenantId },
       include: {
-        pipeline: { select: { id: true, name: true } },
         user: { select: { id: true, name: true, avatarUrl: true } },
         breakdowns: true,
       },
     })
 
     const currentValue = await computeGoalProgress(goal)
-    const progress = goal.targetValue > 0 ? (currentValue / goal.targetValue) * 100 : 0
+    const target = Number(goal.targetValue)
+    const progress = target > 0 ? (currentValue / target) * 100 : 0
 
     return reply.send({ ...goal, currentValue, progress: Math.min(progress, 100) })
   })

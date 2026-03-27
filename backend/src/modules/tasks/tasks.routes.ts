@@ -29,11 +29,14 @@ const taskIncludes = {
 
 const createTemplateSchema = z.object({
   name: z.string().min(1),
-  description: z.string().optional(),
+  titleTemplate: z.string().min(1),
+  descriptionTemplate: z.string().optional(),
   type: taskTypeEnum.default('FOLLOW_UP'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  defaultPriority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   slaMinutes: z.number().int().optional(),
-  defaultDueDays: z.number().int().optional(),
+  dueOffsetMinutes: z.number().int().optional(),
+  dueDateRelativeTo: z.string().optional(),
+  assignedRole: z.string().optional(),
 })
 
 function computeSlaBreach(task: { createdAt: Date; slaMinutes: number | null }): boolean {
@@ -230,7 +233,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
     await prisma.task.findFirstOrThrow({ where: { id, tenantId } })
     const task = await prisma.task.update({
       where: { id },
-      data: { status: 'CANCELLED' },
+      data: { status: 'SKIPPED' },
       include: taskIncludes,
     })
     return reply.send(task)

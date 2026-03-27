@@ -60,7 +60,8 @@ class StorageService {
   }
 
   private async saveToS3(buffer: Buffer, key: string, mimetype: string): Promise<StorageFile> {
-    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3') as any
     const client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
     await client.send(new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET,
@@ -72,7 +73,8 @@ class StorageService {
   }
 
   private async deleteFromS3(key: string): Promise<void> {
-    const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3') as any
     const client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
     await client.send(new DeleteObjectCommand({ Bucket: process.env.AWS_BUCKET, Key: key }))
   }
