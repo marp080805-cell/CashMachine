@@ -119,7 +119,7 @@ export default function TagsPage() {
               {CATEGORIES.find((c) => c.value === tag.category)?.label ?? tag.category}
             </span>
             {tag.isLocked && (
-              <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" title="Tag bloqueada" />
+              <span title="Tag bloqueada"><Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /></span>
             )}
             <div className="flex gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(tag)}>
