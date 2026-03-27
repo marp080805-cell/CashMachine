@@ -8,9 +8,10 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, X, Building2, Loader2, TrendingUp } from 'lucide-react'
+import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
@@ -129,6 +130,7 @@ function CompanySearch({ value, label, onChange }: { value: string; label: strin
 }
 
 export default function ContatosPage() {
+  const router = useRouter()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -205,6 +207,20 @@ export default function ContatosPage() {
       header: 'Criado em',
       render: (row: Contact) => <span className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</span>,
     },
+    {
+      key: 'actions',
+      header: '',
+      className: 'w-10',
+      render: (row: Contact) => (
+        <button
+          className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          onClick={(e) => { e.stopPropagation(); router.push(`/contatos/${row.id}`) }}
+          title="Ver perfil"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
+      ),
+    },
   ]
 
   return (
@@ -230,6 +246,7 @@ export default function ContatosPage() {
         data={data?.data ?? []}
         isLoading={isLoading}
         rowKey={(row) => row.id}
+        onRowClick={(row) => router.push(`/contatos/${row.id}`)}
         pagination={data ? { page: data.page, pages, total: data.total, onPageChange: setPage } : undefined}
         emptyMessage="Nenhum contato encontrado"
       />
