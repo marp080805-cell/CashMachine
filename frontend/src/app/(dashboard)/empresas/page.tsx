@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Company } from '@/types'
@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -20,6 +20,55 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
+
+function ContactSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data } = useQuery({
+    queryKey: ['contacts-search-company', q],
+    queryFn: () => api.get<{ data: ContactItem[] }>(`/contacts?search=${encodeURIComponent(q)}&limit=8`),
+    enabled: q.length > 0,
+  })
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <User className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="flex-1 font-medium">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar contato..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => q && setOpen(true)}
+      />
+      {open && (data?.data?.length ?? 0) > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+          {data!.data.map((c) => (
+            <button key={c.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onMouseDown={() => { onChange(c.id, c.name); setQ(''); setOpen(false) }}>
+              <span className="font-medium">{c.name}</span>
+              {c.email && <span className="text-muted-foreground ml-2 text-xs">{c.email}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 interface OppItem { id: string; title: string; value?: number; status: string; pipeline?: { name: string }; stage?: { name: string } }
 
 interface CompanyForm {
@@ -28,9 +77,11 @@ interface CompanyForm {
   segment: string
   website: string
   notes: string
+  contactId: string
+  contactLabel: string
 }
 
-const defaultForm: CompanyForm = { name: '', cnpj: '', segment: '', website: '', notes: '' }
+const defaultForm: CompanyForm = { name: '', cnpj: '', segment: '', website: '', notes: '', contactId: '', contactLabel: '' }
 
 export default function EmpresasPage() {
   const [page, setPage] = useState(1)
@@ -64,12 +115,19 @@ export default function EmpresasPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.post<Company>('/companies', body),
+    mutationFn: async (body: Record<string, unknown>) => {
+      const company = await api.post<Company>('/companies', body)
+      if (form.contactId) {
+        await api.patch(`/contacts/${form.contactId}`, { companyId: company.id })
+      }
+      return company
+    },
     onSuccess: () => {
       toast.success('Empresa criada!')
       setModalOpen(false)
       setForm(defaultForm)
       void queryClient.invalidateQueries({ queryKey: ['companies'] })
+      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
     onError: (err: unknown) => {
       toast.error((err as { message?: string })?.message ?? 'Erro ao criar empresa')
@@ -249,6 +307,14 @@ export default function EmpresasPage() {
                 placeholder="https://empresa.com.br"
                 value={form.website}
                 onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vincular contato</Label>
+              <ContactSearch
+                value={form.contactId}
+                label={form.contactLabel}
+                onChange={(id, name) => setForm((f) => ({ ...f, contactId: id, contactLabel: name }))}
               />
             </div>
             <div className="space-y-1.5">
