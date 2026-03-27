@@ -24,6 +24,20 @@ const pageTitles: Record<string, string> = {
   '/configuracoes/campos-leads': 'Campos de Leads',
   '/configuracoes/metas': 'Metas',
   '/configuracoes/dashboard': 'Configurar Dashboard',
+  '/calendario': 'Calendário',
+  '/ia-agentes': 'IA / Agentes',
+  '/gravacoes': 'Gravações',
+  '/metas': 'Metas',
+  '/configuracoes/funis': 'Config — Funis',
+  '/configuracoes/campos': 'Campos Personalizados',
+  '/configuracoes/tags': 'Tags',
+  '/configuracoes/origens': 'Origens',
+  '/configuracoes/motivos-perda': 'Motivos de Perda',
+  '/configuracoes/automacoes': 'Automações',
+  '/configuracoes/templates-mensagem': 'Templates de Mensagem',
+  '/configuracoes/formularios': 'Formulários',
+  '/configuracoes/integracoes': 'Integrações',
+  '/configuracoes/snapshots': 'Snapshots',
 }
 
 function getTitle(pathname: string): string {

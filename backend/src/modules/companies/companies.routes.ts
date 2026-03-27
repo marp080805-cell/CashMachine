@@ -8,6 +8,10 @@ const createCompanySchema = z.object({
   segment: z.string().optional(),
   website: z.string().optional(),
   address: z.string().optional(),
+  phone: z.string().optional(),
+  employeeCount: z.number().int().optional(),
+  annualRevenue: z.number().optional(),
+  addressJson: z.record(z.any()).optional(),
   notes: z.string().optional(),
 })
 
@@ -87,5 +91,51 @@ export default async function companiesRoutes(app: FastifyInstance) {
     await prisma.company.findFirstOrThrow({ where: { id, tenantId } })
     await prisma.company.delete({ where: { id } })
     return reply.send({ success: true })
+  })
+
+  // Contatos da empresa
+  app.get('/companies/:id/contacts', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.company.findFirstOrThrow({ where: { id, tenantId } })
+
+    const contacts = await prisma.contact.findMany({
+      where: { companyId: id, tenantId },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true, name: true, email: true, phone: true,
+        origin: { select: { id: true, name: true } },
+      },
+    })
+
+    return reply.send(contacts)
+  })
+
+  // Oportunidades da empresa (via contatos)
+  app.get('/companies/:id/opportunities', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.company.findFirstOrThrow({ where: { id, tenantId } })
+
+    const contacts = await prisma.contact.findMany({
+      where: { companyId: id, tenantId },
+      select: { id: true },
+    })
+    const contactIds = contacts.map((c) => c.id)
+
+    const opportunities = await prisma.opportunity.findMany({
+      where: { contactId: { in: contactIds }, tenantId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        contact: { select: { id: true, name: true } },
+        stage: { select: { id: true, name: true, color: true } },
+        pipeline: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    })
+
+    return reply.send(opportunities)
   })
 }

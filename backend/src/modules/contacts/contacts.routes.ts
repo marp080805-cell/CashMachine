@@ -8,6 +8,12 @@ const createContactSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   cpfCnpj: z.string().optional(),
+  cpf: z.string().optional(),
+  dateOfBirth: z.string().datetime().optional(),
+  avatarUrl: z.string().url().optional(),
+  address: z.record(z.any()).optional(),
+  socialProfiles: z.record(z.string()).optional(),
+  isBlacklisted: z.boolean().optional(),
   originId: z.string().uuid().optional(),
   subOriginId: z.string().uuid().optional(),
   companyId: z.string().uuid().optional(),
@@ -167,5 +173,90 @@ export default async function contactsRoutes(app: FastifyInstance) {
     await prisma.contact.delete({ where: { id } })
 
     return reply.send({ success: true })
+  })
+
+  // Blacklist/unblacklist contato
+  app.put('/contacts/:id/blacklist', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
+    const { reason } = z.object({ reason: z.string().optional() }).parse(request.body)
+
+    const contact = await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
+    const newValue = !contact.isBlacklisted
+
+    const updated = await prisma.contact.update({
+      where: { id },
+      data: { isBlacklisted: newValue },
+    })
+
+    await prisma.activity.create({
+      data: {
+        tenantId,
+        type: 'NOTE',
+        description: newValue
+          ? `Contato adicionado à blacklist${reason ? `: ${reason}` : ''}`
+          : 'Contato removido da blacklist',
+        contactId: id,
+        userId,
+      },
+    })
+
+    return reply.send(updated)
+  })
+
+  // Oportunidades do contato
+  app.get('/contacts/:id/opportunities', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
+
+    const opportunities = await prisma.opportunity.findMany({
+      where: { contactId: id, tenantId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        stage: { select: { id: true, name: true, color: true } },
+        pipeline: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    })
+
+    return reply.send(opportunities)
+  })
+
+  // Tarefas do contato
+  app.get('/contacts/:id/tasks', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
+
+    const tasks = await prisma.task.findMany({
+      where: { contactId: id, tenantId },
+      orderBy: { dueDate: 'asc' },
+      include: {
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+        opportunity: { select: { id: true, title: true } },
+      },
+    })
+
+    return reply.send(tasks)
+  })
+
+  // Atividades do contato
+  app.get('/contacts/:id/activities', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
+
+    const activities = await prisma.activity.findMany({
+      where: { contactId: id, tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    })
+
+    return reply.send(activities)
   })
 }

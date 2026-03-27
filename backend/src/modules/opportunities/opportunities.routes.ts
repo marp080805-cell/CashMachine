@@ -11,11 +11,17 @@ const createOpportunitySchema = z.object({
   assignedToId: z.string().uuid().optional(),
   title: z.string().min(1),
   value: z.number().optional(),
+  monthlyValue: z.number().optional(),
+  installments: z.number().int().optional(),
+  installmentValue: z.number().optional(),
+  channel: z.string().optional(),
   originId: z.string().uuid().optional(),
   subOriginId: z.string().uuid().optional(),
   expectedCloseDate: z.string().datetime().optional(),
   temperature: z.enum(['COLD', 'WARM', 'HOT']).optional(),
+  qualificationNotes: z.string().optional(),
   notes: z.string().optional(),
+  tags: z.array(z.string().uuid()).optional(),
 })
 
 const moveSchema = z.object({
@@ -309,5 +315,137 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
     await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
     await prisma.opportunity.delete({ where: { id } })
     return reply.send({ success: true })
+  })
+
+  // Handoff SDR → Closer
+  app.post('/opportunities/:id/handoff', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
+    const { closerId, sdrBriefing } = z.object({
+      closerId: z.string().uuid(),
+      sdrBriefing: z.string().min(1),
+    }).parse(request.body)
+
+    const opp = await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
+
+    // Desativar assignments anteriores
+    await prisma.opportunityAssignment.updateMany({
+      where: { opportunityId: id, isCurrent: true, role: 'CLOSER' },
+      data: { isCurrent: false, endedAt: new Date() },
+    })
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.opportunityAssignment.create({
+        data: {
+          opportunityId: id,
+          userId: closerId,
+          role: 'CLOSER',
+          isCurrent: true,
+          assignedById: userId,
+        },
+      })
+
+      const result = await tx.opportunity.update({
+        where: { id },
+        data: { closerId, sdrBriefing },
+        include: opportunityIncludes,
+      })
+
+      await tx.activity.create({
+        data: {
+          tenantId,
+          type: 'HANDOFF',
+          description: `Handoff realizado para closer`,
+          metadata: { closerId, sdrBriefing } as Prisma.InputJsonValue,
+          opportunityId: id,
+          contactId: opp.contactId,
+          userId,
+        },
+      })
+
+      return result
+    })
+
+    return reply.send(updated)
+  })
+
+  // Gerenciar tags da oportunidade
+  app.post('/opportunities/:id/tags', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    const { tagId } = z.object({ tagId: z.string().uuid() }).parse(request.body)
+
+    await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
+
+    const assignment = await prisma.tagAssignment.upsert({
+      where: { tagId_opportunityId: { tagId, opportunityId: id } },
+      create: { tagId, opportunityId: id, tenantId },
+      update: {},
+    })
+
+    return reply.status(201).send(assignment)
+  })
+
+  app.delete('/opportunities/:id/tags/:tagId', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id, tagId } = request.params as { id: string; tagId: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
+    await prisma.tagAssignment.deleteMany({ where: { tagId, opportunityId: id } })
+
+    return reply.send({ success: true })
+  })
+
+  // Histórico de responsáveis
+  app.get('/opportunities/:id/assignments', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
+
+    const assignments = await prisma.opportunityAssignment.findMany({
+      where: { opportunityId: id },
+      orderBy: { assignedAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } },
+        assignedBy: { select: { id: true, name: true } },
+      },
+    })
+
+    return reply.send(assignments)
+  })
+
+  // Timeline unificada
+  app.get('/opportunities/:id/timeline', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
+
+    const [activities, stageHistories, tasks] = await Promise.all([
+      prisma.activity.findMany({
+        where: { opportunityId: id, tenantId },
+        include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+      }),
+      prisma.stageHistory.findMany({
+        where: { opportunityId: id },
+        include: {
+          stage: { select: { id: true, name: true } },
+          movedBy: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.task.findMany({
+        where: { opportunityId: id, tenantId, status: 'COMPLETED' },
+        include: { assignedTo: { select: { id: true, name: true } } },
+      }),
+    ])
+
+    const timeline = [
+      ...activities.map((a) => ({ ...a, _type: 'activity', _date: a.createdAt })),
+      ...stageHistories.map((s) => ({ ...s, _type: 'stage_change', _date: s.enteredAt })),
+      ...tasks.map((t) => ({ ...t, _type: 'task_completed', _date: t.completedAt ?? t.updatedAt })),
+    ].sort((a, b) => new Date(b._date).getTime() - new Date(a._date).getTime())
+
+    return reply.send(timeline)
   })
 }

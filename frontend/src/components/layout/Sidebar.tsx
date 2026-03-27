@@ -17,6 +17,10 @@ import {
   Building2,
   UserCheck,
   TrendingUp,
+  Calendar,
+  Bot,
+  Mic2,
+  Target,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -35,6 +39,10 @@ const navItems = [
   { href: '/relatorios', label: 'Relatórios', icon: BarChart2, permission: 'reports:view' },
   { href: '/performance', label: 'Performance', icon: TrendingUp, permission: 'performance:view' },
   { href: '/transcricoes', label: 'Transcrições', icon: Mic, permission: 'transcriptions:view_own' },
+  { href: '/calendario', label: 'Calendário', icon: Calendar, permission: 'tasks:view_own' },
+  { href: '/ia-agentes', label: 'IA/Agentes', icon: Bot, permission: 'ai:view' },
+  { href: '/gravacoes', label: 'Gravações', icon: Mic2, permission: 'transcriptions:view_own' },
+  { href: '/metas', label: 'Metas', icon: Target, permission: 'reports:view' },
 ]
 
 interface SidebarProps {

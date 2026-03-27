@@ -9,14 +9,24 @@ const createPipelineSchema = z.object({
   description: z.string().optional(),
   type: z.enum(['SALES', 'TREATMENT', 'RESCUE', 'RELATIONSHIP', 'CUSTOM']).default('SALES'),
   defaultCloseDays: z.number().optional(),
+  sdrStages: z.array(z.string()).optional(),
+  closerStages: z.array(z.string()).optional(),
+  handoffStageId: z.string().uuid().optional().nullable(),
+  handoffRequiredFields: z.array(z.string()).optional(),
+  autoAssignCloser: z.enum(['MANUAL', 'ROUND_ROBIN', 'BY_SPECIALTY', 'FIXED']).optional(),
+  fixedCloserId: z.string().uuid().optional().nullable(),
+  roundRobinUserIds: z.array(z.string()).optional(),
 })
 
 const createStageSchema = z.object({
   name: z.string().min(1),
   color: z.string().default('#6366f1'),
   sortOrder: z.number().optional(),
-  isWon: z.boolean().default(false),
-  isLost: z.boolean().default(false),
+  type: z.enum(['NORMAL', 'WON', 'LOST']).optional(),
+  isWon: z.boolean().optional(),
+  isLost: z.boolean().optional(),
+  probability: z.number().min(0).max(100).optional(),
+  autoCreateTasks: z.array(z.record(z.any())).optional(),
   description: z.string().optional(),
   requiredFields: z.array(z.string()).optional(),
   visibleFields: z.array(z.string()).optional(),
@@ -192,6 +202,77 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
       return reply.send({ success: true })
     }
   )
+
+  // Configuração completa do funil
+  app.get('/pipelines/:id/config', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    const pipeline = await prisma.pipeline.findFirstOrThrow({
+      where: { id, tenantId },
+      include: {
+        stages: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            _count: { select: { stageTriggers: true } },
+          },
+        },
+      },
+    })
+
+    return reply.send(pipeline)
+  })
+
+  // Board com dados enriquecidos para o kanban
+  app.get('/pipelines/:id/board', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    const now = new Date()
+
+    const pipeline = await prisma.pipeline.findFirstOrThrow({
+      where: { id, tenantId },
+      include: {
+        stages: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            opportunities: {
+              where: { status: 'OPEN' },
+              orderBy: { position: 'asc' },
+              include: {
+                contact: { select: { id: true, name: true, phone: true, email: true } },
+                assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+                sdr: { select: { id: true, name: true } },
+                closer: { select: { id: true, name: true } },
+                origin: { select: { id: true, name: true } },
+                subOrigin: { select: { id: true, name: true } },
+                tags: { include: { tag: { select: { id: true, name: true, color: true } } } },
+                tasks: {
+                  where: { status: { in: ['PENDING', 'IN_PROGRESS'] } },
+                  orderBy: { dueDate: 'asc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Enriquecer oportunidades com status SLA
+    const enriched = {
+      ...pipeline,
+      stages: pipeline.stages.map((stage) => ({
+        ...stage,
+        opportunities: stage.opportunities.map((opp) => {
+          const nextTask = opp.tasks[0]
+          const slaBreach = nextTask?.dueDate ? nextTask.dueDate < now : false
+          return { ...opp, slaBreach, nextTask: nextTask ?? null }
+        }),
+      })),
+    }
+
+    return reply.send(enriched)
+  })
 
   // Reordenar etapas
   app.put(

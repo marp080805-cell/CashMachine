@@ -27,7 +27,56 @@ const taskIncludes = {
   stage: { select: { id: true, name: true } },
 }
 
+const createTemplateSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  type: taskTypeEnum.default('FOLLOW_UP'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  slaMinutes: z.number().int().optional(),
+  defaultDueDays: z.number().int().optional(),
+})
+
+function computeSlaBreach(task: { createdAt: Date; slaMinutes: number | null }): boolean {
+  if (!task.slaMinutes) return false
+  const deadline = new Date(task.createdAt.getTime() + task.slaMinutes * 60 * 1000)
+  return new Date() > deadline
+}
+
 export default async function tasksRoutes(app: FastifyInstance) {
+  // ─── Task Templates ────────────────────────────────────────────────
+  app.get('/task-templates', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { tenantId } = request.user as { tenantId: string }
+    const templates = await prisma.taskTemplate.findMany({
+      where: { tenantId },
+      orderBy: { name: 'asc' },
+    })
+    return reply.send(templates)
+  })
+
+  app.post('/task-templates', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const input = createTemplateSchema.parse(request.body)
+    const { tenantId } = request.user as { tenantId: string }
+    const template = await prisma.taskTemplate.create({ data: { ...input, tenantId } })
+    return reply.status(201).send(template)
+  })
+
+  app.put('/task-templates/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    const input = createTemplateSchema.partial().parse(request.body)
+    await prisma.taskTemplate.findFirstOrThrow({ where: { id, tenantId } })
+    const template = await prisma.taskTemplate.update({ where: { id }, data: input })
+    return reply.send(template)
+  })
+
+  app.delete('/task-templates/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    await prisma.taskTemplate.findFirstOrThrow({ where: { id, tenantId } })
+    await prisma.taskTemplate.delete({ where: { id } })
+    return reply.send({ success: true })
+  })
+
   app.get('/tasks', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { tenantId, id: userId, role } = request.user as { tenantId: string; id: string; role: string }
     const { filter, assignedToId, opportunityId, contactId, page = 1, limit = 50 } = request.query as any
@@ -64,7 +113,12 @@ export default async function tasksRoutes(app: FastifyInstance) {
       take: Number(limit),
     })
 
-    return reply.send(tasks)
+    const tasksWithSla = tasks.map((t) => ({
+      ...t,
+      slaBreach: computeSlaBreach(t),
+    }))
+
+    return reply.send(tasksWithSla)
   })
 
   app.post('/tasks', { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -87,6 +141,26 @@ export default async function tasksRoutes(app: FastifyInstance) {
     await prisma.task.findFirstOrThrow({ where: { id, tenantId } })
     const task = await prisma.task.update({ where: { id }, data: input, include: taskIncludes })
     return reply.send(task)
+  })
+
+  // Tarefas atrasadas
+  app.get('/tasks/overdue', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { tenantId, id: userId, role } = request.user as { tenantId: string; id: string; role: string }
+    const isManager = ['ADMIN', 'MANAGER'].includes(role)
+    const now = new Date()
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        tenantId,
+        ...(!isManager && { assignedToId: userId }),
+        dueDate: { lt: now },
+        status: { in: ['PENDING', 'IN_PROGRESS'] },
+      },
+      include: taskIncludes,
+      orderBy: { dueDate: 'asc' },
+    })
+
+    return reply.send(tasks.map((t) => ({ ...t, slaBreach: computeSlaBreach(t) })))
   })
 
   // Completar tarefa com notas
@@ -147,6 +221,19 @@ export default async function tasksRoutes(app: FastifyInstance) {
     })
 
     return reply.send(tasks)
+  })
+
+  // Pular/cancelar tarefa
+  app.put('/tasks/:id/skip', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    await prisma.task.findFirstOrThrow({ where: { id, tenantId } })
+    const task = await prisma.task.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: taskIncludes,
+    })
+    return reply.send(task)
   })
 
   app.delete('/tasks/:id', { preHandler: [app.authenticate] }, async (request, reply) => {

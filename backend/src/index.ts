@@ -31,6 +31,9 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes'
 import reportsRoutes from './modules/reports/reports.routes'
 import notificationsRoutes from './modules/notifications/notifications.routes'
 
+// New modules
+import goalsRoutes from './modules/goals/goals.routes'
+
 // WhatsApp + AI (maintained)
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
 import aiRoutes from './modules/ai/ai.routes'
@@ -86,6 +89,7 @@ async function bootstrap() {
   await app.register(dashboardRoutes)
   await app.register(reportsRoutes)
   await app.register(notificationsRoutes)
+  await app.register(goalsRoutes)
   await app.register(whatsappRoutes)
   await app.register(aiRoutes)
 
