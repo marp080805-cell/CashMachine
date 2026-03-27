@@ -218,6 +218,8 @@ interface TaskFormData {
   contactLabel: string
   leadId: string
   leadLabel: string
+  companyId: string
+  companyLabel: string
   description: string
 }
 
@@ -233,6 +235,8 @@ const defaultTaskForm: TaskFormData = {
   contactLabel: '',
   leadId: '',
   leadLabel: '',
+  companyId: '',
+  companyLabel: '',
   description: '',
 }
 
@@ -290,6 +294,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
       description: form.description || undefined,
       ...(form.opportunityId && { opportunityId: form.opportunityId }),
       ...(form.contactId && { contactId: form.contactId }),
+      ...(form.companyId && { companyId: form.companyId }),
     })
   }
 
@@ -308,6 +313,11 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
       `/leads?search=${encodeURIComponent(term)}&limit=8`
     )
     return (res?.data ?? []).map((l) => ({ id: l.id, label: l.contact?.name ?? l.id }))
+  }, [])
+
+  const searchCompanies = useCallback(async (term: string) => {
+    const data = await api.get<{ data: Array<{ id: string; name: string }> }>(`/companies?search=${encodeURIComponent(term)}&limit=10`)
+    return (data.data ?? []).map((c) => ({ id: c.id, label: c.name }))
   }, [])
 
   return (
@@ -418,6 +428,16 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             {form.leadId && form.contactId && (
               <p className="text-xs text-muted-foreground">Contato preenchido automaticamente do lead</p>
             )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Vincular a empresa</Label>
+            <Autocomplete
+              placeholder="Buscar empresa..."
+              searchFn={searchCompanies}
+              selectedLabel={form.companyLabel || undefined}
+              onSelect={(id, label) => setForm((f) => ({ ...f, companyId: id, companyLabel: label }))}
+              onClear={() => setForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Descrição</Label>
@@ -1152,6 +1172,8 @@ export default function TarefasPage() {
       opportunityLabel: task.opportunity?.title ?? '',
       contactId: task.contactId ?? '',
       contactLabel: task.contact?.name ?? '',
+      companyId: task.companyId ?? '',
+      companyLabel: task.company?.name ?? '',
       description: task.description ?? '',
     }
   }

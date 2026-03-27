@@ -180,6 +180,7 @@ model Company {
 
   contacts      Contact[]
   opportunities Opportunity[]
+  tasks         Task[]        @relation("CompanyTasks")
 
   @@index([tenantId])
   @@map("companies")
@@ -681,6 +682,8 @@ model Task {
   opportunity       Opportunity?  @relation(fields: [opportunityId], references: [id])
   contactId         String?
   contact           Contact?      @relation(fields: [contactId], references: [id])
+  companyId         String?
+  company           Company?      @relation("CompanyTasks", fields: [companyId], references: [id])
   stageId           String?
   stage             Stage?        @relation(fields: [stageId], references: [id])
   meetingId         String?

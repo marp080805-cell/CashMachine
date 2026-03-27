@@ -15,6 +15,7 @@ const createTaskSchema = z.object({
   dueDate: z.string().datetime().optional(),
   opportunityId: z.string().uuid().optional(),
   contactId: z.string().uuid().optional(),
+  companyId: z.string().uuid().optional(),
   stageId: z.string().uuid().optional(),
   assignedToId: z.string().uuid(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
@@ -22,6 +23,7 @@ const createTaskSchema = z.object({
 
 const taskIncludes = {
   contact: { select: { id: true, name: true } },
+  company: { select: { id: true, name: true } },
   opportunity: { select: { id: true, title: true } },
   assignedTo: { select: { id: true, name: true, avatarUrl: true } },
   stage: { select: { id: true, name: true } },

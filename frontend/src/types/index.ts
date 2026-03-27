@@ -326,6 +326,8 @@ export interface Task {
   opportunity: Pick<Opportunity, 'id' | 'title'> | null
   contactId: string | null
   contact: Pick<Contact, 'id' | 'name'> | null
+  companyId: string | null
+  company: Pick<Company, 'id' | 'name'> | null
   stageId: string | null
   stage: Pick<Stage, 'id' | 'name'> | null
   assignedToId: string
