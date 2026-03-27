@@ -11,17 +11,24 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Trophy, X, Loader2, MessageSquare, Phone, ExternalLink,
-  Pencil, Check, Trash2, CheckCircle2, Circle,
+  Pencil, Check, Trash2, CheckCircle2, Circle, Plus,
+  Calendar, Mail, FileText, Users, Clock, Activity,
+  Video, Handshake,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { Opportunity, WhatsappNumber, User, Task } from '@/types'
+import type { Opportunity, WhatsappNumber, User, Task, CustomFieldGroup, CustomFieldValue, Activity as ActivityType } from '@/types'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate, getInitials } from '@/lib/utils'
+import { formatCurrency, formatDate, formatDateTime, getInitials, cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { ChatWindow } from '@/components/whatsapp/ChatWindow'
@@ -39,6 +46,24 @@ interface EditData {
   notes: string
   stageId: string
   assignedToId: string
+}
+
+interface OppMeeting {
+  id: string
+  title?: string
+  scheduledAt: string
+  status: string
+  type: string
+}
+
+interface OppConversation {
+  id: string
+  channel: string
+  status: string
+  lastMessageAt?: string
+  contact?: { name: string }
+  assignedTo?: { name: string }
+  lastMessage?: string
 }
 
 const activityTypeLabels: Record<string, string> = {
@@ -62,12 +87,90 @@ const taskTypeLabels: Record<string, string> = {
   CUSTOM: 'Outro',
 }
 
+const taskTypeIcons: Record<string, React.ElementType> = {
+  CALL: Phone,
+  EMAIL: Mail,
+  MEETING: Users,
+  FIRST_CONTACT: Phone,
+  FOLLOW_UP: Phone,
+  SCHEDULE_MEETING: Calendar,
+  SEND_PROPOSAL: FileText,
+  FOLLOW_UP_PROPOSAL: FileText,
+  CUSTOM: FileText,
+}
+
+const priorityColors: Record<string, string> = {
+  LOW: 'bg-gray-100 text-gray-700 border-gray-200',
+  MEDIUM: 'bg-blue-100 text-blue-700 border-blue-200',
+  HIGH: 'bg-orange-100 text-orange-700 border-orange-200',
+  URGENT: 'bg-red-100 text-red-700 border-red-200',
+}
+
+const priorityLabels: Record<string, string> = {
+  LOW: 'Baixa',
+  MEDIUM: 'Média',
+  HIGH: 'Alta',
+  URGENT: 'Urgente',
+}
+
+const meetingStatusLabels: Record<string, string> = {
+  SCHEDULED: 'Agendada',
+  CONFIRMED: 'Confirmada',
+  ATTENDED: 'Realizada',
+  NO_SHOW: 'Não compareceu',
+  CANCELLED: 'Cancelada',
+}
+
+const meetingStatusColors: Record<string, string> = {
+  SCHEDULED: 'bg-blue-100 text-blue-700',
+  CONFIRMED: 'bg-green-100 text-green-700',
+  ATTENDED: 'bg-emerald-100 text-emerald-700',
+  NO_SHOW: 'bg-red-100 text-red-700',
+  CANCELLED: 'bg-gray-100 text-gray-700',
+}
+
+const channelLabels: Record<string, string> = {
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'Email',
+  PHONE: 'Telefone',
+  CHAT: 'Chat',
+  INSTAGRAM: 'Instagram',
+}
+
+const activityIcons: Record<string, React.ElementType> = {
+  NOTE: FileText,
+  CALL: Phone,
+  EMAIL: Mail,
+  MEETING: Video,
+  WHATSAPP_MESSAGE: MessageSquare,
+  OPPORTUNITY_MOVED: Activity,
+  OPPORTUNITY_CREATED: Plus,
+  OPPORTUNITY_WON: Trophy,
+  OPPORTUNITY_LOST: X,
+  TASK_COMPLETED: CheckCircle2,
+  STAGE_CHANGED: Activity,
+  HANDOFF: Handshake,
+}
+
+function getSlaColor(task: Task): string {
+  if (task.status === 'COMPLETED') return 'bg-green-100 text-green-700'
+  if (!task.dueDate) return 'bg-gray-100 text-gray-600'
+  const due = new Date(task.dueDate)
+  const now = new Date()
+  if (due < now) return 'bg-red-100 text-red-700'
+  const diffMs = due.getTime() - now.getTime()
+  const diffH = diffMs / (1000 * 60 * 60)
+  if (diffH < 2) return 'bg-orange-100 text-orange-700'
+  return 'bg-green-100 text-green-700'
+}
+
 export function OpportunitySheet({ opportunity, onClose, pipelineId }: OpportunitySheetProps) {
   const [lostDialogOpen, setLostDialogOpen] = useState(false)
   const [wonDialogOpen, setWonDialogOpen] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>()
   const [startMessage, setStartMessage] = useState('')
   const [selectedNumberId, setSelectedNumberId] = useState('')
+  const [activeTab, setActiveTab] = useState('details')
 
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<EditData>({
@@ -83,21 +186,42 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   })
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
 
+  // New task modal state
+  const [newTaskOpen, setNewTaskOpen] = useState(false)
+  const [newTaskForm, setNewTaskForm] = useState({ title: '', type: 'CALL', dueDate: '', priority: 'MEDIUM', assignedToId: '' })
+
+  // Complete task modal state
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
+  const [completionNotes, setCompletionNotes] = useState('')
+
+  // New meeting modal state
+  const [newMeetingOpen, setNewMeetingOpen] = useState(false)
+  const [newMeetingForm, setNewMeetingForm] = useState({ title: '', scheduledAt: '', type: 'VIDEO', hostId: '' })
+
+  // New conversation modal state
+  const [newConvOpen, setNewConvOpen] = useState(false)
+  const [newConvChannel, setNewConvChannel] = useState('WHATSAPP')
+
+  // Custom fields editing state
+  const [cfEditing, setCfEditing] = useState<Record<string, string>>({})
+
   const queryClient = useQueryClient()
 
+  // Main opportunity detail
   const { data: oppDetail } = useQuery({
     queryKey: ['opportunity', opportunity?.id],
     queryFn: () => api.get<Opportunity & { activities: Parameters<typeof RecentActivities>[0]['activities']; tasks: Task[] }>(`/opportunities/${opportunity!.id}`),
     enabled: !!opportunity?.id,
   })
 
+  // WhatsApp numbers
   const { data: numbersData } = useQuery({
     queryKey: ['whatsapp-numbers'],
     queryFn: () => api.get<{ numbers: WhatsappNumber[] }>('/whatsapp/numbers'),
     enabled: !!opportunity?.contact && !activeConversationId,
   })
 
-  // Carregar conversa existente para este contato ao abrir o sheet
+  // Existing WhatsApp conversation
   const { data: existingConvsData } = useQuery({
     queryKey: ['whatsapp-conversations-contact', opportunity?.contactId],
     queryFn: () =>
@@ -107,12 +231,64 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     enabled: !!opportunity?.contactId,
   })
 
-  // Reset ao trocar de oportunidade
+  // Custom fields (tab: custom-fields)
+  const { data: cfGroupsData, isLoading: cfLoading } = useQuery({
+    queryKey: ['custom-fields-groups', 'opportunity'],
+    queryFn: () => api.get<CustomFieldGroup[]>('/custom-fields?entityType=opportunity'),
+    enabled: activeTab === 'custom-fields',
+  })
+
+  const { data: cfValuesData } = useQuery({
+    queryKey: ['custom-field-values', opportunity?.id],
+    queryFn: () => api.get<CustomFieldValue[]>(`/opportunities/${opportunity!.id}/custom-field-values`),
+    enabled: activeTab === 'custom-fields' && !!opportunity?.id,
+  })
+
+  // Tasks tab
+  const { data: tasksTabData, isLoading: tasksLoading } = useQuery({
+    queryKey: ['tasks-tab', opportunity?.id],
+    queryFn: () => api.get<Task[]>(`/tasks?opportunityId=${opportunity!.id}`),
+    enabled: activeTab === 'tasks' && !!opportunity?.id,
+  })
+
+  // Meetings tab
+  const { data: meetingsData, isLoading: meetingsLoading } = useQuery({
+    queryKey: ['meetings', opportunity?.id],
+    queryFn: () => api.get<OppMeeting[]>(`/meetings?opportunityId=${opportunity!.id}`),
+    enabled: activeTab === 'meetings' && !!opportunity?.id,
+  })
+
+  // Conversations tab
+  const { data: conversationsData, isLoading: convsLoading } = useQuery({
+    queryKey: ['conversations', opportunity?.id],
+    queryFn: () => api.get<OppConversation[]>(`/conversations?opportunityId=${opportunity!.id}`),
+    enabled: activeTab === 'conversations' && !!opportunity?.id,
+  })
+
+  // Timeline tab
+  const { data: timelineData, isLoading: timelineLoading } = useQuery({
+    queryKey: ['timeline', opportunity?.id],
+    queryFn: () => api.get<ActivityType[]>(`/opportunities/${opportunity!.id}/timeline`),
+    enabled: activeTab === 'timeline' && !!opportunity?.id,
+  })
+
+  // Users for forms
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<{ users: User[] }>('/users'),
+    enabled: isEditing || newTaskOpen || newMeetingOpen,
+  })
+
+  const pipelineCache = queryClient.getQueryData<{ stages?: Array<{ id: string; name: string; color: string; sortOrder: number }> }>(['pipeline', pipelineId])
+  const stages = (pipelineCache?.stages ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder)
+
+  // Reset on opportunity change
   useEffect(() => {
     setActiveConversationId(undefined)
+    setActiveTab('details')
   }, [opportunity?.id])
 
-  // Auto-load conversa existente do contato
+  // Auto-load existing WhatsApp conversation
   useEffect(() => {
     const convId = existingConvsData?.conversations?.[0]?.id
     if (convId) {
@@ -120,19 +296,10 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     }
   }, [existingConvsData])
 
-  const { data: usersData } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => api.get<{ users: User[] }>('/users'),
-    enabled: isEditing,
-  })
-
-  const pipelineCache = queryClient.getQueryData<{ stages?: Array<{ id: string; name: string; color: string; sortOrder: number }> }>(['pipeline', pipelineId])
-  const stages = (pipelineCache?.stages ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder)
-
   // — Mutations —
 
   const wonMutation = useMutation({
-    mutationFn: () => api.post(`/opportunities/${opportunity!.id}/won`),
+    mutationFn: () => api.post<Opportunity>(`/opportunities/${opportunity!.id}/won`),
     onSuccess: () => {
       toast.success('Oportunidade marcada como GANHA!')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
@@ -142,7 +309,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   })
 
   const lostMutation = useMutation({
-    mutationFn: () => api.post(`/opportunities/${opportunity!.id}/lost`, { lostReasonId: null }),
+    mutationFn: () => api.post<Opportunity>(`/opportunities/${opportunity!.id}/lost`, { lostReasonId: null }),
     onSuccess: () => {
       toast.success('Oportunidade marcada como PERDIDA')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
@@ -152,7 +319,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   })
 
   const editMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.patch(`/opportunities/${opportunity!.id}`, data),
+    mutationFn: (data: Record<string, unknown>) => api.patch<Opportunity>(`/opportunities/${opportunity!.id}`, data),
     onSuccess: () => {
       toast.success('Oportunidade atualizada!')
       setIsEditing(false)
@@ -164,7 +331,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   const createActivityMutation = useMutation({
     mutationFn: (data: { type: string; description: string }) =>
-      api.post('/activities', {
+      api.post<{ id: string }>('/activities', {
         ...data,
         opportunityId: opportunity!.id,
         ...(opportunity?.contactId ? { contactId: opportunity.contactId } : {}),
@@ -178,14 +345,21 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   })
 
   const completeTaskMutation = useMutation({
-    mutationFn: (taskId: string) => api.post(`/tasks/${taskId}/complete`),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] }),
+    mutationFn: ({ taskId, notes }: { taskId: string; notes: string }) =>
+      api.post<Task>(`/tasks/${taskId}/complete`, { completionNotes: notes }),
+    onSuccess: () => {
+      toast.success('Tarefa concluída!')
+      setCompletingTaskId(null)
+      setCompletionNotes('')
+      void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
+      void queryClient.invalidateQueries({ queryKey: ['tasks-tab', opportunity!.id] })
+    },
     onError: () => toast.error('Erro ao completar tarefa'),
   })
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: string; title: string; dueDate: string; type: string }) =>
-      api.patch(`/tasks/${id}`, {
+      api.patch<Task>(`/tasks/${id}`, {
         title: data.title,
         type: data.type,
         dueDate: new Date(data.dueDate).toISOString(),
@@ -194,18 +368,71 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       toast.success('Tarefa atualizada!')
       setEditingTaskId(null)
       void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
+      void queryClient.invalidateQueries({ queryKey: ['tasks-tab', opportunity!.id] })
     },
     onError: () => toast.error('Erro ao atualizar tarefa'),
   })
 
   const deleteTaskMutation = useMutation({
-    mutationFn: (taskId: string) => api.delete(`/tasks/${taskId}`),
+    mutationFn: (taskId: string) => api.delete<void>(`/tasks/${taskId}`),
     onSuccess: () => {
       toast.success('Tarefa excluída')
       setDeletingTaskId(null)
       void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
+      void queryClient.invalidateQueries({ queryKey: ['tasks-tab', opportunity!.id] })
     },
     onError: () => toast.error('Erro ao excluir tarefa'),
+  })
+
+  const createTaskMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post<Task>('/tasks', data),
+    onSuccess: () => {
+      toast.success('Tarefa criada!')
+      setNewTaskOpen(false)
+      setNewTaskForm({ title: '', type: 'CALL', dueDate: '', priority: 'MEDIUM', assignedToId: '' })
+      void queryClient.invalidateQueries({ queryKey: ['tasks-tab', opportunity!.id] })
+    },
+    onError: () => toast.error('Erro ao criar tarefa'),
+  })
+
+  const createMeetingMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post<OppMeeting>('/meetings', data),
+    onSuccess: () => {
+      toast.success('Reunião agendada!')
+      setNewMeetingOpen(false)
+      setNewMeetingForm({ title: '', scheduledAt: '', type: 'VIDEO', hostId: '' })
+      void queryClient.invalidateQueries({ queryKey: ['meetings', opportunity!.id] })
+    },
+    onError: () => toast.error('Erro ao agendar reunião'),
+  })
+
+  const createConvMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post<OppConversation>('/conversations', data),
+    onSuccess: () => {
+      toast.success('Conversa criada!')
+      setNewConvOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['conversations', opportunity!.id] })
+    },
+    onError: () => toast.error('Erro ao criar conversa'),
+  })
+
+  const saveCfMutation = useMutation({
+    mutationFn: ({ fieldId, value, existingId }: { fieldId: string; value: string; existingId?: string }) => {
+      if (existingId) {
+        return api.put<CustomFieldValue>(`/custom-field-values/${existingId}`, { value })
+      }
+      return api.post<CustomFieldValue>('/custom-field-values', {
+        customFieldId: fieldId,
+        entityType: 'opportunity',
+        entityId: opportunity!.id,
+        value,
+      })
+    },
+    onSuccess: () => {
+      toast.success('Campo salvo!')
+      void queryClient.invalidateQueries({ queryKey: ['custom-field-values', opportunity!.id] })
+    },
+    onError: () => toast.error('Erro ao salvar campo'),
   })
 
   const startConversationMutation = useMutation({
@@ -231,6 +458,12 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const numbers = numbersData?.numbers ?? []
   const effectiveNumberId = selectedNumberId || numbers[0]?.id || ''
   const tasks = oppDetail?.tasks ?? []
+  const tabTasks = tasksTabData ?? []
+  const cfGroups = cfGroupsData ?? []
+  const cfValues = cfValuesData ?? []
+  const meetings = meetingsData ?? []
+  const conversations = conversationsData ?? []
+  const timeline = timelineData ?? []
 
   function openEdit() {
     setEditData({
@@ -274,6 +507,48 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     })
   }
 
+  function handleCreateTask() {
+    if (!newTaskForm.title.trim()) { toast.error('Título é obrigatório'); return }
+    if (!newTaskForm.dueDate) { toast.error('Data de vencimento é obrigatória'); return }
+    createTaskMutation.mutate({
+      title: newTaskForm.title,
+      type: newTaskForm.type,
+      priority: newTaskForm.priority,
+      dueDate: new Date(newTaskForm.dueDate).toISOString(),
+      opportunityId: opportunity.id,
+      ...(newTaskForm.assignedToId ? { assignedToId: newTaskForm.assignedToId } : {}),
+    })
+  }
+
+  function handleCreateMeeting() {
+    if (!newMeetingForm.scheduledAt) { toast.error('Data/hora é obrigatória'); return }
+    createMeetingMutation.mutate({
+      title: newMeetingForm.title || undefined,
+      scheduledAt: new Date(newMeetingForm.scheduledAt).toISOString(),
+      type: newMeetingForm.type,
+      opportunityId: opportunity.id,
+      ...(newMeetingForm.hostId ? { hostId: newMeetingForm.hostId } : {}),
+    })
+  }
+
+  function handleCreateConv() {
+    createConvMutation.mutate({
+      channel: newConvChannel,
+      opportunityId: opportunity.id,
+      ...(opportunity.contactId ? { contactId: opportunity.contactId } : {}),
+    })
+  }
+
+  function getCfValue(fieldId: string): CustomFieldValue | undefined {
+    return cfValues.find((v) => v.customFieldId === fieldId)
+  }
+
+  function getCfDisplayValue(fieldId: string): string {
+    const v = getCfValue(fieldId)
+    if (!v) return ''
+    return v.valueText ?? v.valueNumber?.toString() ?? (v.valueDate ? formatDate(v.valueDate) : '') ?? ''
+  }
+
   const contact = opportunity.contact
   const contactPhone = contact?.phone ?? null
 
@@ -299,10 +574,10 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
           {/* Two-column body */}
           <div className="flex flex-1 overflow-hidden">
-            {/* LEFT PANEL */}
-            <div className="w-[420px] shrink-0 border-r overflow-y-auto p-5 space-y-5">
-              {/* Actions */}
-              <div className="flex gap-2 flex-wrap items-center">
+            {/* LEFT PANEL — multi-tab */}
+            <div className="w-[480px] shrink-0 border-r overflow-y-auto flex flex-col">
+              {/* Action buttons */}
+              <div className="flex gap-2 flex-wrap items-center px-4 py-3 border-b">
                 <Button
                   size="sm"
                   onClick={() => setWonDialogOpen(true)}
@@ -324,21 +599,11 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 <div className="ml-auto">
                   {isEditing ? (
                     <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        onClick={handleSaveEdit}
-                        disabled={editMutation.isPending}
-                        className="h-8 px-3"
-                      >
+                      <Button size="sm" onClick={handleSaveEdit} disabled={editMutation.isPending} className="h-8 px-3">
                         {editMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         <span className="ml-1">Salvar</span>
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setIsEditing(false)}
-                        className="h-8 px-2"
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="h-8 px-2">
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -350,183 +615,309 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 </div>
               </div>
 
-              {/* Info grid or Edit form */}
-              {isEditing ? (
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Título</p>
-                    <Input
-                      value={editData.title}
-                      onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
-                      placeholder="Título da oportunidade"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Valor (R$)</p>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={editData.value}
-                        onChange={(e) => setEditData((d) => ({ ...d, value: e.target.value }))}
-                        placeholder="0,00"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Fechamento previsto</p>
-                      <Input
-                        type="date"
-                        value={editData.expectedCloseDate}
-                        onChange={(e) => setEditData((d) => ({ ...d, expectedCloseDate: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Etapa</p>
-                      {stages.length > 0 ? (
-                        <Select value={editData.stageId} onValueChange={(v) => setEditData((d) => ({ ...d, stageId: v }))}>
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {stages.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                <div className="flex items-center gap-2">
-                                  <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                                  {s.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input value={opportunity.stage?.name ?? '—'} disabled />
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Responsável</p>
-                      {(usersData?.users ?? []).length > 0 ? (
-                        <Select value={editData.assignedToId} onValueChange={(v) => setEditData((d) => ({ ...d, assignedToId: v }))}>
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(usersData?.users ?? []).map((u) => (
-                              <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input value={opportunity.assignedTo.name} disabled />
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Notas</p>
-                    <textarea
-                      rows={3}
-                      value={editData.notes}
-                      onChange={(e) => setEditData((d) => ({ ...d, notes: e.target.value }))}
-                      placeholder="Observações..."
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Valor</p>
-                    <p className="text-sm font-semibold">{formatCurrency(opportunity.value)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Status</p>
-                    <Badge variant={opportunity.status === 'OPEN' ? 'secondary' : opportunity.status === 'WON' ? 'success' : 'danger'}>
-                      {opportunity.status === 'OPEN' ? 'Aberto' : opportunity.status === 'WON' ? 'Ganho' : 'Perdido'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Fechamento Previsto</p>
-                    <p className="text-sm">{opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate) : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Etapa</p>
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: opportunity.stage?.color ?? '#888' }} />
-                      <p className="text-sm">{opportunity.stage?.name ?? '—'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Responsável</p>
-                    <p className="text-sm">{opportunity.assignedTo.name}</p>
-                  </div>
-                  {opportunity.company && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Empresa</p>
-                      <p className="text-sm">{opportunity.company.name}</p>
-                    </div>
-                  )}
-                  {opportunity.notes && (
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground mb-1">Notas</p>
-                      <p className="text-sm whitespace-pre-wrap">{opportunity.notes}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Tabs */}
-              <Tabs defaultValue="activities">
-                <TabsList className="w-full">
-                  <TabsTrigger value="activities" className="flex-1">Atividades</TabsTrigger>
-                  <TabsTrigger value="tasks" className="flex-1">
-                    Tarefas {tasks.length > 0 && `(${tasks.length})`}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+                <TabsList className="w-full rounded-none border-b grid grid-cols-6 h-auto px-0">
+                  <TabsTrigger value="details" className="text-xs py-2">Detalhes</TabsTrigger>
+                  <TabsTrigger value="custom-fields" className="text-xs py-2">Campos</TabsTrigger>
+                  <TabsTrigger value="tasks" className="text-xs py-2">
+                    Tarefas {tasks.length > 0 ? `(${tasks.length})` : ''}
                   </TabsTrigger>
+                  <TabsTrigger value="meetings" className="text-xs py-2">Reuniões</TabsTrigger>
+                  <TabsTrigger value="conversations" className="text-xs py-2">Conversas</TabsTrigger>
+                  <TabsTrigger value="timeline" className="text-xs py-2">Histórico</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="activities" className="mt-4 space-y-4">
-                  <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
-                    <p className="text-xs font-medium text-muted-foreground">Registrar atividade</p>
-                    <Select value={activityType} onValueChange={setActivityType}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(activityTypeLabels).map(([val, lbl]) => (
-                          <SelectItem key={val} value={val} className="text-xs">{lbl}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <textarea
-                      rows={2}
-                      placeholder="Descreva a atividade..."
-                      value={activityDesc}
-                      onChange={(e) => setActivityDesc(e.target.value)}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-                    />
-                    <Button
-                      size="sm"
-                      className="w-full h-7 text-xs"
-                      disabled={!activityDesc.trim() || createActivityMutation.isPending}
-                      onClick={() => createActivityMutation.mutate({ type: activityType, description: activityDesc.trim() })}
-                    >
-                      {createActivityMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                      Registrar
-                    </Button>
-                  </div>
-
-                  {oppDetail?.activities ? (
-                    <RecentActivities activities={oppDetail.activities} />
+                {/* ── Tab: Detalhes ── */}
+                <TabsContent value="details" className="flex-1 overflow-y-auto p-4 space-y-4 mt-0">
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Título</p>
+                        <Input
+                          value={editData.title}
+                          onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
+                          placeholder="Título da oportunidade"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Valor (R$)</p>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editData.value}
+                            onChange={(e) => setEditData((d) => ({ ...d, value: e.target.value }))}
+                            placeholder="0,00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Fechamento previsto</p>
+                          <Input
+                            type="date"
+                            value={editData.expectedCloseDate}
+                            onChange={(e) => setEditData((d) => ({ ...d, expectedCloseDate: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Etapa</p>
+                          {stages.length > 0 ? (
+                            <Select value={editData.stageId} onValueChange={(v) => setEditData((d) => ({ ...d, stageId: v }))}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {stages.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                                      {s.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={opportunity.stage?.name ?? '—'} disabled />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Responsável</p>
+                          {(usersData?.users ?? []).length > 0 ? (
+                            <Select value={editData.assignedToId} onValueChange={(v) => setEditData((d) => ({ ...d, assignedToId: v }))}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(usersData?.users ?? []).map((u) => (
+                                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={opportunity.assignedTo.name} disabled />
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Notas</p>
+                        <Textarea
+                          rows={3}
+                          value={editData.notes}
+                          onChange={(e) => setEditData((d) => ({ ...d, notes: e.target.value }))}
+                          placeholder="Observações..."
+                          className="resize-none"
+                        />
+                      </div>
+                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Valor</p>
+                          <p className="text-sm font-semibold">{formatCurrency(opportunity.value)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Status</p>
+                          <Badge variant={opportunity.status === 'OPEN' ? 'secondary' : opportunity.status === 'WON' ? 'success' : 'danger'}>
+                            {opportunity.status === 'OPEN' ? 'Aberto' : opportunity.status === 'WON' ? 'Ganho' : 'Perdido'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Fechamento Previsto</p>
+                          <p className="text-sm">{opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate) : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Etapa</p>
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: opportunity.stage?.color ?? '#888' }} />
+                            <p className="text-sm">{opportunity.stage?.name ?? '—'}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Responsável</p>
+                          <p className="text-sm">{opportunity.assignedTo.name}</p>
+                        </div>
+                        {opportunity.origin && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Origem</p>
+                            <p className="text-sm">{opportunity.origin.name}{opportunity.subOrigin ? ` / ${opportunity.subOrigin.name}` : ''}</p>
+                          </div>
+                        )}
+                        {opportunity.temperature && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Temperatura</p>
+                            <Badge variant="secondary" className={cn(
+                              opportunity.temperature === 'HOT' && 'bg-red-100 text-red-700',
+                              opportunity.temperature === 'WARM' && 'bg-orange-100 text-orange-700',
+                              opportunity.temperature === 'COLD' && 'bg-blue-100 text-blue-700',
+                            )}>
+                              {opportunity.temperature === 'HOT' ? 'Quente' : opportunity.temperature === 'WARM' ? 'Morno' : 'Frio'}
+                            </Badge>
+                          </div>
+                        )}
+                        {opportunity.qualificationScore !== null && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Score de Qualificação</p>
+                            <p className="text-sm font-medium">{opportunity.qualificationScore}</p>
+                          </div>
+                        )}
+                        {opportunity.company && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Empresa</p>
+                            <p className="text-sm">{opportunity.company.name}</p>
+                          </div>
+                        )}
+                        {opportunity.sdr && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">SDR</p>
+                            <p className="text-sm">{opportunity.sdr.name}</p>
+                          </div>
+                        )}
+                        {opportunity.closer && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Closer</p>
+                            <p className="text-sm">{opportunity.closer.name}</p>
+                          </div>
+                        )}
+                        {opportunity.notes && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-muted-foreground mb-1">Notas</p>
+                            <p className="text-sm whitespace-pre-wrap">{opportunity.notes}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Registrar atividade */}
+                      <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                        <p className="text-xs font-medium text-muted-foreground">Registrar atividade</p>
+                        <Select value={activityType} onValueChange={setActivityType}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(activityTypeLabels).map(([val, lbl]) => (
+                              <SelectItem key={val} value={val} className="text-xs">{lbl}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Textarea
+                          rows={2}
+                          placeholder="Descreva a atividade..."
+                          value={activityDesc}
+                          onChange={(e) => setActivityDesc(e.target.value)}
+                          className="text-xs resize-none"
+                        />
+                        <Button
+                          size="sm"
+                          className="w-full h-7 text-xs"
+                          disabled={!activityDesc.trim() || createActivityMutation.isPending}
+                          onClick={() => createActivityMutation.mutate({ type: activityType, description: activityDesc.trim() })}
+                        >
+                          {createActivityMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                          Registrar
+                        </Button>
+                      </div>
+
+                      {/* Recent activities */}
+                      {oppDetail?.activities && (
+                        <RecentActivities activities={oppDetail.activities} />
+                      )}
+                    </div>
                   )}
                 </TabsContent>
 
-                <TabsContent value="tasks" className="mt-4 space-y-2">
-                  {tasks.length === 0 ? (
+                {/* ── Tab: Campos Personalizados ── */}
+                <TabsContent value="custom-fields" className="flex-1 overflow-y-auto p-4 space-y-4 mt-0">
+                  {cfLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando campos...</p>
+                  ) : cfGroups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Nenhum campo personalizado configurado</p>
+                  ) : (
+                    cfGroups.map((group) => (
+                      <div key={group.id} className="space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{group.name}</p>
+                        {group.customFields.map((field) => {
+                          const existingValue = getCfValue(field.id)
+                          const displayValue = getCfDisplayValue(field.id)
+                          const editingValue = cfEditing[field.id] ?? displayValue
+
+                          return (
+                            <div key={field.id} className="space-y-1">
+                              <Label className="text-xs">{field.name}</Label>
+                              <div className="flex gap-2">
+                                {field.fieldType === 'SELECT' && field.options ? (
+                                  <Select
+                                    value={editingValue}
+                                    onValueChange={(v) => setCfEditing((s) => ({ ...s, [field.id]: v }))}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs flex-1">
+                                      <SelectValue placeholder="Selecionar..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {field.options.map((opt) => (
+                                        <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : field.fieldType === 'TEXTAREA' ? (
+                                  <Textarea
+                                    rows={2}
+                                    value={editingValue}
+                                    onChange={(e) => setCfEditing((s) => ({ ...s, [field.id]: e.target.value }))}
+                                    className="text-xs resize-none flex-1"
+                                  />
+                                ) : (
+                                  <Input
+                                    type={field.fieldType === 'NUMBER' || field.fieldType === 'CURRENCY' ? 'number' : field.fieldType === 'DATE' ? 'date' : 'text'}
+                                    value={editingValue}
+                                    onChange={(e) => setCfEditing((s) => ({ ...s, [field.id]: e.target.value }))}
+                                    className="h-8 text-xs flex-1"
+                                  />
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs shrink-0"
+                                  disabled={saveCfMutation.isPending}
+                                  onClick={() => {
+                                    saveCfMutation.mutate({
+                                      fieldId: field.id,
+                                      value: editingValue,
+                                      existingId: existingValue?.id,
+                                    })
+                                  }}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))
+                  )}
+                </TabsContent>
+
+                {/* ── Tab: Tarefas ── */}
+                <TabsContent value="tasks" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">{tabTasks.length} tarefa(s)</p>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setNewTaskOpen(true)}>
+                      <Plus className="h-3 w-3 mr-1" />
+                      Nova Tarefa
+                    </Button>
+                  </div>
+
+                  {tasksLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                  ) : tabTasks.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">Nenhuma tarefa vinculada</p>
                   ) : (
-                    tasks.map((task) => {
+                    tabTasks.map((task) => {
                       const isCompleted = task.status === 'COMPLETED'
+                      const TaskIcon = taskTypeIcons[task.type] ?? FileText
                       return (
                         <div key={task.id} className="rounded-lg border p-3 space-y-2">
                           {editingTaskId === task.id ? (
@@ -544,10 +935,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                                   onChange={(e) => setTaskEditForm((f) => ({ ...f, dueDate: e.target.value }))}
                                   className="h-8 text-sm flex-1"
                                 />
-                                <Select
-                                  value={taskEditForm.type}
-                                  onValueChange={(v) => setTaskEditForm((f) => ({ ...f, type: v }))}
-                                >
+                                <Select value={taskEditForm.type} onValueChange={(v) => setTaskEditForm((f) => ({ ...f, type: v }))}>
                                   <SelectTrigger className="h-8 text-xs flex-1">
                                     <SelectValue />
                                   </SelectTrigger>
@@ -559,21 +947,12 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                                 </Select>
                               </div>
                               <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-xs flex-1"
-                                  disabled={updateTaskMutation.isPending}
-                                  onClick={() => updateTaskMutation.mutate({ id: task.id, ...taskEditForm })}
-                                >
+                                <Button size="sm" className="h-7 text-xs flex-1" disabled={updateTaskMutation.isPending}
+                                  onClick={() => updateTaskMutation.mutate({ id: task.id, ...taskEditForm })}>
                                   {updateTaskMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
                                   Salvar
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-xs"
-                                  onClick={() => setEditingTaskId(null)}
-                                >
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingTaskId(null)}>
                                   Cancelar
                                 </Button>
                               </div>
@@ -582,42 +961,41 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                             <div className="flex items-start gap-2">
                               <button
                                 className="mt-0.5 shrink-0"
-                                onClick={() => !isCompleted && completeTaskMutation.mutate(task.id)}
-                                disabled={isCompleted || completeTaskMutation.isPending}
+                                onClick={() => { if (!isCompleted) { setCompletingTaskId(task.id) } }}
+                                disabled={isCompleted}
                                 title={isCompleted ? 'Concluída' : 'Marcar como concluída'}
                               >
-                                {isCompleted ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <Circle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                )}
+                                {isCompleted
+                                  ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                  : <Circle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                }
                               </button>
+                              <div className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-muted">
+                                <TaskIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium leading-tight ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
+                                <p className={cn('text-sm font-medium leading-tight', isCompleted && 'line-through text-muted-foreground')}>
                                   {task.title}
                                 </p>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {taskTypeLabels[task.type] ?? task.type}
-                                  {task.dueDate && ` · ${formatDate(task.dueDate)}`}
-                                  {isCompleted && ' · Concluída'}
-                                </p>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded border', priorityColors[task.priority] ?? 'bg-gray-100 text-gray-600')}>
+                                    {priorityLabels[task.priority] ?? task.priority}
+                                  </span>
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded', getSlaColor(task))}>
+                                    {task.dueDate ? formatDate(task.dueDate) : '—'}
+                                  </span>
+                                  {task.assignedTo && (
+                                    <span className="text-xs text-muted-foreground">{task.assignedTo.name}</span>
+                                  )}
+                                </div>
                               </div>
                               {!isCompleted && (
                                 <div className="flex gap-0.5 shrink-0">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => openTaskEdit(task)}
-                                  >
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => openTaskEdit(task)}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
-                                    onClick={() => setDeletingTaskId(task.id)}
-                                  >
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                    onClick={() => setDeletingTaskId(task.id)}>
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
@@ -627,6 +1005,105 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         </div>
                       )
                     })
+                  )}
+                </TabsContent>
+
+                {/* ── Tab: Reuniões ── */}
+                <TabsContent value="meetings" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">{meetings.length} reunião(ões)</p>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setNewMeetingOpen(true)}>
+                      <Plus className="h-3 w-3 mr-1" />
+                      Agendar
+                    </Button>
+                  </div>
+                  {meetingsLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                  ) : meetings.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Nenhuma reunião agendada</p>
+                  ) : (
+                    meetings.map((meeting) => (
+                      <div key={meeting.id} className="rounded-lg border p-3 flex items-start gap-3">
+                        <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-blue-100">
+                          <Video className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{meeting.title ?? 'Reunião'}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(meeting.scheduledAt)}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className={cn('text-xs px-1.5 py-0.5 rounded', meetingStatusColors[meeting.status] ?? 'bg-gray-100 text-gray-600')}>
+                              {meetingStatusLabels[meeting.status] ?? meeting.status}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{meeting.type}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </TabsContent>
+
+                {/* ── Tab: Conversas ── */}
+                <TabsContent value="conversations" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">{conversations.length} conversa(s)</p>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setNewConvOpen(true)}>
+                      <Plus className="h-3 w-3 mr-1" />
+                      Nova Conversa
+                    </Button>
+                  </div>
+                  {convsLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                  ) : conversations.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Nenhuma conversa</p>
+                  ) : (
+                    conversations.map((conv) => (
+                      <div key={conv.id} className="rounded-lg border p-3 flex items-start gap-3">
+                        <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-green-100">
+                          <MessageSquare className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{channelLabels[conv.channel] ?? conv.channel}</p>
+                            <Badge variant="secondary" className="text-xs">{conv.status}</Badge>
+                          </div>
+                          {conv.assignedTo && (
+                            <p className="text-xs text-muted-foreground mt-0.5">Responsável: {conv.assignedTo.name}</p>
+                          )}
+                          {conv.lastMessageAt && (
+                            <p className="text-xs text-muted-foreground">{formatDateTime(conv.lastMessageAt)}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </TabsContent>
+
+                {/* ── Tab: Histórico / Timeline ── */}
+                <TabsContent value="timeline" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
+                  {timelineLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                  ) : timeline.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Nenhuma atividade registrada</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {timeline.map((item) => {
+                        const ItemIcon = activityIcons[item.type] ?? Activity
+                        return (
+                          <div key={item.id} className="flex items-start gap-3">
+                            <div className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-muted mt-0.5">
+                              <ItemIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm">{item.description}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {item.user && <span className="text-xs text-muted-foreground">{item.user.name}</span>}
+                                <span className="text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </TabsContent>
               </Tabs>
@@ -716,22 +1193,18 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                       </p>
                     )}
 
-                    <textarea
+                    <Textarea
                       rows={3}
                       placeholder="Digite a primeira mensagem..."
                       value={startMessage}
                       onChange={(e) => setStartMessage(e.target.value)}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                      className="resize-none"
                     />
 
                     <Button
                       className="w-full bg-green-600 hover:bg-green-700"
                       onClick={handleStartConversation}
-                      disabled={
-                        !startMessage.trim() ||
-                        !effectiveNumberId ||
-                        startConversationMutation.isPending
-                      }
+                      disabled={!startMessage.trim() || !effectiveNumberId || startConversationMutation.isPending}
                     >
                       {startConversationMutation.isPending ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
@@ -747,6 +1220,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
         </SheetContent>
       </Sheet>
 
+      {/* Won / Lost / Delete Dialogs */}
       <ConfirmDialog
         open={wonDialogOpen}
         onOpenChange={setWonDialogOpen}
@@ -756,7 +1230,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
         variant="default"
         onConfirm={() => { setWonDialogOpen(false); wonMutation.mutate() }}
       />
-
       <ConfirmDialog
         open={lostDialogOpen}
         onOpenChange={setLostDialogOpen}
@@ -766,7 +1239,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
         variant="destructive"
         onConfirm={() => { setLostDialogOpen(false); lostMutation.mutate() }}
       />
-
       <ConfirmDialog
         open={!!deletingTaskId}
         onOpenChange={(open) => !open && setDeletingTaskId(null)}
@@ -776,6 +1248,196 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
         variant="destructive"
         onConfirm={() => deletingTaskId && deleteTaskMutation.mutate(deletingTaskId)}
       />
+
+      {/* Complete Task Modal */}
+      <Dialog open={!!completingTaskId} onOpenChange={(open) => { if (!open) { setCompletingTaskId(null); setCompletionNotes('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Concluir Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Notas de conclusão <span className="text-red-500">*</span></Label>
+              <Textarea
+                rows={4}
+                placeholder="Descreva o que foi realizado..."
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                className="resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setCompletingTaskId(null); setCompletionNotes('') }}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!completionNotes.trim() || completeTaskMutation.isPending}
+                onClick={() => { if (completingTaskId) { completeTaskMutation.mutate({ taskId: completingTaskId, notes: completionNotes }) } }}
+              >
+                {completeTaskMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : 'Concluir'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Task Modal */}
+      <Dialog open={newTaskOpen} onOpenChange={(open) => { setNewTaskOpen(open); if (!open) setNewTaskForm({ title: '', type: 'CALL', dueDate: '', priority: 'MEDIUM', assignedToId: '' }) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Título <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="Ex: Ligar para o cliente"
+                value={newTaskForm.title}
+                onChange={(e) => setNewTaskForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Tipo</Label>
+                <Select value={newTaskForm.type} onValueChange={(v) => setNewTaskForm((f) => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(taskTypeLabels).map(([val, lbl]) => (
+                      <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Prioridade</Label>
+                <Select value={newTaskForm.priority} onValueChange={(v) => setNewTaskForm((f) => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(priorityLabels).map(([val, lbl]) => (
+                      <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vencimento <span className="text-red-500">*</span></Label>
+              <Input
+                type="datetime-local"
+                value={newTaskForm.dueDate}
+                onChange={(e) => setNewTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
+            </div>
+            {(usersData?.users ?? []).length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Responsável</Label>
+                <Select value={newTaskForm.assignedToId} onValueChange={(v) => setNewTaskForm((f) => ({ ...f, assignedToId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {(usersData?.users ?? []).map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setNewTaskOpen(false)}>Cancelar</Button>
+              <Button className="flex-1" disabled={createTaskMutation.isPending} onClick={handleCreateTask}>
+                {createTaskMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : 'Criar Tarefa'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Meeting Modal */}
+      <Dialog open={newMeetingOpen} onOpenChange={(open) => { setNewMeetingOpen(open); if (!open) setNewMeetingForm({ title: '', scheduledAt: '', type: 'VIDEO', hostId: '' }) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agendar Reunião</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Título</Label>
+              <Input
+                placeholder="Ex: Reunião de apresentação"
+                value={newMeetingForm.title}
+                onChange={(e) => setNewMeetingForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Data/Hora <span className="text-red-500">*</span></Label>
+                <Input
+                  type="datetime-local"
+                  value={newMeetingForm.scheduledAt}
+                  onChange={(e) => setNewMeetingForm((f) => ({ ...f, scheduledAt: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo</Label>
+                <Select value={newMeetingForm.type} onValueChange={(v) => setNewMeetingForm((f) => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VIDEO">Videoconferência</SelectItem>
+                    <SelectItem value="IN_PERSON">Presencial</SelectItem>
+                    <SelectItem value="PHONE">Telefone</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {(usersData?.users ?? []).length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Anfitrião</Label>
+                <Select value={newMeetingForm.hostId} onValueChange={(v) => setNewMeetingForm((f) => ({ ...f, hostId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {(usersData?.users ?? []).map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setNewMeetingOpen(false)}>Cancelar</Button>
+              <Button className="flex-1" disabled={createMeetingMutation.isPending} onClick={handleCreateMeeting}>
+                {createMeetingMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Agendando...</> : 'Agendar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Conversation Modal */}
+      <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nova Conversa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Canal</Label>
+              <Select value={newConvChannel} onValueChange={setNewConvChannel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(channelLabels).map(([val, lbl]) => (
+                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setNewConvOpen(false)}>Cancelar</Button>
+              <Button className="flex-1" disabled={createConvMutation.isPending} onClick={handleCreateConv}>
+                {createConvMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : 'Criar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
