@@ -27,6 +27,7 @@ import customFieldsRoutes from './modules/custom-fields/custom-fields.routes'
 // Supporting
 import activitiesRoutes from './modules/activities/activities.routes'
 import tasksRoutes from './modules/tasks/tasks.routes'
+import taskTemplatesRoutes from './modules/tasks/task-templates.routes'
 import dashboardRoutes from './modules/dashboard/dashboard.routes'
 import analyticsRoutes from './modules/dashboard/analytics.routes'
 import reportsRoutes from './modules/reports/reports.routes'
@@ -99,6 +100,7 @@ async function bootstrap() {
   await app.register(customFieldsRoutes)
   await app.register(activitiesRoutes)
   await app.register(tasksRoutes)
+  await app.register(taskTemplatesRoutes)
   await app.register(dashboardRoutes)
   await app.register(analyticsRoutes)
   await app.register(reportsRoutes)

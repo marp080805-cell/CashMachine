@@ -62,7 +62,7 @@ const triggerIncludes = {
 
 export default async function stageTriggerRoutes(app: FastifyInstance) {
   // GET /stage-triggers — lista com filtros
-  app.get('/stage-triggers', async (request, reply) => {
+  app.get('/stage-triggers', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const query = request.query as {
       pipelineId?: string
@@ -87,7 +87,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // POST /stage-triggers — criar trigger
-  app.post('/stage-triggers', async (request, reply) => {
+  app.post('/stage-triggers', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const data = createTriggerSchema.parse(request.body)
 
@@ -114,7 +114,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // GET /stage-triggers/:id — buscar por ID
-  app.get('/stage-triggers/:id', async (request, reply) => {
+  app.get('/stage-triggers/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { id } = request.params as { id: string }
 
@@ -129,7 +129,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // PUT /stage-triggers/:id — atualizar
-  app.put('/stage-triggers/:id', async (request, reply) => {
+  app.put('/stage-triggers/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { id } = request.params as { id: string }
     const data = updateTriggerSchema.parse(request.body)
@@ -147,7 +147,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // DELETE /stage-triggers/:id — deletar
-  app.delete('/stage-triggers/:id', async (request, reply) => {
+  app.delete('/stage-triggers/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { id } = request.params as { id: string }
 
@@ -160,7 +160,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // PUT /stage-triggers/:id/toggle — ativar/desativar
-  app.put('/stage-triggers/:id/toggle', async (request, reply) => {
+  app.put('/stage-triggers/:id/toggle', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { id } = request.params as { id: string }
 
@@ -177,7 +177,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // GET /stage-triggers/:id/logs — buscar logs do trigger
-  app.get('/stage-triggers/:id/logs', async (request, reply) => {
+  app.get('/stage-triggers/:id/logs', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { id } = request.params as { id: string }
     const query = request.query as { limit?: string; offset?: string }
@@ -205,7 +205,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // POST /stage-triggers/:id/test — executar trigger manualmente
-  app.post('/stage-triggers/:id/test', async (request, reply) => {
+  app.post('/stage-triggers/:id/test', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { id } = request.params as { id: string }
     const body = request.body as { opportunityId: string }
@@ -224,7 +224,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // GET /pipelines/:pipelineId/triggers — triggers de um pipeline
-  app.get('/pipelines/:pipelineId/triggers', async (request, reply) => {
+  app.get('/pipelines/:pipelineId/triggers', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { pipelineId } = request.params as { pipelineId: string }
 
@@ -238,7 +238,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
   })
 
   // GET /stages/:stageId/triggers — triggers de uma stage
-  app.get('/stages/:stageId/triggers', async (request, reply) => {
+  app.get('/stages/:stageId/triggers', { preHandler: [app.authenticate] }, async (request, reply) => {
     const tenantId = (request as any).user?.tenantId
     const { stageId } = request.params as { stageId: string }
 

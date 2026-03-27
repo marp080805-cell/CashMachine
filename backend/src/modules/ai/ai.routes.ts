@@ -9,11 +9,11 @@ export default async function aiRoutes(app: FastifyInstance) {
     '/transcriptions',
     { preHandler: [app.authenticate] },
     async (request, reply) => {
-      const user = request.user as { id: string; role: UserRole }
+      const user = request.user as { id: string; role: UserRole; tenantId: string }
       const isAdmin = ['ADMIN', 'GESTOR'].includes(user.role)
 
       const transcriptions = await prisma.callTranscription.findMany({
-        where: isAdmin ? {} : { uploadedById: user.id },
+        where: isAdmin ? { tenantId: user.tenantId } : { tenantId: user.tenantId, uploadedById: user.id },
         orderBy: { createdAt: 'desc' },
         take: 50,
       })

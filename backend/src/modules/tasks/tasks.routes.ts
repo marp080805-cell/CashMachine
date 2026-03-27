@@ -27,18 +27,6 @@ const taskIncludes = {
   stage: { select: { id: true, name: true } },
 }
 
-const createTemplateSchema = z.object({
-  name: z.string().min(1),
-  titleTemplate: z.string().min(1),
-  descriptionTemplate: z.string().optional(),
-  type: taskTypeEnum.default('FOLLOW_UP'),
-  defaultPriority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  slaMinutes: z.number().int().optional(),
-  dueOffsetMinutes: z.number().int().optional(),
-  dueDateRelativeTo: z.string().optional(),
-  assignedRole: z.string().optional(),
-})
-
 function computeSlaBreach(task: { createdAt: Date; slaMinutes: number | null }): boolean {
   if (!task.slaMinutes) return false
   const deadline = new Date(task.createdAt.getTime() + task.slaMinutes * 60 * 1000)
@@ -46,40 +34,6 @@ function computeSlaBreach(task: { createdAt: Date; slaMinutes: number | null }):
 }
 
 export default async function tasksRoutes(app: FastifyInstance) {
-  // ─── Task Templates ────────────────────────────────────────────────
-  app.get('/task-templates', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string }
-    const templates = await prisma.taskTemplate.findMany({
-      where: { tenantId },
-      orderBy: { name: 'asc' },
-    })
-    return reply.send(templates)
-  })
-
-  app.post('/task-templates', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const input = createTemplateSchema.parse(request.body)
-    const { tenantId } = request.user as { tenantId: string }
-    const template = await prisma.taskTemplate.create({ data: { ...input, tenantId } })
-    return reply.status(201).send(template)
-  })
-
-  app.put('/task-templates/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const { tenantId } = request.user as { tenantId: string }
-    const input = createTemplateSchema.partial().parse(request.body)
-    await prisma.taskTemplate.findFirstOrThrow({ where: { id, tenantId } })
-    const template = await prisma.taskTemplate.update({ where: { id }, data: input })
-    return reply.send(template)
-  })
-
-  app.delete('/task-templates/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const { tenantId } = request.user as { tenantId: string }
-    await prisma.taskTemplate.findFirstOrThrow({ where: { id, tenantId } })
-    await prisma.taskTemplate.delete({ where: { id } })
-    return reply.send({ success: true })
-  })
-
   app.get('/tasks', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { tenantId, id: userId, role } = request.user as { tenantId: string; id: string; role: string }
     const { filter, assignedToId, opportunityId, contactId, page = 1, limit = 50 } = request.query as any
@@ -236,6 +190,17 @@ export default async function tasksRoutes(app: FastifyInstance) {
       data: { status: 'SKIPPED' },
       include: taskIncludes,
     })
+    return reply.send(task)
+  })
+
+  // Editar task completa
+  app.put('/tasks/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    const input = createTaskSchema.partial().parse(request.body)
+
+    await prisma.task.findFirstOrThrow({ where: { id, tenantId } })
+    const task = await prisma.task.update({ where: { id }, data: input, include: taskIncludes })
     return reply.send(task)
   })
 
