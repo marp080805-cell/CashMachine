@@ -125,7 +125,8 @@ interface EditContactForm {
   socialInstagram: string
   socialFacebook: string
   socialTwitter: string
-  socialSkype: string
+  originId: string
+  subOriginId: string
 }
 
 interface CompanyOption { id: string; name: string }
@@ -323,7 +324,8 @@ export default function ContactProfilePage() {
     role: '', cpf: '', nationality: '', category: '', website: '', birthday: '', notes: '',
     companyId: '', companyLabel: '',
     addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
-    socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '', socialSkype: '',
+    socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
+    originId: '', subOriginId: '',
   })
   const [newOppOpen, setNewOppOpen] = useState(false)
   const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
@@ -370,6 +372,14 @@ export default function ContactProfilePage() {
     queryFn: () => api.get<{ pipelines: Pipeline[] }>('/pipelines'),
     enabled: newOppOpen,
   })
+
+  const { data: originsData } = useQuery({
+    queryKey: ['origins'],
+    queryFn: () => api.get<Array<{ id: string; name: string; subOrigins: Array<{ id: string; name: string }> }>>('/origins'),
+    enabled: editOpen,
+  })
+  const origins = originsData ?? []
+  const selectedEditOrigin = origins.find((o) => o.id === editForm.originId)
 
   const { data: oppCompaniesData } = useQuery({
     queryKey: ['companies-search-contact-opp', oppCompanySearch],
@@ -480,7 +490,8 @@ export default function ContactProfilePage() {
       socialInstagram: social.instagram ?? '',
       socialFacebook: social.facebook ?? '',
       socialTwitter: social.twitter ?? '',
-      socialSkype: social.skype ?? '',
+      originId: contact.originId ?? '',
+      subOriginId: contact.subOriginId ?? '',
     })
     setEditOpen(true)
   }
@@ -496,7 +507,7 @@ export default function ContactProfilePage() {
     const hasAddress = Object.values(address).some(Boolean)
     const socialProfiles = {
       linkedin: editForm.socialLinkedin, instagram: editForm.socialInstagram,
-      facebook: editForm.socialFacebook, twitter: editForm.socialTwitter, skype: editForm.socialSkype,
+      facebook: editForm.socialFacebook, twitter: editForm.socialTwitter,
     }
     const hasSocial = Object.values(socialProfiles).some(Boolean)
     editMutation.mutate({
@@ -515,6 +526,8 @@ export default function ContactProfilePage() {
       dateOfBirth: editForm.birthday ? new Date(editForm.birthday).toISOString() : undefined,
       notes: editForm.notes || undefined,
       companyId: editForm.companyId || null,
+      originId: editForm.originId || undefined,
+      subOriginId: editForm.subOriginId || undefined,
       ...(hasAddress ? { address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -1012,6 +1025,26 @@ export default function ContactProfilePage() {
                   <Label>Site</Label>
                   <Input value={editForm.website} onChange={(e) => setEditForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://..." />
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Origem</Label>
+                  <Select value={editForm.originId} onValueChange={(v) => setEditForm((f) => ({ ...f, originId: v, subOriginId: '' }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar origem..." /></SelectTrigger>
+                    <SelectContent>
+                      {origins.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedEditOrigin && selectedEditOrigin.subOrigins.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Subcanal</Label>
+                    <Select value={editForm.subOriginId} onValueChange={(v) => setEditForm((f) => ({ ...f, subOriginId: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar subcanal..." /></SelectTrigger>
+                      <SelectContent>
+                        {selectedEditOrigin.subOrigins.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-1.5 col-span-2">
                   <Label>Descrição</Label>
                   <textarea rows={3} placeholder="Detalhes importantes sobre este contato..." value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
@@ -1092,10 +1125,6 @@ export default function ContactProfilePage() {
                 <div className="space-y-1.5">
                   <Label>X (Twitter)</Label>
                   <Input value={editForm.socialTwitter} onChange={(e) => setEditForm((f) => ({ ...f, socialTwitter: e.target.value }))} placeholder="x.com/usuario" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Skype</Label>
-                  <Input value={editForm.socialSkype} onChange={(e) => setEditForm((f) => ({ ...f, socialSkype: e.target.value }))} placeholder="usuario.skype" />
                 </div>
               </div>
             </div>

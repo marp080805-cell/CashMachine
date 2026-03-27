@@ -15,6 +15,12 @@ import { useRouter } from 'next/navigation'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+
+interface Origin { id: string; name: string; subOrigins: SubOrigin[] }
+interface SubOrigin { id: string; name: string }
 
 interface ContactForm {
   name: string
@@ -43,14 +49,16 @@ interface ContactForm {
   socialInstagram: string
   socialFacebook: string
   socialTwitter: string
-  socialSkype: string
+  originId: string
+  subOriginId: string
 }
 
 const defaultForm: ContactForm = {
   name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', opportunityId: '', opportunityLabel: '',
   cpf: '', role: '', nationality: '', category: '', website: '', birthday: '',
   addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
-  socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '', socialSkype: '',
+  socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
+  originId: '', subOriginId: '',
 }
 
 interface Opportunity { id: string; title: string }
@@ -161,6 +169,14 @@ export default function ContatosPage() {
   const [form, setForm] = useState<ContactForm>(defaultForm)
   const queryClient = useQueryClient()
 
+  const { data: originsData } = useQuery({
+    queryKey: ['origins'],
+    queryFn: () => api.get<Origin[]>('/origins'),
+    enabled: modalOpen,
+  })
+  const origins = originsData ?? []
+  const selectedOrigin = origins.find((o) => o.id === form.originId)
+
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', page, search],
     queryFn: () => {
@@ -210,6 +226,8 @@ export default function ContatosPage() {
       website: form.website || undefined,
       dateOfBirth: form.birthday ? new Date(form.birthday).toISOString() : undefined,
       companyId: form.companyId || undefined,
+      originId: form.originId || undefined,
+      subOriginId: form.subOriginId || undefined,
       ...(hasAddress ? { address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -330,6 +348,26 @@ export default function ContatosPage() {
                   <Label>Site</Label>
                   <Input placeholder="https://..." value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Origem</Label>
+                  <Select value={form.originId} onValueChange={(v) => setForm((f) => ({ ...f, originId: v, subOriginId: '' }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar origem..." /></SelectTrigger>
+                    <SelectContent>
+                      {origins.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedOrigin && selectedOrigin.subOrigins.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Subcanal</Label>
+                    <Select value={form.subOriginId} onValueChange={(v) => setForm((f) => ({ ...f, subOriginId: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar subcanal..." /></SelectTrigger>
+                      <SelectContent>
+                        {selectedOrigin.subOrigins.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-1.5 col-span-2">
                   <Label>Descrição</Label>
                   <textarea rows={2} placeholder="Observações..." value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
@@ -410,10 +448,6 @@ export default function ContatosPage() {
                 <div className="space-y-1.5">
                   <Label>X (Twitter)</Label>
                   <Input placeholder="x.com/usuario" value={form.socialTwitter} onChange={(e) => setForm((f) => ({ ...f, socialTwitter: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Skype</Label>
-                  <Input placeholder="usuario.skype" value={form.socialSkype} onChange={(e) => setForm((f) => ({ ...f, socialSkype: e.target.value }))} />
                 </div>
               </div>
             </div>
