@@ -212,7 +212,7 @@ export default function ContatosPage() {
     if (!form.name.trim()) { toast.error('Nome é obrigatório'); return }
     const address = { zip: form.addrZip, country: form.addrCountry, state: form.addrState, city: form.addrCity, neighborhood: form.addrNeighborhood, street: form.addrStreet, number: form.addrNumber, complement: form.addrComplement }
     const hasAddress = Object.values(address).some(Boolean)
-    const socialProfiles = { linkedin: form.socialLinkedin, instagram: form.socialInstagram, facebook: form.socialFacebook, twitter: form.socialTwitter, skype: form.socialSkype }
+    const socialProfiles = { linkedin: form.socialLinkedin, instagram: form.socialInstagram, facebook: form.socialFacebook, twitter: form.socialTwitter }
     const hasSocial = Object.values(socialProfiles).some(Boolean)
     createMutation.mutate({
       name: form.name,
