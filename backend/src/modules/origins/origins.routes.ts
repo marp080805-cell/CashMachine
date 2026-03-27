@@ -43,7 +43,7 @@ async function getAncestorIds(originId: string): Promise<string[]> {
   while (currentId) {
     if (visited.has(currentId)) break
     visited.add(currentId)
-    const origin = await prisma.origin.findUnique({ where: { id: currentId }, select: { id: true, parentId: true } })
+    const origin: { id: string; parentId: string | null } | null = await prisma.origin.findUnique({ where: { id: currentId }, select: { id: true, parentId: true } })
     if (!origin) break
     ids.unshift(origin.id)
     currentId = origin.parentId
