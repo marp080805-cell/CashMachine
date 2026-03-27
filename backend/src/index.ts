@@ -117,17 +117,32 @@ async function bootstrap() {
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 
+  const workers: import('bullmq').Worker[] = []
+
   if (env.OPENAI_API_KEY) {
-    startAiSuggestionWorker(app.io)
-    startTranscriptionWorker()
+    workers.push(startAiSuggestionWorker(app.io))
+    workers.push(startTranscriptionWorker())
   }
 
-  startNotificationWorker()
-  startEmailWorker()
-  startStageTriggerWorker()
-  startBotExecutionWorker()
-  startRecordingAnalysisWorker()
-  startDailyMetricsWorker()
+  workers.push(startNotificationWorker())
+  workers.push(startEmailWorker())
+  workers.push(startStageTriggerWorker())
+  workers.push(startBotExecutionWorker())
+  workers.push(startRecordingAnalysisWorker())
+  workers.push(startDailyMetricsWorker())
+
+  // Graceful shutdown
+  const shutdown = async (signal: string) => {
+    console.log(`[shutdown] Received ${signal}, closing workers and server...`)
+    await Promise.all(workers.map((w) => w.close()))
+    await app.close()
+    await prisma.$disconnect()
+    console.log('[shutdown] Done.')
+    process.exit(0)
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 
   // Bootstrap: criar tenant + admin se não existirem
   const existingTenant = await prisma.tenant.findUnique({
