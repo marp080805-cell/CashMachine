@@ -126,8 +126,16 @@ model Contact {
   name             String
   email            String?
   phone            String?
+  whatsapp         String?
+  mobile           String?
+  fax              String?
+  extension        String?
   cpf              String?
   cpfCnpj          String?    // legado — mantido para retrocompatibilidade
+  role             String?
+  nationality      String?
+  category         String?
+  website          String?
   dateOfBirth      DateTime?
   avatarUrl        String?
   originId         String?
@@ -137,7 +145,7 @@ model Contact {
   companyId        String?
   company          Company?   @relation(fields: [companyId], references: [id])
   address          Json?      // {street, number, complement, city, state, zip, country}
-  socialProfiles   Json?      // {instagram, linkedin, facebook, tiktok}
+  socialProfiles   Json?      // {instagram, linkedin, facebook, twitter, tiktok, skype}
   firstContactDate DateTime?
   notes            String?
   isBlacklisted    Boolean    @default(false)

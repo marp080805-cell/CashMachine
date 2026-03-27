@@ -98,12 +98,34 @@ interface EditContactForm {
   name: string
   email: string
   phone: string
+  whatsapp: string
+  mobile: string
+  fax: string
+  extension: string
   role: string
   cpf: string
+  nationality: string
+  category: string
+  website: string
   birthday: string
   notes: string
   companyId: string
   companyLabel: string
+  // address
+  addrZip: string
+  addrCountry: string
+  addrState: string
+  addrCity: string
+  addrNeighborhood: string
+  addrStreet: string
+  addrNumber: string
+  addrComplement: string
+  // social
+  socialLinkedin: string
+  socialInstagram: string
+  socialFacebook: string
+  socialTwitter: string
+  socialSkype: string
 }
 
 interface CompanyOption { id: string; name: string }
@@ -297,7 +319,11 @@ export default function ContactProfilePage() {
   const [activeTab, setActiveTab] = useState('opportunities')
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState<EditContactForm>({
-    name: '', email: '', phone: '', role: '', cpf: '', birthday: '', notes: '', companyId: '', companyLabel: '',
+    name: '', email: '', phone: '', whatsapp: '', mobile: '', fax: '', extension: '',
+    role: '', cpf: '', nationality: '', category: '', website: '', birthday: '', notes: '',
+    companyId: '', companyLabel: '',
+    addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
+    socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '', socialSkype: '',
   })
   const [newOppOpen, setNewOppOpen] = useState(false)
   const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
@@ -423,16 +449,38 @@ export default function ContactProfilePage() {
   // Handlers
   function openEdit() {
     if (!contact) return
+    const addr = (contact as any).address as Record<string, string> | null ?? {}
+    const social = (contact as any).socialProfiles as Record<string, string> | null ?? {}
     setEditForm({
       name: contact.name,
       email: contact.email ?? '',
       phone: contact.phone ?? '',
+      whatsapp: (contact as any).whatsapp ?? '',
+      mobile: (contact as any).mobile ?? '',
+      fax: (contact as any).fax ?? '',
+      extension: (contact as any).extension ?? '',
       role: contact.role ?? '',
       cpf: contact.cpf ?? '',
+      nationality: (contact as any).nationality ?? '',
+      category: (contact as any).category ?? '',
+      website: (contact as any).website ?? '',
       birthday: contact.dateOfBirth ? contact.dateOfBirth.slice(0, 10) : '',
       notes: contact.notes ?? '',
       companyId: contact.companyId ?? '',
       companyLabel: contact.company?.name ?? '',
+      addrZip: addr.zip ?? '',
+      addrCountry: addr.country ?? '',
+      addrState: addr.state ?? '',
+      addrCity: addr.city ?? '',
+      addrNeighborhood: addr.neighborhood ?? '',
+      addrStreet: addr.street ?? '',
+      addrNumber: addr.number ?? '',
+      addrComplement: addr.complement ?? '',
+      socialLinkedin: social.linkedin ?? '',
+      socialInstagram: social.instagram ?? '',
+      socialFacebook: social.facebook ?? '',
+      socialTwitter: social.twitter ?? '',
+      socialSkype: social.skype ?? '',
     })
     setEditOpen(true)
   }
@@ -440,15 +488,35 @@ export default function ContactProfilePage() {
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!editForm.name.trim()) { toast.error('Nome é obrigatório'); return }
+    const address = {
+      zip: editForm.addrZip, country: editForm.addrCountry, state: editForm.addrState,
+      city: editForm.addrCity, neighborhood: editForm.addrNeighborhood, street: editForm.addrStreet,
+      number: editForm.addrNumber, complement: editForm.addrComplement,
+    }
+    const hasAddress = Object.values(address).some(Boolean)
+    const socialProfiles = {
+      linkedin: editForm.socialLinkedin, instagram: editForm.socialInstagram,
+      facebook: editForm.socialFacebook, twitter: editForm.socialTwitter, skype: editForm.socialSkype,
+    }
+    const hasSocial = Object.values(socialProfiles).some(Boolean)
     editMutation.mutate({
       name: editForm.name,
-      ...(editForm.email ? { email: editForm.email } : {}),
-      ...(editForm.phone ? { phone: editForm.phone } : {}),
-      ...(editForm.role ? { role: editForm.role } : {}),
-      ...(editForm.cpf ? { cpf: editForm.cpf } : {}),
-      ...(editForm.birthday ? { dateOfBirth: new Date(editForm.birthday).toISOString() } : {}),
-      ...(editForm.notes ? { notes: editForm.notes } : {}),
-      ...(editForm.companyId ? { companyId: editForm.companyId } : { companyId: null }),
+      email: editForm.email || undefined,
+      phone: editForm.phone || undefined,
+      whatsapp: editForm.whatsapp || undefined,
+      mobile: editForm.mobile || undefined,
+      fax: editForm.fax || undefined,
+      extension: editForm.extension || undefined,
+      role: editForm.role || undefined,
+      cpf: editForm.cpf || undefined,
+      nationality: editForm.nationality || undefined,
+      category: editForm.category || undefined,
+      website: editForm.website || undefined,
+      dateOfBirth: editForm.birthday ? new Date(editForm.birthday).toISOString() : undefined,
+      notes: editForm.notes || undefined,
+      companyId: editForm.companyId || null,
+      ...(hasAddress ? { address } : {}),
+      ...(hasSocial ? { socialProfiles } : {}),
     })
   }
 
@@ -902,88 +970,156 @@ export default function ContactProfilePage() {
 
       {/* ── Modal: Editar Contato ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Contato</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome *</Label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Nome completo"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Telefone</Label>
-                <Input
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cargo</Label>
-                <Input
-                  value={editForm.role}
-                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
-                  placeholder="Ex: Diretor Comercial"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>CPF</Label>
-                <Input
-                  value={editForm.cpf}
-                  onChange={(e) => setEditForm((f) => ({ ...f, cpf: e.target.value }))}
-                  placeholder="000.000.000-00"
-                />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label>Data de Nascimento</Label>
-                <Input
-                  type="date"
-                  value={editForm.birthday}
-                  onChange={(e) => setEditForm((f) => ({ ...f, birthday: e.target.value }))}
-                />
+          <form onSubmit={handleEditSubmit} className="space-y-6 py-2">
+
+            {/* Dados básicos */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Nome *</Label>
+                  <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>CPF</Label>
+                  <Input value={editForm.cpf} onChange={(e) => setEditForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nacionalidade</Label>
+                  <Input value={editForm.nationality} onChange={(e) => setEditForm((f) => ({ ...f, nationality: e.target.value }))} placeholder="Ex: Brasileira" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Empresa</Label>
+                  <CompanySearchEdit value={editForm.companyId} label={editForm.companyLabel} onChange={(id, name) => setEditForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cargo</Label>
+                  <Input value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))} placeholder="Ex: Diretor Comercial" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Categoria</Label>
+                  <Input value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} placeholder="Ex: Cliente, Parceiro..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Aniversário</Label>
+                  <Input type="date" value={editForm.birthday} onChange={(e) => setEditForm((f) => ({ ...f, birthday: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Site</Label>
+                  <Input value={editForm.website} onChange={(e) => setEditForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://..." />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Descrição</Label>
+                  <textarea rows={3} placeholder="Detalhes importantes sobre este contato..." value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+                </div>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Empresa</Label>
-              <CompanySearchEdit
-                value={editForm.companyId}
-                label={editForm.companyLabel}
-                onChange={(id, name) => setEditForm((f) => ({ ...f, companyId: id, companyLabel: name }))}
-              />
+
+            {/* Informações para contato */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Informações para contato</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>E-mail</Label>
+                  <Input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>WhatsApp</Label>
+                  <Input value={editForm.whatsapp} onChange={(e) => setEditForm((f) => ({ ...f, whatsapp: e.target.value }))} placeholder="+55 (11) 99999-9999" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Telefone</Label>
+                  <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(11) 3333-3333" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Celular</Label>
+                  <Input value={editForm.mobile} onChange={(e) => setEditForm((f) => ({ ...f, mobile: e.target.value }))} placeholder="(11) 99999-9999" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fax</Label>
+                  <Input value={editForm.fax} onChange={(e) => setEditForm((f) => ({ ...f, fax: e.target.value }))} placeholder="(11) 3333-3333" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ramal</Label>
+                  <Input value={editForm.extension} onChange={(e) => setEditForm((f) => ({ ...f, extension: e.target.value }))} placeholder="00" />
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Notas</Label>
-              <textarea
-                rows={3}
-                placeholder="Observações..."
-                value={editForm.notes}
-                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
+
+            {/* Dados de endereço */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados de endereço</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label>CEP</Label>
+                  <Input value={editForm.addrZip} onChange={(e) => setEditForm((f) => ({ ...f, addrZip: e.target.value }))} placeholder="00000-000" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Input value={editForm.addrCountry} onChange={(e) => setEditForm((f) => ({ ...f, addrCountry: e.target.value }))} placeholder="Brasil" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
+                  <Input value={editForm.addrState} onChange={(e) => setEditForm((f) => ({ ...f, addrState: e.target.value }))} placeholder="SP" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input value={editForm.addrCity} onChange={(e) => setEditForm((f) => ({ ...f, addrCity: e.target.value }))} placeholder="São Paulo" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Bairro</Label>
+                  <Input value={editForm.addrNeighborhood} onChange={(e) => setEditForm((f) => ({ ...f, addrNeighborhood: e.target.value }))} placeholder="Bairro" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número</Label>
+                  <Input value={editForm.addrNumber} onChange={(e) => setEditForm((f) => ({ ...f, addrNumber: e.target.value }))} placeholder="123" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Rua</Label>
+                  <Input value={editForm.addrStreet} onChange={(e) => setEditForm((f) => ({ ...f, addrStreet: e.target.value }))} placeholder="Rua Example" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Complemento</Label>
+                  <Input value={editForm.addrComplement} onChange={(e) => setEditForm((f) => ({ ...f, addrComplement: e.target.value }))} placeholder="Sala 10" />
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 pt-1">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>
-                Cancelar
-              </Button>
+
+            {/* Redes sociais */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Redes sociais</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>LinkedIn</Label>
+                  <Input value={editForm.socialLinkedin} onChange={(e) => setEditForm((f) => ({ ...f, socialLinkedin: e.target.value }))} placeholder="linkedin.com/in/usuario" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Instagram</Label>
+                  <Input value={editForm.socialInstagram} onChange={(e) => setEditForm((f) => ({ ...f, socialInstagram: e.target.value }))} placeholder="instagram.com/usuario" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Facebook</Label>
+                  <Input value={editForm.socialFacebook} onChange={(e) => setEditForm((f) => ({ ...f, socialFacebook: e.target.value }))} placeholder="facebook.com/usuario" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>X (Twitter)</Label>
+                  <Input value={editForm.socialTwitter} onChange={(e) => setEditForm((f) => ({ ...f, socialTwitter: e.target.value }))} placeholder="x.com/usuario" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Skype</Label>
+                  <Input value={editForm.socialSkype} onChange={(e) => setEditForm((f) => ({ ...f, socialSkype: e.target.value }))} placeholder="usuario.skype" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1 border-t">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={editMutation.isPending}>
-                {editMutation.isPending ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
-                ) : 'Salvar'}
+                {editMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : 'Salvar alterações'}
               </Button>
             </div>
           </form>
