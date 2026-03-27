@@ -334,7 +334,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       api.post<{ id: string }>('/activities', {
         ...data,
         opportunityId: opportunity!.id,
-        ...(opportunity?.contactId ? { contactId: opportunity.contactId } : {}),
+        ...(opportunity?.contactId ? { contactId: opportunity!.contactId } : {}),
       }),
     onSuccess: () => {
       toast.success('Atividade registrada!')
@@ -492,7 +492,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   function handleStartConversation() {
     if (!opportunity?.contactId || !effectiveNumberId || !startMessage.trim()) return
     startConversationMutation.mutate({
-      contactId: opportunity.contactId,
+      contactId: opportunity!.contactId,
       numberId: effectiveNumberId,
       text: startMessage.trim(),
     })
@@ -535,7 +535,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     createConvMutation.mutate({
       channel: newConvChannel,
       opportunityId: opportunity!.id,
-      ...(opportunity.contactId ? { contactId: opportunity.contactId } : {}),
+      ...(opportunity!.contactId ? { contactId: opportunity!.contactId } : {}),
     })
   }
 
