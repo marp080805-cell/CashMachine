@@ -1,92 +1,166 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { OpportunitySummary, Task, Activity } from '@/types'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import type { Contact, Task, Activity as ActivityType, Tag } from '@/types'
+import { formatDate, formatDateTime, formatCurrency, getInitials, cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Mail, Phone, MapPin, ExternalLink, Pencil, Loader2,
-  AlertTriangle, ShieldOff, ShieldCheck, FileText,
-  Activity as ActivityIcon, CheckSquare, Plus, Building2, Calendar,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Mail, Phone, Building2, ArrowLeft, Pencil, Plus, MoreVertical,
+  Loader2, CheckCircle2, Circle, FileText, Calendar, Clock,
+  MessageSquare, Activity, Trophy, X, Check, AlertTriangle,
 } from 'lucide-react'
-import Link from 'next/link'
-import { formatDate, formatDateTime, formatCurrency, getInitials, cn } from '@/lib/utils'
+import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
+import type { Opportunity } from '@/types'
 
-// ── Contact type (extended) ──
+// ─── Local interfaces ───────────────────────────────────────────────────────
 
-interface ContactDetail {
+interface ContactDetail extends Contact {
+  isBlacklisted?: boolean
+  cpf?: string | null
+  dateOfBirth?: string | null
+  role?: string | null
+  tagAssignments?: Array<{ id: string; tag: Tag }>
+}
+
+interface ContactOpportunity {
+  id: string
+  title: string
+  status: string
+  value: number | null
+  createdAt: string
+  pipeline: { id: string; name: string; prefix: string | null }
+  stage: { id: string; name: string; color: string }
+  contact: { id: string; name: string; phone: string | null; email: string | null }
+  assignedTo: { id: string; name: string; avatarUrl: string | null }
+  companyId: string | null
+  company: { id: string; name: string } | null
+  stageId: string
+  pipelineId: string
+  sdrId: string | null
+  sdr: { id: string; name: string } | null
+  closerId: string | null
+  closer: { id: string; name: string } | null
+  assignedToId: string
+  contactId: string
+  tenantId: string
+  originId: string | null
+  origin: { id: string; name: string } | null
+  subOriginId: string | null
+  subOrigin: { id: string; name: string } | null
+  expectedCloseDate: string | null
+  closedAt: string | null
+  lostReasonId: string | null
+  lostReason: { id: string; name: string } | null
+  rescueEligible: boolean
+  temperature: string | null
+  qualificationScore: number | null
+  position: number
+  handoffAt: string | null
+  sdrBriefing: string | null
+  slaFirstContactAt: string | null
+  notes: string | null
+  updatedAt: string
+}
+
+interface ContactConversation {
+  id: string
+  channel: string
+  status: string
+  lastMessage: string | null
+  lastMessageAt: string | null
+}
+
+interface Pipeline {
   id: string
   name: string
-  email: string | null
-  phone: string | null
-  cpfCnpj: string | null
-  dateOfBirth: string | null
-  avatarUrl: string | null
-  isBlacklisted: boolean
-  notes: string | null
-  address: string | null
-  socialProfiles: Record<string, string> | null
-  company: { id: string; name: string } | null
-  origin: { id: string; name: string } | null
-  subOrigin: { id: string; name: string } | null
-  tags: Array<{ tag: { name: string; color: string } }>
-  createdAt: string
-  updatedAt: string
 }
 
 interface EditContactForm {
   name: string
   email: string
   phone: string
-  cpfCnpj: string
-  dateOfBirth: string
-  address: string
+  role: string
+  cpf: string
+  birthday: string
   notes: string
 }
 
-const socialIcons: Record<string, { label: string; icon: React.ElementType }> = {
-  instagram: { label: 'Instagram', icon: ExternalLink },
-  linkedin: { label: 'LinkedIn', icon: ExternalLink },
-  facebook: { label: 'Facebook', icon: ExternalLink },
-  twitter: { label: 'Twitter / X', icon: ExternalLink },
-  tiktok: { label: 'TikTok', icon: ExternalLink },
-  youtube: { label: 'YouTube', icon: ExternalLink },
+interface NewOppForm {
+  title: string
+  pipelineId: string
+  value: string
 }
 
-const opportunityStatusLabels: Record<string, string> = {
-  OPEN: 'Aberto',
-  WON: 'Ganho',
-  LOST: 'Perdido',
+interface NewTaskForm {
+  title: string
+  type: string
+  priority: string
+  dueDate: string
 }
 
-const opportunityStatusColors: Record<string, string> = {
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+const statusColors: Record<string, string> = {
   OPEN: 'bg-blue-100 text-blue-700',
   WON: 'bg-green-100 text-green-700',
   LOST: 'bg-red-100 text-red-700',
 }
 
-const activityTypeLabels: Record<string, string> = {
-  NOTE: 'Nota',
+const statusLabels: Record<string, string> = {
+  OPEN: 'Aberto',
+  WON: 'Ganho',
+  LOST: 'Perdido',
+}
+
+const taskTypeLabels: Record<string, string> = {
+  FIRST_CONTACT: 'Primeiro Contato',
+  FOLLOW_UP: 'Follow-up',
+  QUALIFY: 'Qualificação',
+  SCHEDULE_MEETING: 'Agendar Reunião',
+  SEND_PROPOSAL: 'Enviar Proposta',
+  FOLLOW_UP_PROPOSAL: 'Follow-up Proposta',
   CALL: 'Ligação',
-  EMAIL: 'Email',
   MEETING: 'Reunião',
-  WHATSAPP_MESSAGE: 'WhatsApp',
-  OPPORTUNITY_CREATED: 'Oportunidade criada',
-  OPPORTUNITY_WON: 'Oportunidade ganha',
-  OPPORTUNITY_LOST: 'Oportunidade perdida',
-  TASK_COMPLETED: 'Tarefa concluída',
-  STAGE_CHANGED: 'Etapa alterada',
+  EMAIL: 'Email',
+  CUSTOM: 'Outro',
+}
+
+const taskTypeIcons: Record<string, React.ElementType> = {
+  CALL: Phone,
+  EMAIL: Mail,
+  MEETING: Calendar,
+  FIRST_CONTACT: Phone,
+  FOLLOW_UP: Clock,
+  SCHEDULE_MEETING: Calendar,
+  SEND_PROPOSAL: FileText,
+  FOLLOW_UP_PROPOSAL: FileText,
+  CUSTOM: FileText,
+}
+
+const priorityColors: Record<string, string> = {
+  LOW: 'bg-gray-100 text-gray-700 border-gray-200',
+  MEDIUM: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  HIGH: 'bg-orange-100 text-orange-700 border-orange-200',
+  URGENT: 'bg-red-100 text-red-700 border-red-200',
 }
 
 const priorityLabels: Record<string, string> = {
@@ -96,83 +170,200 @@ const priorityLabels: Record<string, string> = {
   URGENT: 'Urgente',
 }
 
-const priorityColors: Record<string, string> = {
-  LOW: 'bg-gray-100 text-gray-700',
-  MEDIUM: 'bg-blue-100 text-blue-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  URGENT: 'bg-red-100 text-red-700',
+const activityIcons: Record<string, React.ElementType> = {
+  NOTE: FileText,
+  CALL: Phone,
+  EMAIL: Mail,
+  MEETING: Calendar,
+  WHATSAPP_MESSAGE: MessageSquare,
+  OPPORTUNITY_MOVED: Activity,
+  OPPORTUNITY_CREATED: Plus,
+  OPPORTUNITY_WON: Trophy,
+  OPPORTUNITY_LOST: X,
+  TASK_COMPLETED: CheckCircle2,
+  STAGE_CHANGED: Activity,
 }
 
-export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+const activityTypeLabels: Record<string, string> = {
+  NOTE: 'Nota',
+  CALL: 'Ligação',
+  EMAIL: 'Email',
+  MEETING: 'Reunião',
+  WHATSAPP_MESSAGE: 'WhatsApp',
+  OPPORTUNITY_MOVED: 'Oportunidade movida',
+  OPPORTUNITY_CREATED: 'Oportunidade criada',
+  OPPORTUNITY_WON: 'Oportunidade ganha',
+  OPPORTUNITY_LOST: 'Oportunidade perdida',
+  TASK_COMPLETED: 'Tarefa concluída',
+  STAGE_CHANGED: 'Etapa alterada',
+}
 
+const channelLabels: Record<string, string> = {
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'Email',
+  PHONE: 'Telefone',
+  CHAT: 'Chat',
+  INSTAGRAM: 'Instagram',
+}
+
+function getNameColor(name: string): string {
+  const colors = [
+    'bg-violet-500', 'bg-blue-500', 'bg-green-500', 'bg-amber-500',
+    'bg-rose-500', 'bg-cyan-500', 'bg-teal-500', 'bg-indigo-500',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length] ?? 'bg-violet-500'
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'agora'
+  if (mins < 60) return `há ${mins} min`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `há ${hrs}h`
+  const days = Math.floor(hrs / 24)
+  return `há ${days}d`
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────
+
+export default function ContactProfilePage() {
+  const params = useParams()
+  const router = useRouter()
+  const contactId = params['id'] as string
+  const queryClient = useQueryClient()
+
+  // State
   const [activeTab, setActiveTab] = useState('opportunities')
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState<EditContactForm>({
-    name: '', email: '', phone: '', cpfCnpj: '', dateOfBirth: '', address: '', notes: '',
+    name: '', email: '', phone: '', role: '', cpf: '', birthday: '', notes: '',
   })
+  const [newOppOpen, setNewOppOpen] = useState(false)
+  const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '' })
+  const [newTaskOpen, setNewTaskOpen] = useState(false)
+  const [newTaskForm, setNewTaskForm] = useState<NewTaskForm>({ title: '', type: 'CALL', priority: 'MEDIUM', dueDate: '' })
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
+  const [completionNotes, setCompletionNotes] = useState('')
+  const [selectedOpp, setSelectedOpp] = useState<ContactOpportunity | null>(null)
 
-  const queryClient = useQueryClient()
-
-  // Contact data
+  // Queries
   const { data: contact, isLoading } = useQuery({
-    queryKey: ['contact', id],
-    queryFn: () => api.get<ContactDetail>(`/contacts/${id}`),
-    enabled: !!id,
+    queryKey: ['contact', contactId],
+    queryFn: () => api.get<ContactDetail>(`/contacts/${contactId}`),
+    enabled: !!contactId,
   })
 
-  // Opportunities (lazy)
-  const { data: opportunities, isLoading: oppsLoading } = useQuery({
-    queryKey: ['contact-opportunities', id],
-    queryFn: () => api.get<OpportunitySummary[]>(`/contacts/${id}/opportunities`),
-    enabled: activeTab === 'opportunities' && !!id,
+  const { data: oppsData, isLoading: oppsLoading } = useQuery({
+    queryKey: ['contact-opportunities', contactId],
+    queryFn: () => api.get<ContactOpportunity[]>(`/contacts/${contactId}/opportunities`),
+    enabled: activeTab === 'opportunities' && !!contactId,
   })
 
-  // Tasks (lazy)
-  const { data: tasks, isLoading: tasksLoading } = useQuery({
-    queryKey: ['contact-tasks', id],
-    queryFn: () => api.get<Task[]>(`/tasks?contactId=${id}`),
-    enabled: activeTab === 'tasks' && !!id,
+  const { data: tasksData, isLoading: tasksLoading } = useQuery({
+    queryKey: ['contact-tasks', contactId],
+    queryFn: () => api.get<Task[]>(`/contacts/${contactId}/tasks`),
+    enabled: activeTab === 'tasks' && !!contactId,
   })
 
-  // Activities (lazy)
-  const { data: activities, isLoading: activitiesLoading } = useQuery({
-    queryKey: ['contact-activities', id],
-    queryFn: () => api.get<Activity[]>(`/activities?contactId=${id}`),
-    enabled: activeTab === 'activities' && !!id,
+  const { data: convsData, isLoading: convsLoading } = useQuery({
+    queryKey: ['contact-conversations', contactId],
+    queryFn: () => api.get<ContactConversation[]>(`/contacts/${contactId}/conversations`),
+    enabled: activeTab === 'conversations' && !!contactId,
   })
 
-  // Edit mutation
+  const { data: activitiesData, isLoading: activitiesLoading } = useQuery({
+    queryKey: ['contact-activities', contactId],
+    queryFn: () => api.get<ActivityType[]>(`/contacts/${contactId}/activities`),
+    enabled: activeTab === 'activities' && !!contactId,
+  })
+
+  const { data: pipelinesData } = useQuery({
+    queryKey: ['pipelines-list'],
+    queryFn: () => api.get<{ pipelines: Pipeline[] }>('/pipelines'),
+    enabled: newOppOpen,
+  })
+
+  // Mutations
   const editMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.patch<ContactDetail>(`/contacts/${id}`, data),
+    mutationFn: (data: Record<string, unknown>) => api.patch<ContactDetail>(`/contacts/${contactId}`, data),
     onSuccess: () => {
       toast.success('Contato atualizado!')
       setEditOpen(false)
-      void queryClient.invalidateQueries({ queryKey: ['contact', id] })
-      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      void queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
     },
-    onError: () => toast.error('Erro ao atualizar contato'),
+    onError: (err: unknown) => {
+      toast.error((err as { message?: string })?.message ?? 'Erro ao atualizar contato')
+    },
   })
 
-  // Blacklist mutation
   const blacklistMutation = useMutation({
-    mutationFn: () => api.put<ContactDetail>(`/contacts/${id}/blacklist`, { blacklisted: !contact?.isBlacklisted }),
+    mutationFn: (blacklist: boolean) =>
+      api.patch<ContactDetail>(`/contacts/${contactId}`, { isBlacklisted: blacklist }),
     onSuccess: () => {
-      toast.success(contact?.isBlacklisted ? 'Contato removido da blacklist' : 'Contato adicionado à blacklist')
-      void queryClient.invalidateQueries({ queryKey: ['contact', id] })
+      toast.success('Contato atualizado!')
+      void queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
     },
-    onError: () => toast.error('Erro ao atualizar blacklist'),
+    onError: () => toast.error('Erro ao atualizar'),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete<void>(`/contacts/${contactId}`),
+    onSuccess: () => {
+      toast.success('Contato excluído')
+      router.push('/contatos')
+    },
+    onError: () => toast.error('Erro ao excluir contato'),
+  })
+
+  const createOppMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post<{ id: string }>('/opportunities', data),
+    onSuccess: () => {
+      toast.success('Oportunidade criada!')
+      setNewOppOpen(false)
+      setNewOppForm({ title: '', pipelineId: '', value: '' })
+      void queryClient.invalidateQueries({ queryKey: ['contact-opportunities', contactId] })
+    },
+    onError: (err: unknown) => {
+      toast.error((err as { message?: string })?.message ?? 'Erro ao criar oportunidade')
+    },
+  })
+
+  const createTaskMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post<Task>('/tasks', data),
+    onSuccess: () => {
+      toast.success('Tarefa criada!')
+      setNewTaskOpen(false)
+      setNewTaskForm({ title: '', type: 'CALL', priority: 'MEDIUM', dueDate: '' })
+      void queryClient.invalidateQueries({ queryKey: ['contact-tasks', contactId] })
+    },
+    onError: () => toast.error('Erro ao criar tarefa'),
+  })
+
+  const completeTaskMutation = useMutation({
+    mutationFn: ({ taskId, notes }: { taskId: string; notes: string }) =>
+      api.post<Task>(`/tasks/${taskId}/complete`, { completionNotes: notes }),
+    onSuccess: () => {
+      toast.success('Tarefa concluída!')
+      setCompletingTaskId(null)
+      setCompletionNotes('')
+      void queryClient.invalidateQueries({ queryKey: ['contact-tasks', contactId] })
+    },
+    onError: () => toast.error('Erro ao concluir tarefa'),
+  })
+
+  // Handlers
   function openEdit() {
     if (!contact) return
     setEditForm({
       name: contact.name,
       email: contact.email ?? '',
       phone: contact.phone ?? '',
-      cpfCnpj: contact.cpfCnpj ?? '',
-      dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.slice(0, 10) : '',
-      address: contact.address ?? '',
+      role: contact.role ?? '',
+      cpf: contact.cpf ?? '',
+      birthday: contact.dateOfBirth ? contact.dateOfBirth.slice(0, 10) : '',
       notes: contact.notes ?? '',
     })
     setEditOpen(true)
@@ -183,187 +374,190 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (!editForm.name.trim()) { toast.error('Nome é obrigatório'); return }
     editMutation.mutate({
       name: editForm.name,
-      ...(editForm.email && { email: editForm.email }),
-      ...(editForm.phone && { phone: editForm.phone }),
-      ...(editForm.cpfCnpj && { cpfCnpj: editForm.cpfCnpj }),
-      ...(editForm.dateOfBirth && { dateOfBirth: new Date(editForm.dateOfBirth).toISOString() }),
-      ...(editForm.address && { address: editForm.address }),
-      ...(editForm.notes && { notes: editForm.notes }),
+      ...(editForm.email ? { email: editForm.email } : {}),
+      ...(editForm.phone ? { phone: editForm.phone } : {}),
+      ...(editForm.role ? { role: editForm.role } : {}),
+      ...(editForm.cpf ? { cpf: editForm.cpf } : {}),
+      ...(editForm.birthday ? { dateOfBirth: new Date(editForm.birthday).toISOString() } : {}),
+      ...(editForm.notes ? { notes: editForm.notes } : {}),
+    })
+  }
+
+  function handleCreateOpp(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newOppForm.title.trim()) { toast.error('Título é obrigatório'); return }
+    if (!newOppForm.pipelineId) { toast.error('Selecione um funil'); return }
+    createOppMutation.mutate({
+      title: newOppForm.title,
+      pipelineId: newOppForm.pipelineId,
+      contactId,
+      ...(newOppForm.value ? { value: parseFloat(newOppForm.value) } : {}),
+    })
+  }
+
+  function handleCreateTask(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newTaskForm.title.trim()) { toast.error('Título é obrigatório'); return }
+    if (!newTaskForm.dueDate) { toast.error('Data de vencimento é obrigatória'); return }
+    createTaskMutation.mutate({
+      title: newTaskForm.title,
+      type: newTaskForm.type,
+      priority: newTaskForm.priority,
+      dueDate: new Date(newTaskForm.dueDate).toISOString(),
+      contactId,
     })
   }
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   if (!contact) {
     return (
-      <div className="text-center py-16 text-muted-foreground">
-        <AlertTriangle className="h-12 w-12 mx-auto mb-3 opacity-30" />
-        <p>Contato não encontrado</p>
-        <Link href="/contatos">
-          <Button size="sm" className="mt-4" variant="outline">Voltar para contatos</Button>
-        </Link>
+      <div className="text-center py-24">
+        <p className="text-muted-foreground">Contato não encontrado</p>
+        <Button variant="link" onClick={() => router.push('/contatos')}>Voltar</Button>
       </div>
     )
   }
 
-  const socialEntries = Object.entries(contact.socialProfiles ?? {}).filter(([, url]) => !!url)
+  const opps = oppsData ?? []
+  const tasks = tasksData ?? []
+  const convs = convsData ?? []
+  const activities = activitiesData ?? []
+  const pipelines = pipelinesData?.pipelines ?? []
+  const avatarColor = getNameColor(contact.name)
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <Avatar className="h-16 w-16 text-xl">
-          <AvatarFallback className="bg-primary/10 text-primary text-lg">
-            {getInitials(contact.name)}
-          </AvatarFallback>
-        </Avatar>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Back */}
+      <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.push('/contatos')}>
+        <ArrowLeft className="h-4 w-4" />
+        Contatos
+      </Button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold">{contact.name}</h1>
-            {contact.isBlacklisted && (
-              <Badge variant="destructive" className="flex items-center gap-1">
-                <ShieldOff className="h-3 w-3" />
-                Blacklisted
-              </Badge>
+      {/* Header Card */}
+      <div className="rounded-xl border bg-card p-6">
+        <div className="flex items-start gap-5">
+          {/* Avatar */}
+          <Avatar className="h-16 w-16 shrink-0">
+            <AvatarFallback className={cn('text-xl font-semibold text-white', avatarColor)}>
+              {getInitials(contact.name)}
+            </AvatarFallback>
+          </Avatar>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold">{contact.name}</h1>
+              {contact.isBlacklisted && (
+                <Badge className="bg-red-500 text-white text-xs font-bold">BLACKLIST</Badge>
+              )}
+            </div>
+
+            {contact.role && (
+              <p className="text-sm text-muted-foreground mt-0.5">{contact.role}</p>
+            )}
+
+            <div className="flex items-center gap-4 mt-2 flex-wrap">
+              {contact.email && (
+                <a
+                  href={`mailto:${contact.email}`}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {contact.email}
+                </a>
+              )}
+              {contact.phone && (
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {contact.phone}
+                </a>
+              )}
+              {contact.company && (
+                <Link
+                  href={`/empresas/${contact.companyId}`}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  {contact.company.name}
+                </Link>
+              )}
+            </div>
+
+            {/* Tags */}
+            {contact.tagAssignments && contact.tagAssignments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {contact.tagAssignments.map((ta) => (
+                  <Badge
+                    key={ta.id}
+                    variant="secondary"
+                    className="text-xs"
+                    style={{
+                      backgroundColor: ta.tag.color + '22',
+                      color: ta.tag.color,
+                      borderColor: ta.tag.color + '44',
+                    }}
+                  >
+                    {ta.tag.name}
+                  </Badge>
+                ))}
+              </div>
             )}
           </div>
 
-          {contact.company && (
-            <p className="text-muted-foreground flex items-center gap-1 mt-0.5">
-              <Building2 className="h-4 w-4" />
-              {contact.company.name}
-            </p>
-          )}
-
-          {contact.tags && contact.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {contact.tags.map(({ tag }) => (
-                <Badge
-                  key={tag.name}
-                  variant="outline"
-                  className="text-xs"
-                  style={{ borderColor: tag.color, color: tag.color }}
-                >
-                  {tag.name}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2 flex-wrap shrink-0">
-          <Button size="sm" variant="outline" onClick={openEdit}>
-            <Pencil className="h-4 w-4 mr-1" />
-            Editar
-          </Button>
-          <Link href="/funis">
-            <Button size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-1" />
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={openEdit}>
+              <Pencil className="h-4 w-4 mr-1.5" />
+              Editar
+            </Button>
+            <Button size="sm" onClick={() => setNewOppOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
               Nova Oportunidade
             </Button>
-          </Link>
-          <Button
-            size="sm"
-            variant={contact.isBlacklisted ? 'outline' : 'destructive'}
-            onClick={() => blacklistMutation.mutate()}
-            disabled={blacklistMutation.isPending}
-          >
-            {blacklistMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : contact.isBlacklisted ? (
-              <><ShieldCheck className="h-4 w-4 mr-1" />Remover Blacklist</>
-            ) : (
-              <><ShieldOff className="h-4 w-4 mr-1" />Blacklist</>
-            )}
-          </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/whatsapp">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Enviar WhatsApp
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => blacklistMutation.mutate(!contact.isBlacklisted)}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  {contact.isBlacklisted ? 'Remover do Blacklist' : 'Adicionar ao Blacklist'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600"
+                  onClick={() => {
+                    if (confirm('Tem certeza que deseja excluir este contato? Esta ação não pode ser desfeita.')) {
+                      deleteMutation.mutate()
+                    }
+                  }}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Excluir Contato
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
-
-      {/* Info grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 rounded-xl border bg-card p-4">
-        {contact.email && (
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">Email</p>
-              <a href={`mailto:${contact.email}`} className="text-sm hover:underline">{contact.email}</a>
-            </div>
-          </div>
-        )}
-        {contact.phone && (
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">Telefone</p>
-              <a href={`tel:${contact.phone}`} className="text-sm hover:underline">{contact.phone}</a>
-            </div>
-          </div>
-        )}
-        {contact.cpfCnpj && (
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">CPF/CNPJ</p>
-              <p className="text-sm">{contact.cpfCnpj}</p>
-            </div>
-          </div>
-        )}
-        {contact.dateOfBirth && (
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">Aniversário</p>
-              <p className="text-sm">{formatDate(contact.dateOfBirth)}</p>
-            </div>
-          </div>
-        )}
-        {contact.address && (
-          <div className="flex items-center gap-2 col-span-2">
-            <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">Endereço</p>
-              <p className="text-sm">{contact.address}</p>
-            </div>
-          </div>
-        )}
-        {socialEntries.length > 0 && (
-          <div className="col-span-full">
-            <p className="text-xs text-muted-foreground mb-2">Redes Sociais</p>
-            <div className="flex gap-3 flex-wrap">
-              {socialEntries.map(([key, url]) => {
-                const social = socialIcons[key.toLowerCase()]
-                const Icon = social?.icon ?? ExternalLink
-                return (
-                  <a
-                    key={key}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {social?.label ?? key}
-                  </a>
-                )
-              })}
-            </div>
-          </div>
-        )}
-        {contact.notes && (
-          <div className="col-span-full">
-            <p className="text-xs text-muted-foreground mb-1">Notas</p>
-            <p className="text-sm whitespace-pre-wrap">{contact.notes}</p>
-          </div>
-        )}
       </div>
 
       {/* Tabs */}
@@ -371,130 +565,229 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         <TabsList>
           <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
           <TabsTrigger value="tasks">Tarefas</TabsTrigger>
+          <TabsTrigger value="conversations">Conversas</TabsTrigger>
           <TabsTrigger value="activities">Atividades</TabsTrigger>
         </TabsList>
 
-        {/* Opportunities Tab */}
+        {/* ── Tab: Oportunidades ── */}
         <TabsContent value="opportunities" className="mt-4">
           {oppsLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : !opportunities || opportunities.length === 0 ? (
+          ) : opps.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
               <p>Nenhuma oportunidade vinculada</p>
+              <Button size="sm" className="mt-3" onClick={() => setNewOppOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />Nova Oportunidade
+              </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {opportunities.map((opp) => (
-                <div key={opp.id} className="flex items-center gap-4 rounded-lg border bg-card p-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{opp.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {opp.pipeline.name} · {opp.stage.name}
-                    </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {opps.map((opp) => (
+                <div key={opp.id} className="rounded-lg border bg-card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-sm leading-snug">{opp.title}</p>
+                    <Badge
+                      variant="secondary"
+                      className={cn('text-xs shrink-0', statusColors[opp.status] ?? '')}
+                    >
+                      {statusLabels[opp.status] ?? opp.status}
+                    </Badge>
                   </div>
-                  {opp.value !== null && (
-                    <p className="text-sm font-semibold shrink-0">{formatCurrency(opp.value)}</p>
-                  )}
-                  <span className={cn('text-xs px-2 py-0.5 rounded shrink-0', opportunityStatusColors[opp.status] ?? 'bg-gray-100 text-gray-600')}>
-                    {opportunityStatusLabels[opp.status] ?? opp.status}
-                  </span>
+
+                  {/* Pipeline → Stage breadcrumb */}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>{opp.pipeline.name}</span>
+                    <span className="text-muted-foreground/40">›</span>
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: opp.stage.color }}
+                      />
+                      <span>{opp.stage.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">
+                      {opp.value != null ? formatCurrency(opp.value) : '—'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDate(opp.createdAt)}</p>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full h-7 text-xs"
+                    onClick={() => setSelectedOpp(opp)}
+                  >
+                    Ver detalhes
+                  </Button>
                 </div>
               ))}
             </div>
           )}
         </TabsContent>
 
-        {/* Tasks Tab */}
-        <TabsContent value="tasks" className="mt-4">
+        {/* ── Tab: Tarefas ── */}
+        <TabsContent value="tasks" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setNewTaskOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nova Tarefa
+            </Button>
+          </div>
+
           {tasksLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : !tasks || tasks.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <CheckSquare className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p>Nenhuma tarefa vinculada</p>
-            </div>
+          ) : tasks.length === 0 ? (
+            <p className="text-center py-12 text-muted-foreground">Nenhuma tarefa vinculada</p>
           ) : (
-            <div className="space-y-2">
-              {tasks.map((task) => {
-                const isCompleted = task.status === 'COMPLETED'
-                return (
-                  <div key={task.id} className={cn('flex items-center gap-3 rounded-lg border bg-card p-4', isCompleted && 'opacity-60')}>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn('text-sm font-medium', isCompleted && 'line-through text-muted-foreground')}>
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-muted-foreground">{task.type}</span>
-                        {task.dueDate && (
-                          <>
-                            <span className="text-xs text-muted-foreground">·</span>
-                            <span className="text-xs text-muted-foreground">{formatDateTime(task.dueDate)}</span>
-                          </>
-                        )}
-                      </div>
+            tasks.map((task) => {
+              const isCompleted = task.status === 'COMPLETED'
+              const TaskIcon = taskTypeIcons[task.type] ?? FileText
+              const isDue = !!(task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted)
+
+              return (
+                <div key={task.id} className="rounded-lg border p-3 flex items-start gap-3">
+                  <button
+                    className="mt-0.5 shrink-0"
+                    disabled={isCompleted}
+                    onClick={() => { if (!isCompleted) setCompletingTaskId(task.id) }}
+                    title={isCompleted ? 'Concluída' : 'Marcar como concluída'}
+                  >
+                    {isCompleted
+                      ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      : <Circle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    }
+                  </button>
+                  <div className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-muted">
+                    <TaskIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-sm font-medium', isCompleted && 'line-through text-muted-foreground')}>
+                      {task.title}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded border', priorityColors[task.priority] ?? '')}>
+                        {priorityLabels[task.priority] ?? task.priority}
+                      </span>
+                      {task.dueDate && (
+                        <span className={cn(
+                          'text-xs px-1.5 py-0.5 rounded',
+                          isDue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                        )}>
+                          {formatDate(task.dueDate)}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {taskTypeLabels[task.type] ?? task.type}
+                      </span>
                     </div>
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded', priorityColors[task.priority] ?? 'bg-gray-100 text-gray-600')}>
-                      {priorityLabels[task.priority] ?? task.priority}
-                    </span>
-                    <Badge variant={isCompleted ? 'outline' : 'secondary'} className="text-xs">
-                      {isCompleted ? 'Concluída' : task.status}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Conversas ── */}
+        <TabsContent value="conversations" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <Link href="/whatsapp">
+              <Button size="sm">
+                <MessageSquare className="h-4 w-4 mr-1.5" />
+                Iniciar Conversa
+              </Button>
+            </Link>
+          </div>
+
+          {convsLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : convs.length === 0 ? (
+            <p className="text-center py-12 text-muted-foreground">Nenhuma conversa</p>
+          ) : (
+            convs.map((conv) => (
+              <div key={conv.id} className="rounded-lg border p-4 flex items-start gap-3">
+                <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-green-100">
+                  <MessageSquare className="h-4 w-4 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{channelLabels[conv.channel] ?? conv.channel}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {conv.status === 'OPEN' ? 'Aberta' : 'Fechada'}
                     </Badge>
+                  </div>
+                  {conv.lastMessage && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{conv.lastMessage}</p>
+                  )}
+                  {conv.lastMessageAt && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(conv.lastMessageAt)}</p>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Atividades ── */}
+        <TabsContent value="activities" className="mt-4">
+          {activitiesLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : activities.length === 0 ? (
+            <p className="text-center py-12 text-muted-foreground">Nenhuma atividade registrada</p>
+          ) : (
+            <div className="relative pl-8 space-y-0">
+              {activities.map((item, idx) => {
+                const ItemIcon = activityIcons[item.type] ?? Activity
+                return (
+                  <div key={item.id} className="relative flex items-start gap-4 pb-6">
+                    {/* Vertical line */}
+                    {idx < activities.length - 1 && (
+                      <div className="absolute left-[-17px] top-6 bottom-0 w-px bg-border" />
+                    )}
+                    {/* Dot */}
+                    <div className="absolute left-[-24px] top-1 h-6 w-6 flex items-center justify-center rounded-full bg-muted border border-border">
+                      <ItemIcon className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          {activityTypeLabels[item.type] ?? item.type}
+                        </p>
+                        <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
+                      </div>
+                      <p className="text-sm mt-0.5">{item.description}</p>
+                      {item.user && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.user.name}</p>
+                      )}
+                    </div>
                   </div>
                 )
               })}
             </div>
           )}
         </TabsContent>
-
-        {/* Activities Tab */}
-        <TabsContent value="activities" className="mt-4">
-          {activitiesLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : !activities || activities.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <ActivityIcon className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p>Nenhuma atividade registrada</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {activities.map((item) => (
-                <div key={item.id} className="flex items-start gap-3">
-                  <div className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-muted mt-0.5">
-                    <ActivityIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">{item.description}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant="outline" className="text-xs">
-                        {activityTypeLabels[item.type] ?? item.type}
-                      </Badge>
-                      {item.user && <span className="text-xs text-muted-foreground">{item.user.name}</span>}
-                      <span className="text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
 
-      {/* Edit Modal */}
-      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open) }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      {/* ── Modal: Editar Contato ── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Editar Contato</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Nome <span className="text-red-500">*</span></Label>
+              <Label>Nome *</Label>
               <Input
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
@@ -520,54 +813,220 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>CPF/CNPJ</Label>
+                <Label>Cargo</Label>
                 <Input
-                  value={editForm.cpfCnpj}
-                  onChange={(e) => setEditForm((f) => ({ ...f, cpfCnpj: e.target.value }))}
-                  placeholder="000.000.000-00"
+                  value={editForm.role}
+                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                  placeholder="Ex: Diretor Comercial"
                 />
               </div>
               <div className="space-y-1.5">
+                <Label>CPF</Label>
+                <Input
+                  value={editForm.cpf}
+                  onChange={(e) => setEditForm((f) => ({ ...f, cpf: e.target.value }))}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
                 <Label>Data de Nascimento</Label>
                 <Input
                   type="date"
-                  value={editForm.dateOfBirth}
-                  onChange={(e) => setEditForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                  value={editForm.birthday}
+                  onChange={(e) => setEditForm((f) => ({ ...f, birthday: e.target.value }))}
                 />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Endereço</Label>
-              <Input
-                value={editForm.address}
-                onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
-                placeholder="Rua, número, cidade..."
-              />
             </div>
             <div className="space-y-1.5">
               <Label>Notas</Label>
               <textarea
                 rows={3}
+                placeholder="Observações..."
                 value={editForm.notes}
                 onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="Observações..."
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
               />
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-1">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>
                 Cancelar
               </Button>
               <Button type="submit" className="flex-1" disabled={editMutation.isPending}>
-                {editMutation.isPending
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
-                  : 'Salvar'
-                }
+                {editMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+                ) : 'Salvar'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Modal: Nova Oportunidade ── */}
+      <Dialog open={newOppOpen} onOpenChange={setNewOppOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Oportunidade</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateOpp} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Título *</Label>
+              <Input
+                value={newOppForm.title}
+                onChange={(e) => setNewOppForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Ex: Proposta Plano Pro"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Funil *</Label>
+              <Select value={newOppForm.pipelineId} onValueChange={(v) => setNewOppForm((f) => ({ ...f, pipelineId: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar funil..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {pipelines.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={newOppForm.value}
+                onChange={(e) => setNewOppForm((f) => ({ ...f, value: e.target.value }))}
+                placeholder="0,00"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setNewOppOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1" disabled={createOppMutation.isPending}>
+                {createOppMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</>
+                ) : 'Criar'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Nova Tarefa ── */}
+      <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Tarefa</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateTask} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Título *</Label>
+              <Input
+                value={newTaskForm.title}
+                onChange={(e) => setNewTaskForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Ex: Ligar para o cliente"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Tipo</Label>
+                <Select value={newTaskForm.type} onValueChange={(v) => setNewTaskForm((f) => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(taskTypeLabels).map(([val, lbl]) => (
+                      <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Prioridade</Label>
+                <Select value={newTaskForm.priority} onValueChange={(v) => setNewTaskForm((f) => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(priorityLabels).map(([val, lbl]) => (
+                      <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vencimento *</Label>
+              <Input
+                type="datetime-local"
+                value={newTaskForm.dueDate}
+                onChange={(e) => setNewTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setNewTaskOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1" disabled={createTaskMutation.isPending}>
+                {createTaskMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</>
+                ) : 'Criar Tarefa'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Concluir Tarefa ── */}
+      <Dialog
+        open={!!completingTaskId}
+        onOpenChange={(open) => { if (!open) { setCompletingTaskId(null); setCompletionNotes('') } }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Concluir Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Notas de conclusão *</Label>
+              <textarea
+                rows={4}
+                placeholder="Descreva o que foi realizado..."
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setCompletingTaskId(null); setCompletionNotes('') }}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!completionNotes.trim() || completeTaskMutation.isPending}
+                onClick={() => {
+                  if (completingTaskId) {
+                    completeTaskMutation.mutate({ taskId: completingTaskId, notes: completionNotes })
+                  }
+                }}
+              >
+                {completeTaskMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-1.5" />Concluir</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* OpportunitySheet — abre quando usuário clica "Ver detalhes" */}
+      {selectedOpp && (
+        <OpportunitySheet
+          opportunity={selectedOpp as unknown as Opportunity}
+          onClose={() => setSelectedOpp(null)}
+          pipelineId={selectedOpp.pipeline.id}
+        />
+      )}
     </div>
   )
 }

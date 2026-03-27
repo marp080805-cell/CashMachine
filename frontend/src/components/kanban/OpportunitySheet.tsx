@@ -23,10 +23,10 @@ import {
   Trophy, X, Loader2, MessageSquare, Phone, ExternalLink,
   Pencil, Check, Trash2, CheckCircle2, Circle, Plus,
   Calendar, Mail, FileText, Users, Clock, Activity,
-  Video, Handshake,
+  Video, Handshake, Tag as TagIcon, AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { Opportunity, WhatsappNumber, User, Task, CustomFieldGroup, CustomFieldValue, Activity as ActivityType } from '@/types'
+import type { Opportunity, WhatsappNumber, User, Task, CustomFieldGroup, CustomFieldValue, Activity as ActivityType, Tag } from '@/types'
 import { api } from '@/lib/api'
 import { formatCurrency, formatDate, formatDateTime, getInitials, cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -64,6 +64,16 @@ interface OppConversation {
   contact?: { name: string }
   assignedTo?: { name: string }
   lastMessage?: string
+}
+
+interface TagAssignment {
+  id: string
+  tagId: string
+  tag: Tag
+}
+
+interface OppWithTags extends Opportunity {
+  tagAssignments?: TagAssignment[]
 }
 
 const activityTypeLabels: Record<string, string> = {
@@ -205,12 +215,20 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   // Custom fields editing state
   const [cfEditing, setCfEditing] = useState<Record<string, string>>({})
 
+  // Handoff state
+  const [handoffCloserId, setHandoffCloserId] = useState('')
+  const [handoffBriefing, setHandoffBriefing] = useState('')
+  const [handoffDone, setHandoffDone] = useState(false)
+
+  // Tags state
+  const [showTagPicker, setShowTagPicker] = useState(false)
+
   const queryClient = useQueryClient()
 
   // Main opportunity detail
   const { data: oppDetail } = useQuery({
     queryKey: ['opportunity', opportunity?.id],
-    queryFn: () => api.get<Opportunity & { activities: Parameters<typeof RecentActivities>[0]['activities']; tasks: Task[] }>(`/opportunities/${opportunity!.id}`),
+    queryFn: () => api.get<OppWithTags & { activities: Parameters<typeof RecentActivities>[0]['activities']; tasks: Task[] }>(`/opportunities/${opportunity!.id}`),
     enabled: !!opportunity?.id,
   })
 
@@ -272,6 +290,20 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     enabled: activeTab === 'timeline' && !!opportunity?.id,
   })
 
+  // Tags tab
+  const { data: tagsListData } = useQuery({
+    queryKey: ['tags-list'],
+    queryFn: () => api.get<Tag[]>('/tags'),
+    enabled: activeTab === 'tags' && showTagPicker,
+  })
+
+  // Closer users for handoff
+  const { data: closersData } = useQuery({
+    queryKey: ['users-closers'],
+    queryFn: () => api.get<{ users: User[] }>('/users?role=CLOSER'),
+    enabled: !opportunity?.closerId && !handoffDone,
+  })
+
   // Users for forms
   const { data: usersData } = useQuery({
     queryKey: ['users'],
@@ -286,6 +318,10 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   useEffect(() => {
     setActiveConversationId(undefined)
     setActiveTab('details')
+    setHandoffDone(false)
+    setHandoffCloserId('')
+    setHandoffBriefing('')
+    setShowTagPicker(false)
   }, [opportunity?.id])
 
   // Auto-load existing WhatsApp conversation
@@ -435,6 +471,47 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     onError: () => toast.error('Erro ao salvar campo'),
   })
 
+  // Handoff mutation
+  const handoffMutation = useMutation({
+    mutationFn: ({ closerId, briefing }: { closerId: string; briefing: string }) =>
+      api.post<Opportunity>(`/opportunities/${opportunity!.id}/handoff`, {
+        closerId,
+        sdrBriefing: briefing,
+      }),
+    onSuccess: () => {
+      toast.success('Handoff realizado com sucesso!')
+      setHandoffDone(true)
+      void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
+    },
+    onError: (err: unknown) => {
+      toast.error((err as { message?: string })?.message ?? 'Erro ao fazer handoff')
+    },
+  })
+
+  // Add tag mutation
+  const addTagMutation = useMutation({
+    mutationFn: (tagId: string) =>
+      api.post<{ id: string }>(`/opportunities/${opportunity!.id}/tags`, { tagId }),
+    onSuccess: () => {
+      toast.success('Tag adicionada!')
+      setShowTagPicker(false)
+      void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
+    },
+    onError: () => toast.error('Erro ao adicionar tag'),
+  })
+
+  // Remove tag mutation
+  const removeTagMutation = useMutation({
+    mutationFn: (tagId: string) =>
+      api.delete<void>(`/opportunities/${opportunity!.id}/tags/${tagId}`),
+    onSuccess: () => {
+      toast.success('Tag removida!')
+      void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
+    },
+    onError: () => toast.error('Erro ao remover tag'),
+  })
+
   const startConversationMutation = useMutation({
     mutationFn: ({ contactId, numberId, text }: { contactId: string; numberId: string; text: string }) =>
       api.post<{ conversation: { id: string }; message: unknown }>('/whatsapp/conversations/start', {
@@ -566,11 +643,64 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
               <div className="min-w-0 flex-1">
                 <SheetTitle className="truncate text-base">{opportunity.title}</SheetTitle>
                 {contact && (
-                  <p className="text-sm text-muted-foreground truncate">{contact.name}</p>
+                  <Link
+                    href={`/contatos/${opportunity.contactId}`}
+                    className="text-sm text-muted-foreground hover:text-foreground hover:underline truncate block"
+                  >
+                    {contact.name}
+                  </Link>
+                )}
+                {opportunity.company && (
+                  <Link
+                    href={`/empresas/${opportunity.companyId}`}
+                    className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate block mt-0.5"
+                  >
+                    {opportunity.company.name}
+                  </Link>
                 )}
               </div>
             </div>
           </SheetHeader>
+
+          {/* Handoff Banner — shown when no closer assigned */}
+          {!opportunity.closerId && !handoffDone && (
+            <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-sm font-medium text-amber-800">
+                  Esta oportunidade ainda não foi transferida para um Closer
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={handoffCloserId} onValueChange={setHandoffCloserId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecionar Closer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(closersData?.users ?? []).map((u) => (
+                      <SelectItem key={u.id} value={u.id} className="text-xs">{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs bg-amber-600 hover:bg-amber-700"
+                  disabled={!handoffCloserId || handoffMutation.isPending}
+                  onClick={() => handoffMutation.mutate({ closerId: handoffCloserId, briefing: handoffBriefing })}
+                >
+                  {handoffMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Handshake className="h-3 w-3 mr-1" />}
+                  Fazer Handoff
+                </Button>
+              </div>
+              <textarea
+                rows={2}
+                placeholder="Briefing para o closer (opcional)..."
+                value={handoffBriefing}
+                onChange={(e) => setHandoffBriefing(e.target.value)}
+                className="w-full rounded-md border border-amber-200 bg-white px-2 py-1.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 resize-none"
+              />
+            </div>
+          )}
 
           {/* Two-column body */}
           <div className="flex flex-1 overflow-hidden">
@@ -617,7 +747,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                <TabsList className="w-full rounded-none border-b grid grid-cols-6 h-auto px-0">
+                <TabsList className="w-full rounded-none border-b grid grid-cols-7 h-auto px-0">
                   <TabsTrigger value="details" className="text-xs py-2">Detalhes</TabsTrigger>
                   <TabsTrigger value="custom-fields" className="text-xs py-2">Campos</TabsTrigger>
                   <TabsTrigger value="tasks" className="text-xs py-2">
@@ -626,6 +756,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   <TabsTrigger value="meetings" className="text-xs py-2">Reuniões</TabsTrigger>
                   <TabsTrigger value="conversations" className="text-xs py-2">Conversas</TabsTrigger>
                   <TabsTrigger value="timeline" className="text-xs py-2">Histórico</TabsTrigger>
+                  <TabsTrigger value="tags" className="text-xs py-2">Tags</TabsTrigger>
                 </TabsList>
 
                 {/* ── Tab: Detalhes ── */}
@@ -714,6 +845,23 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   ) : (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
+                        {contact && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-muted-foreground mb-1">Contato</p>
+                            <Link
+                              href={`/contatos/${opportunity.contactId}`}
+                              className="text-sm font-medium hover:underline text-primary"
+                            >
+                              {contact.name}
+                            </Link>
+                            {contact.email && (
+                              <p className="text-xs text-muted-foreground">{contact.email}</p>
+                            )}
+                            {contact.phone && (
+                              <p className="text-xs text-muted-foreground">{contact.phone}</p>
+                            )}
+                          </div>
+                        )}
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Valor</p>
                           <p className="text-sm font-semibold">{formatCurrency(opportunity.value)}</p>
@@ -766,7 +914,12 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         {opportunity.company && (
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Empresa</p>
-                            <p className="text-sm">{opportunity.company.name}</p>
+                            <Link
+                              href={`/empresas/${opportunity.companyId}`}
+                              className="text-sm hover:underline text-primary"
+                            >
+                              {opportunity.company.name}
+                            </Link>
                           </div>
                         )}
                         {opportunity.sdr && (
@@ -1105,6 +1258,84 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                       })}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* ── Tab: Tags ── */}
+                <TabsContent value="tags" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {(oppDetail?.tagAssignments ?? []).length} tag(s) vinculada(s)
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => setShowTagPicker((v) => !v)}
+                    >
+                      <TagIcon className="h-3 w-3 mr-1" />
+                      {showTagPicker ? 'Fechar' : '+ Tag'}
+                    </Button>
+                  </div>
+
+                  {/* Tag picker */}
+                  {showTagPicker && (
+                    <div className="rounded-lg border p-3 space-y-2 bg-muted/20">
+                      <p className="text-xs text-muted-foreground font-medium">Selecionar tag para adicionar:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(tagsListData ?? [])
+                          .filter((t) => !(oppDetail?.tagAssignments ?? []).some((ta) => ta.tagId === t.id))
+                          .map((tag) => (
+                            <button
+                              key={tag.id}
+                              onClick={() => addTagMutation.mutate(tag.id)}
+                              disabled={addTagMutation.isPending}
+                              className="px-2 py-0.5 rounded text-xs font-medium border transition-opacity hover:opacity-80"
+                              style={{
+                                backgroundColor: tag.color + '22',
+                                color: tag.color,
+                                borderColor: tag.color + '55',
+                              }}
+                            >
+                              {tag.name}
+                            </button>
+                          ))}
+                        {(tagsListData ?? []).length === 0 && (
+                          <p className="text-xs text-muted-foreground">Nenhuma tag disponível</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Current tags */}
+                  <div className="flex flex-wrap gap-2">
+                    {(oppDetail?.tagAssignments ?? []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center w-full py-4">
+                        Nenhuma tag vinculada
+                      </p>
+                    ) : (
+                      (oppDetail?.tagAssignments ?? []).map((ta) => (
+                        <div
+                          key={ta.id}
+                          className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border"
+                          style={{
+                            backgroundColor: ta.tag.color + '22',
+                            color: ta.tag.color,
+                            borderColor: ta.tag.color + '55',
+                          }}
+                        >
+                          {ta.tag.name}
+                          <button
+                            onClick={() => removeTagMutation.mutate(ta.tagId)}
+                            disabled={removeTagMutation.isPending}
+                            className="ml-0.5 hover:opacity-70"
+                            title="Remover tag"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>
