@@ -364,7 +364,6 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       where: {
         tenantId,
         createdAt: dateRange,
-        aiAnalysis: { not: null },
         ...(query.user_id ? { closerId: query.user_id } : !isManager ? { closerId: userId } : {}),
       },
       select: { aiAnalysis: true },

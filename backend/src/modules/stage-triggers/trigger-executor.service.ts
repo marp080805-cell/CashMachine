@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import type { StageTrigger, Opportunity } from '@prisma/client'
 
@@ -54,7 +55,7 @@ export class TriggerExecutorService {
               valueText: actionConfig.valueText as string | undefined,
               valueNumber: actionConfig.valueNumber !== undefined ? Number(actionConfig.valueNumber) : undefined,
               valueDate: actionConfig.valueDate ? new Date(actionConfig.valueDate as string) : undefined,
-              valueJson: actionConfig.valueJson as object | undefined,
+              valueJson: actionConfig.valueJson as Prisma.InputJsonValue | undefined,
               updatedById,
             },
             create: {
@@ -64,7 +65,7 @@ export class TriggerExecutorService {
               valueText: actionConfig.valueText as string | undefined,
               valueNumber: actionConfig.valueNumber !== undefined ? Number(actionConfig.valueNumber) : undefined,
               valueDate: actionConfig.valueDate ? new Date(actionConfig.valueDate as string) : undefined,
-              valueJson: actionConfig.valueJson as object | undefined,
+              valueJson: actionConfig.valueJson as Prisma.InputJsonValue | undefined,
               updatedById,
             },
           })
@@ -155,7 +156,7 @@ export class TriggerExecutorService {
                 opportunityTitle: opportunity.title,
                 tenantId: trigger.tenantId,
                 timestamp: new Date().toISOString(),
-                ...(actionConfig.extraPayload as object ?? {}),
+                ...(actionConfig.extraPayload as Record<string, unknown> ?? {}),
               }),
             })
             result = { status: response.status, url }
@@ -202,7 +203,7 @@ export class TriggerExecutorService {
           opportunityId: opportunity.id,
           status: 'SUCCESS',
           executedAt: new Date(),
-          actionResult: result as object | undefined,
+          actionResult: result as Prisma.InputJsonValue | undefined,
           durationMs: Date.now() - startMs,
         },
       })

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 
 const salesBotTypeEnum = z.enum(['CONVERSATION_BOT', 'INTERNAL_WORKFLOW', 'HYBRID'])
@@ -54,9 +55,9 @@ export default async function salebotsRoutes(app: FastifyInstance) {
         description: data.description,
         isActive: data.isActive,
         type: data.type,
-        steps: data.steps as object,
+        steps: data.steps as Prisma.InputJsonValue,
         entryPoint: data.entryPoint,
-        variables: data.variables,
+        variables: data.variables as Prisma.InputJsonValue | undefined,
       },
       include: botIncludes,
     })
@@ -93,7 +94,7 @@ export default async function salebotsRoutes(app: FastifyInstance) {
     if (data.description !== undefined) updateData.description = data.description
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.type !== undefined) updateData.type = data.type
-    if (data.steps !== undefined) updateData.steps = data.steps as object
+    if (data.steps !== undefined) updateData.steps = data.steps as Prisma.InputJsonValue
     if (data.entryPoint !== undefined) updateData.entryPoint = data.entryPoint
     if (data.variables !== undefined) updateData.variables = data.variables
 
@@ -136,9 +137,9 @@ export default async function salebotsRoutes(app: FastifyInstance) {
         description: source.description ?? undefined,
         isActive: false,
         type: source.type,
-        steps: source.steps as object,
+        steps: source.steps as Prisma.InputJsonValue,
         entryPoint: source.entryPoint,
-        variables: source.variables as object | undefined,
+        variables: source.variables as Prisma.InputJsonValue | undefined,
       },
       include: botIncludes,
     })
@@ -193,9 +194,9 @@ export default async function salebotsRoutes(app: FastifyInstance) {
         description: data.description,
         isActive: false,
         type: data.type,
-        steps: data.steps as object,
+        steps: data.steps as Prisma.InputJsonValue,
         entryPoint: data.entryPoint,
-        variables: data.variables,
+        variables: data.variables as Prisma.InputJsonValue | undefined,
       },
       include: botIncludes,
     })

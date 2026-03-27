@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { TriggerExecutorService } from './trigger-executor.service'
 
@@ -97,11 +98,11 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
         stageId: data.stageId,
         name: data.name,
         triggerEvent: data.triggerEvent,
-        triggerConfig: data.triggerConfig,
-        conditions: data.conditions,
+        triggerConfig: data.triggerConfig as Prisma.InputJsonValue | undefined,
+        conditions: data.conditions as Prisma.InputJsonValue | undefined,
         actionType: data.actionType,
-        actionConfig: data.actionConfig,
-        activeHours: data.activeHours,
+        actionConfig: data.actionConfig as Prisma.InputJsonValue | undefined,
+        activeHours: data.activeHours as Prisma.InputJsonValue | undefined,
         isActive: data.isActive,
         sortOrder: data.sortOrder,
         applyToExisting: data.applyToExisting,
@@ -138,7 +139,7 @@ export default async function stageTriggerRoutes(app: FastifyInstance) {
 
     const trigger = await prisma.stageTrigger.update({
       where: { id },
-      data,
+      data: data as any,
       include: triggerIncludes,
     })
 

@@ -344,7 +344,6 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       where: {
         tenantId,
         createdAt: dateRange,
-        aiAnalysis: { not: null },
       },
       select: { aiAnalysis: true },
     })

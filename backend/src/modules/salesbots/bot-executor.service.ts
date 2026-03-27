@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import type { SalesBotExecution, SalesBot } from '@prisma/client'
 
@@ -79,7 +80,7 @@ export class BotExecutorService {
               valueText: config.valueText as string | undefined,
               valueNumber: config.valueNumber !== undefined ? Number(config.valueNumber) : undefined,
               valueDate: config.valueDate ? new Date(config.valueDate as string) : undefined,
-              valueJson: config.valueJson as object | undefined,
+              valueJson: config.valueJson as Prisma.InputJsonValue | undefined,
               updatedById,
             },
             create: {
@@ -89,7 +90,7 @@ export class BotExecutorService {
               valueText: config.valueText as string | undefined,
               valueNumber: config.valueNumber !== undefined ? Number(config.valueNumber) : undefined,
               valueDate: config.valueDate ? new Date(config.valueDate as string) : undefined,
-              valueJson: config.valueJson as object | undefined,
+              valueJson: config.valueJson as Prisma.InputJsonValue | undefined,
               updatedById,
             },
           })
@@ -162,7 +163,7 @@ export class BotExecutorService {
               opportunityId: execution.opportunityId,
               stepId: step.id,
               timestamp: new Date().toISOString(),
-              ...(config.extraPayload as object ?? {}),
+              ...(config.extraPayload as Record<string, unknown> ?? {}),
             }),
           })
         }
