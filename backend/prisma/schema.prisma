@@ -1141,6 +1141,14 @@ enum MessageSender {
   AI_AGENT
 }
 
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  PENDING
+}
+
 // ─── IA — AGENTES E SUGESTÕES ─────────────────────────────────────
 
 model AIAgent {
