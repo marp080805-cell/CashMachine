@@ -515,7 +515,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       type: newTaskForm.type,
       priority: newTaskForm.priority,
       dueDate: new Date(newTaskForm.dueDate).toISOString(),
-      opportunityId: opportunity.id,
+      opportunityId: opportunity!.id,
       ...(newTaskForm.assignedToId ? { assignedToId: newTaskForm.assignedToId } : {}),
     })
   }
@@ -526,7 +526,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       title: newMeetingForm.title || undefined,
       scheduledAt: new Date(newMeetingForm.scheduledAt).toISOString(),
       type: newMeetingForm.type,
-      opportunityId: opportunity.id,
+      opportunityId: opportunity!.id,
       ...(newMeetingForm.hostId ? { hostId: newMeetingForm.hostId } : {}),
     })
   }
@@ -534,7 +534,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   function handleCreateConv() {
     createConvMutation.mutate({
       channel: newConvChannel,
-      opportunityId: opportunity.id,
+      opportunityId: opportunity!.id,
       ...(opportunity.contactId ? { contactId: opportunity.contactId } : {}),
     })
   }
