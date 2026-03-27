@@ -125,7 +125,7 @@ export default function PipelineKanbanPage() {
     onSuccess: () => {
       toast.success('Oportunidade criada!')
       setOppModalOpen(false)
-      setOppForm({ title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '' })
+      setOppForm({ title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '', companyId: '', companyLabel: '' })
       setContactSearch('')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
