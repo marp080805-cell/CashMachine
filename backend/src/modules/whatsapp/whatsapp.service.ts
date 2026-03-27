@@ -5,6 +5,7 @@ import { aiSuggestionQueue } from '../../queues'
 import type { FastifyInstance } from 'fastify'
 import type { MessageType, MessageStatus } from '@prisma/client'
 import { getPhoneVariants } from '../../lib/phone'
+import { stageTriggerQueue } from '../../queues/trigger.queue'
 
 export async function handleIncomingWebhook(
   app: FastifyInstance,
@@ -226,5 +227,84 @@ export async function handleIncomingWebhook(
       incomingMessage: parsed.content ?? '',
       contactId: conversation.contactId,
     })
+
+    // ─── Sync to new Conversation + Message models ───────────────────
+    if (conversation.contactId) {
+      try {
+        // Find or create a new-model Conversation (OPEN)
+        let newConversation = await prisma.conversation.findFirst({
+          where: {
+            tenantId: whatsappNumber.tenantId,
+            contactId: conversation.contactId,
+            channel: 'WHATSAPP',
+            status: 'OPEN',
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+
+        if (!newConversation) {
+          // Find the most recent opportunity for this contact
+          const recentOpportunity = await prisma.opportunity.findFirst({
+            where: {
+              tenantId: whatsappNumber.tenantId,
+              contactId: conversation.contactId,
+              status: 'OPEN',
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true },
+          })
+
+          newConversation = await prisma.conversation.create({
+            data: {
+              tenantId: whatsappNumber.tenantId,
+              contactId: conversation.contactId,
+              channel: 'WHATSAPP',
+              status: 'OPEN',
+              opportunityId: recentOpportunity?.id ?? null,
+              lastMessageAt: parsed.timestamp,
+            },
+          })
+        } else {
+          await prisma.conversation.update({
+            where: { id: newConversation.id },
+            data: { lastMessageAt: parsed.timestamp },
+          })
+        }
+
+        // Save Message in new model
+        await prisma.message.create({
+          data: {
+            conversationId: newConversation.id,
+            direction: 'INBOUND',
+            content: parsed.content ?? null,
+            mediaUrl: parsed.mediaUrl ?? null,
+            sentBy: 'USER',
+            status: 'DELIVERED',
+            externalId: parsed.messageId,
+          },
+        })
+
+        // Fire StageTrigger ON_MESSAGE_RECEIVED if opportunity has one
+        if (newConversation.opportunityId) {
+          const triggers = await prisma.stageTrigger.findMany({
+            where: {
+              tenantId: whatsappNumber.tenantId,
+              triggerEvent: 'ON_MESSAGE_RECEIVED',
+              isActive: true,
+            },
+          })
+
+          for (const trigger of triggers) {
+            await stageTriggerQueue.add('trigger', {
+              triggerId: trigger.id,
+              opportunityId: newConversation.opportunityId,
+            })
+          }
+        }
+      } catch (err) {
+        console.error('[whatsapp.service] Error syncing to new Conversation model:', err)
+        // Don't fail the webhook — legacy flow already completed
+      }
+    }
   }
 }
