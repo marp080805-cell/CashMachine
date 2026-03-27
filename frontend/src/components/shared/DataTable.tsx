@@ -23,6 +23,7 @@ interface DataTableProps<T> {
   }
   rowKey: (row: T) => string
   emptyMessage?: string
+  onRowClick?: (row: T) => void
 }
 
 export function DataTable<T>({
@@ -32,6 +33,7 @@ export function DataTable<T>({
   pagination,
   rowKey,
   emptyMessage = 'Nenhum resultado encontrado',
+  onRowClick,
 }: DataTableProps<T>) {
   return (
     <div className="space-y-4">
@@ -69,7 +71,11 @@ export function DataTable<T>({
                 </tr>
               ) : (
                 data.map((row) => (
-                  <tr key={rowKey(row)} className="border-b hover:bg-muted transition-colors">
+                  <tr
+                    key={rowKey(row)}
+                    className={`border-b hover:bg-muted transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRowClick?.(row)}
+                  >
                     {columns.map((col) => (
                       <td key={col.key} className={`px-4 py-3 ${col.className ?? ''}`}>
                         {col.render(row)}
