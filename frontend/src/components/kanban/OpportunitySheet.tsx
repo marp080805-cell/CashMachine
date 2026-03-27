@@ -395,7 +395,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: string; title: string; dueDate: string; type: string }) =>
-      api.patch<Task>(`/tasks/${id}`, {
+      api.put<Task>(`/tasks/${id}`, {
         title: data.title,
         type: data.type,
         dueDate: new Date(data.dueDate).toISOString(),

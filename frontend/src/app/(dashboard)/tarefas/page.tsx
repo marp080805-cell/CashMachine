@@ -424,7 +424,7 @@ function CompleteModal({ taskId, onClose, onSuccess }: CompleteModalProps) {
 
   const mutation = useMutation({
     mutationFn: ({ id, completionNotes }: { id: string; completionNotes: string }) =>
-      api.patch<Task>(`/tasks/${id}/complete`, { completionNotes }),
+      api.post<Task>(`/tasks/${id}/complete`, { completionNotes }),
     onSuccess: () => {
       toast.success('Tarefa concluída!')
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -1062,7 +1062,7 @@ export default function TarefasPage() {
   // Status update mutation (for kanban)
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch<Task>(`/tasks/${id}`, { status }),
+      api.put<Task>(`/tasks/${id}`, { status }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },

@@ -5,7 +5,8 @@ import { prisma } from '../../lib/prisma'
 const taskTypeEnum = z.enum([
   'FIRST_CONTACT', 'FOLLOW_UP', 'QUALIFY', 'SCHEDULE_MEETING',
   'CONFIRM_PRESENCE', 'PREPARE_BRIEFING', 'SEND_PROPOSAL', 'FOLLOW_UP_PROPOSAL',
-  'CALL', 'MEETING', 'EMAIL', 'REMINDER', 'RESCUE_CONTACT', 'CUSTOM',
+  'CALL', 'MEETING', 'EMAIL', 'REMINDER', 'RESCUE_CONTACT',
+  'NPS_FOLLOW_UP', 'SEND_RECORDING_ACTION', 'CUSTOM',
 ])
 
 const createTemplateSchema = z.object({
