@@ -445,6 +445,11 @@ model Origin {
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
 
+  // Árvore recursiva ilimitada
+  parentId  String?
+  parent    Origin?   @relation("OriginChildren", fields: [parentId], references: [id])
+  children  Origin[]  @relation("OriginChildren")
+
   subOrigins     SubOrigin[]
   contacts       Contact[]
   opportunities  Opportunity[]
@@ -452,6 +457,7 @@ model Origin {
   goalBreakdowns GoalBreakdown[] @relation("GoalBreakdownOrigin")
 
   @@index([tenantId])
+  @@index([parentId])
   @@map("origins")
 }
 

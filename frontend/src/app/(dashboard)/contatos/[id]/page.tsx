@@ -26,7 +26,7 @@ import {
 import {
   Mail, Phone, Building2, ArrowLeft, Pencil, Plus, MoreVertical,
   Loader2, CheckCircle2, Circle, FileText, Calendar, Clock,
-  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search,
+  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search, GitBranch,
 } from 'lucide-react'
 import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
 import type { Opportunity } from '@/types'
@@ -126,7 +126,7 @@ interface EditContactForm {
   socialFacebook: string
   socialTwitter: string
   originId: string
-  subOriginId: string
+  originLabel: string
 }
 
 interface CompanyOption { id: string; name: string }
@@ -175,6 +175,60 @@ function CompanySearchEdit({ value, label, onChange }: { value: string; label: s
               className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
               onMouseDown={() => { onChange(c.id, c.name); setQ(''); setOpen(false) }}>
               {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
+
+function OriginSearchEdit({ value, label, onChange }: { value: string; label: string; onChange: (id: string, path: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data: origins = [] } = useQuery({
+    queryKey: ['origins-flat'],
+    queryFn: () => api.get<FlatOrigin[]>('/origins/flat'),
+  })
+
+  const filtered = origins.filter((o) => !q || o.path.toLowerCase().includes(q.toLowerCase()))
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <GitBranch className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="flex-1 font-medium truncate">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        placeholder="Buscar origem (ex: Mídia Paga > Meta Ads)..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-52 overflow-y-auto">
+          {filtered.map((o) => (
+            <button key={o.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              style={{ paddingLeft: `${12 + o.depth * 16}px` }}
+              onMouseDown={() => { onChange(o.id, o.path); setQ(''); setOpen(false) }}>
+              <span className="text-muted-foreground text-xs">{o.depth > 0 ? '↳ ' : ''}</span>{o.name}
+              {o.depth > 0 && <span className="text-xs text-muted-foreground ml-2 truncate">{o.path}</span>}
             </button>
           ))}
         </div>
@@ -325,7 +379,7 @@ export default function ContactProfilePage() {
     companyId: '', companyLabel: '',
     addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
     socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
-    originId: '', subOriginId: '',
+    originId: '', originLabel: '',
   })
   const [newOppOpen, setNewOppOpen] = useState(false)
   const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
@@ -372,14 +426,6 @@ export default function ContactProfilePage() {
     queryFn: () => api.get<{ pipelines: Pipeline[] }>('/pipelines'),
     enabled: newOppOpen,
   })
-
-  const { data: originsData } = useQuery({
-    queryKey: ['origins'],
-    queryFn: () => api.get<Array<{ id: string; name: string; subOrigins: Array<{ id: string; name: string }> }>>('/origins'),
-    enabled: editOpen,
-  })
-  const origins = originsData ?? []
-  const selectedEditOrigin = origins.find((o) => o.id === editForm.originId)
 
   const { data: oppCompaniesData } = useQuery({
     queryKey: ['companies-search-contact-opp', oppCompanySearch],
@@ -491,7 +537,7 @@ export default function ContactProfilePage() {
       socialFacebook: social.facebook ?? '',
       socialTwitter: social.twitter ?? '',
       originId: contact.originId ?? '',
-      subOriginId: contact.subOriginId ?? '',
+      originLabel: (contact as any).origin?.name ?? '',
     })
     setEditOpen(true)
   }
@@ -527,7 +573,6 @@ export default function ContactProfilePage() {
       notes: editForm.notes || undefined,
       companyId: editForm.companyId || null,
       originId: editForm.originId || undefined,
-      subOriginId: editForm.subOriginId || undefined,
       ...(hasAddress ? { address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -1025,26 +1070,10 @@ export default function ContactProfilePage() {
                   <Label>Site</Label>
                   <Input value={editForm.website} onChange={(e) => setEditForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://..." />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Origem</Label>
-                  <Select value={editForm.originId} onValueChange={(v) => setEditForm((f) => ({ ...f, originId: v, subOriginId: '' }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar origem..." /></SelectTrigger>
-                    <SelectContent>
-                      {origins.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Origem / Canal</Label>
+                  <OriginSearchEdit value={editForm.originId} label={editForm.originLabel} onChange={(id, path) => setEditForm((f) => ({ ...f, originId: id, originLabel: path }))} />
                 </div>
-                {selectedEditOrigin && selectedEditOrigin.subOrigins.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label>Subcanal</Label>
-                    <Select value={editForm.subOriginId} onValueChange={(v) => setEditForm((f) => ({ ...f, subOriginId: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar subcanal..." /></SelectTrigger>
-                      <SelectContent>
-                        {selectedEditOrigin.subOrigins.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="space-y-1.5 col-span-2">
                   <Label>Descrição</Label>
                   <textarea rows={3} placeholder="Detalhes importantes sobre este contato..." value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />

@@ -8,19 +8,15 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink } from 'lucide-react'
+import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink, GitBranch } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 
-interface Origin { id: string; name: string; subOrigins: SubOrigin[] }
-interface SubOrigin { id: string; name: string }
+interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
 
 interface ContactForm {
   name: string
@@ -50,7 +46,7 @@ interface ContactForm {
   socialFacebook: string
   socialTwitter: string
   originId: string
-  subOriginId: string
+  originLabel: string
 }
 
 const defaultForm: ContactForm = {
@@ -58,7 +54,7 @@ const defaultForm: ContactForm = {
   cpf: '', role: '', nationality: '', category: '', website: '', birthday: '',
   addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
   socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
-  originId: '', subOriginId: '',
+  originId: '', originLabel: '',
 }
 
 interface Opportunity { id: string; title: string }
@@ -161,6 +157,57 @@ function CompanySearch({ value, label, onChange }: { value: string; label: strin
   )
 }
 
+function OriginSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, path: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data: origins = [] } = useQuery({
+    queryKey: ['origins-flat'],
+    queryFn: () => api.get<FlatOrigin[]>('/origins/flat'),
+  })
+
+  const filtered = origins.filter((o) => !q || o.path.toLowerCase().includes(q.toLowerCase()))
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <GitBranch className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="flex-1 font-medium truncate">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar origem (ex: Mídia Paga > Meta Ads)..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-52 overflow-y-auto">
+          {filtered.map((o) => (
+            <button key={o.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              style={{ paddingLeft: `${12 + o.depth * 16}px` }}
+              onMouseDown={() => { onChange(o.id, o.path); setQ(''); setOpen(false) }}>
+              <span className="text-muted-foreground text-xs">{o.depth > 0 ? '↳ ' : ''}</span>{o.name}
+              {o.depth > 0 && <span className="text-xs text-muted-foreground ml-2 truncate">{o.path}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ContatosPage() {
   const router = useRouter()
   const [page, setPage] = useState(1)
@@ -168,14 +215,6 @@ export default function ContatosPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<ContactForm>(defaultForm)
   const queryClient = useQueryClient()
-
-  const { data: originsData } = useQuery({
-    queryKey: ['origins'],
-    queryFn: () => api.get<Origin[]>('/origins'),
-    enabled: modalOpen,
-  })
-  const origins = originsData ?? []
-  const selectedOrigin = origins.find((o) => o.id === form.originId)
 
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', page, search],
@@ -227,7 +266,6 @@ export default function ContatosPage() {
       dateOfBirth: form.birthday ? new Date(form.birthday).toISOString() : undefined,
       companyId: form.companyId || undefined,
       originId: form.originId || undefined,
-      subOriginId: form.subOriginId || undefined,
       ...(hasAddress ? { address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -348,26 +386,10 @@ export default function ContatosPage() {
                   <Label>Site</Label>
                   <Input placeholder="https://..." value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Origem</Label>
-                  <Select value={form.originId} onValueChange={(v) => setForm((f) => ({ ...f, originId: v, subOriginId: '' }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar origem..." /></SelectTrigger>
-                    <SelectContent>
-                      {origins.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Origem / Canal</Label>
+                  <OriginSearch value={form.originId} label={form.originLabel} onChange={(id, path) => setForm((f) => ({ ...f, originId: id, originLabel: path }))} />
                 </div>
-                {selectedOrigin && selectedOrigin.subOrigins.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label>Subcanal</Label>
-                    <Select value={form.subOriginId} onValueChange={(v) => setForm((f) => ({ ...f, subOriginId: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar subcanal..." /></SelectTrigger>
-                      <SelectContent>
-                        {selectedOrigin.subOrigins.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="space-y-1.5 col-span-2">
                   <Label>Descrição</Label>
                   <textarea rows={2} placeholder="Observações..." value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
