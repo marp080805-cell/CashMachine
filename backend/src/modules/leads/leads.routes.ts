@@ -125,7 +125,7 @@ export default async function leadsRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string }
     const { tenantId } = request.user as { tenantId: string }
     const input = z.object({
-      status: z.enum(['NEW', 'QUALIFIED', 'DISQUALIFIED']).optional(),
+      status: z.enum(['NEW', 'NURTURING', 'QUALIFIED', 'DISQUALIFIED']).optional(),
       source: z.string().optional(),
       score: z.number().optional(),
     }).parse(request.body)

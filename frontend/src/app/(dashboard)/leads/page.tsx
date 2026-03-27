@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, X, Loader2, Filter, Zap } from 'lucide-react'
+import { Plus, Search, X, Loader2, Filter, Zap, Pencil } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -73,6 +73,15 @@ interface QualifyForm {
   stageId: string
 }
 
+interface EditLeadForm {
+  contactId: string
+  contactLabel: string
+  contactSearch: string
+  status: string
+  score: string
+  source: string
+}
+
 export default function LeadsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -86,6 +95,12 @@ export default function LeadsPage() {
 
   const [qualifyLead, setQualifyLead] = useState<Lead | null>(null)
   const [qualifyForm, setQualifyForm] = useState<QualifyForm>({ pipelineId: '', stageId: '' })
+
+  const [editLead, setEditLead] = useState<Lead | null>(null)
+  const [editForm, setEditForm] = useState<EditLeadForm>({
+    contactId: '', contactLabel: '', contactSearch: '', status: 'NEW', score: '0', source: '',
+  })
+  const [editContactSearch, setEditContactSearch] = useState('')
 
   const queryClient = useQueryClient()
 
@@ -109,6 +124,13 @@ export default function LeadsPage() {
     queryKey: ['contacts-search-lead', contactSearch],
     queryFn: () => api.get<{ data: Contact[] }>(`/contacts?limit=20${contactSearch ? `&search=${encodeURIComponent(contactSearch)}` : ''}`),
     enabled: createOpen,
+  })
+
+  // Contact search for edit modal
+  const { data: editContactsData } = useQuery({
+    queryKey: ['contacts-search-lead-edit', editContactSearch],
+    queryFn: () => api.get<{ data: Contact[] }>(`/contacts?limit=20${editContactSearch ? `&search=${encodeURIComponent(editContactSearch)}` : ''}`),
+    enabled: !!editLead,
   })
 
   // Pipelines for qualify modal
@@ -148,6 +170,21 @@ export default function LeadsPage() {
     },
   })
 
+  // Edit lead
+  const editMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+      api.patch<Lead>(`/leads/${id}`, body),
+    onSuccess: () => {
+      toast.success('Lead atualizado com sucesso!')
+      setEditLead(null)
+      setEditContactSearch('')
+      void queryClient.invalidateQueries({ queryKey: ['leads'] })
+    },
+    onError: (err: unknown) => {
+      toast.error((err as { message?: string })?.message ?? 'Erro ao atualizar lead')
+    },
+  })
+
   function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!form.contactId) { toast.error('Selecione um contato'); return }
@@ -168,6 +205,32 @@ export default function LeadsPage() {
       leadId: qualifyLead.id,
       pipelineId: qualifyForm.pipelineId,
       stageId: qualifyForm.stageId,
+    })
+  }
+
+  function openEditLead(lead: Lead) {
+    setEditLead(lead)
+    setEditForm({
+      contactId: lead.contactId ?? '',
+      contactLabel: lead.contact?.name ?? '',
+      contactSearch: '',
+      status: lead.status,
+      score: String(lead.score),
+      source: lead.source ?? '',
+    })
+    setEditContactSearch('')
+  }
+
+  function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editLead) return
+    editMutation.mutate({
+      id: editLead.id,
+      body: {
+        status: editForm.status as 'NEW' | 'NURTURING' | 'QUALIFIED' | 'DISQUALIFIED',
+        score: parseInt(editForm.score, 10) || 0,
+        ...(editForm.source && { source: editForm.source }),
+      },
     })
   }
 
@@ -220,6 +283,13 @@ export default function LeadsPage() {
       ),
     },
     {
+      key: 'company',
+      header: 'Empresa',
+      render: (row: Lead) => (
+        <span className="text-sm text-muted-foreground">{row.contact?.company?.name ?? '—'}</span>
+      ),
+    },
+    {
       key: 'createdAt',
       header: 'Criado em',
       render: (row: Lead) => (
@@ -230,21 +300,35 @@ export default function LeadsPage() {
       key: 'actions',
       header: '',
       render: (row: Lead) => (
-        row.status !== 'QUALIFIED' && row.status !== 'DISQUALIFIED' ? (
+        <div className="flex items-center gap-1">
           <Button
             size="sm"
-            variant="outline"
-            className="h-7 text-xs"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            title="Editar lead"
             onClick={(e) => {
               e.stopPropagation()
-              setQualifyLead(row)
-              setQualifyForm({ pipelineId: '', stageId: '' })
+              openEditLead(row)
             }}
           >
-            <Zap className="h-3 w-3 mr-1" />
-            Qualificar
+            <Pencil className="h-3 w-3" />
           </Button>
-        ) : null
+          {row.status !== 'QUALIFIED' && row.status !== 'DISQUALIFIED' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={(e) => {
+                e.stopPropagation()
+                setQualifyLead(row)
+                setQualifyForm({ pipelineId: '', stageId: '' })
+              }}
+            >
+              <Zap className="h-3 w-3 mr-1" />
+              Qualificar
+            </Button>
+          )}
+        </div>
       ),
     },
   ]
@@ -431,6 +515,106 @@ export default function LeadsPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Lead Modal */}
+      <Dialog open={!!editLead} onOpenChange={(open) => { if (!open) { setEditLead(null); setEditContactSearch('') } }}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Lead</DialogTitle>
+          </DialogHeader>
+          {editLead && (
+            <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label>Contato</Label>
+                {editForm.contactId ? (
+                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{editForm.contactLabel}</p>
+                    </div>
+                    <button type="button" onClick={() => setEditForm((f) => ({ ...f, contactId: '', contactLabel: '' }))}>
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Buscar contato por nome ou telefone..."
+                      value={editContactSearch}
+                      onChange={(e) => setEditContactSearch(e.target.value)}
+                    />
+                    {editContactSearch && (
+                      <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                        {(editContactsData?.data ?? []).map((contact) => (
+                          <button
+                            key={contact.id}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                            onClick={() => { setEditForm((f) => ({ ...f, contactId: contact.id, contactLabel: contact.name })); setEditContactSearch('') }}
+                          >
+                            <span className="font-medium">{contact.name}</span>
+                            {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
+                          </button>
+                        ))}
+                        {(editContactsData?.data ?? []).length === 0 && (
+                          <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {editLead.contact?.company?.name && (
+                  <p className="text-xs text-muted-foreground">Empresa: {editLead.contact.company.name}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Status</Label>
+                  <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(statusLabels).map(([val, lbl]) => (
+                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Score (0–100)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editForm.score}
+                    onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Origem</Label>
+                <Input
+                  placeholder="Ex: Google Ads, Indicação..."
+                  value={editForm.source}
+                  onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setEditLead(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1" disabled={editMutation.isPending}>
+                  {editMutation.isPending
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+                    : 'Salvar'
+                  }
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

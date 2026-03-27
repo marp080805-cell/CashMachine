@@ -216,6 +216,8 @@ interface TaskFormData {
   opportunityLabel: string
   contactId: string
   contactLabel: string
+  leadId: string
+  leadLabel: string
   description: string
 }
 
@@ -229,6 +231,8 @@ const defaultTaskForm: TaskFormData = {
   opportunityLabel: '',
   contactId: '',
   contactLabel: '',
+  leadId: '',
+  leadLabel: '',
   description: '',
 }
 
@@ -297,6 +301,13 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
   const searchContacts = useCallback(async (term: string) => {
     const data = await api.get<{ data: Contact[] }>(`/contacts?search=${encodeURIComponent(term)}&limit=10`)
     return (data.data ?? []).map((c) => ({ id: c.id, label: c.name, sub: c.email ?? undefined }))
+  }, [])
+
+  const searchLeads = useCallback(async (term: string) => {
+    const res = await api.get<{ data: Array<{ id: string; contact: { name: string } }> }>(
+      `/leads?search=${encodeURIComponent(term)}&limit=8`
+    )
+    return (res?.data ?? []).map((l) => ({ id: l.id, label: l.contact?.name ?? l.id }))
   }, [])
 
   return (
@@ -378,6 +389,35 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               onSelect={(id, label) => setForm((f) => ({ ...f, contactId: id, contactLabel: label }))}
               onClear={() => setForm((f) => ({ ...f, contactId: '', contactLabel: '' }))}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Vincular a lead</Label>
+            <Autocomplete
+              placeholder="Buscar lead..."
+              searchFn={searchLeads}
+              selectedLabel={form.leadLabel || undefined}
+              onSelect={(id, label) => {
+                api.get<{ id: string; contact: { id: string; name: string } }>(`/leads/${id}`)
+                  .then((lead) => {
+                    if (lead?.contact) {
+                      setForm((f) => ({
+                        ...f,
+                        leadId: id,
+                        leadLabel: label,
+                        contactId: lead.contact.id,
+                        contactLabel: lead.contact.name,
+                      }))
+                    } else {
+                      setForm((f) => ({ ...f, leadId: id, leadLabel: label }))
+                    }
+                  })
+                  .catch(() => setForm((f) => ({ ...f, leadId: id, leadLabel: label })))
+              }}
+              onClear={() => setForm((f) => ({ ...f, leadId: '', leadLabel: '' }))}
+            />
+            {form.leadId && form.contactId && (
+              <p className="text-xs text-muted-foreground">Contato preenchido automaticamente do lead</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Descrição</Label>

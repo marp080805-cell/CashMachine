@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   Settings, Plus, Loader2, Trash2, X, RotateCcw, Columns, List,
-  ChevronDown, Search, GitBranch, Trophy, XCircle,
+  ChevronDown, Search, GitBranch, Trophy, XCircle, Building2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -53,8 +53,10 @@ export default function PipelineKanbanPage() {
   const [search, setSearch] = useState('')
   const [oppForm, setOppForm] = useState({
     title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '',
+    companyId: '', companyLabel: '',
   })
   const [contactSearch, setContactSearch] = useState('')
+  const [companySearch, setCompanySearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
   const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES' })
@@ -75,6 +77,13 @@ export default function PipelineKanbanPage() {
     queryFn: () =>
       api.get<{ data: Contact[] }>(`/contacts?limit=20${contactSearch ? `&search=${encodeURIComponent(contactSearch)}` : ''}`),
     enabled: oppModalOpen,
+  })
+
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies-search-opp', companySearch],
+    queryFn: () =>
+      api.get<{ data: Array<{ id: string; name: string }> }>(`/companies?search=${encodeURIComponent(companySearch)}&limit=8`),
+    enabled: oppModalOpen && companySearch.length > 0,
   })
 
   const { data: lostOpps } = useQuery({
@@ -158,7 +167,8 @@ export default function PipelineKanbanPage() {
   })
 
   function openNewOpp(stageId?: string) {
-    setOppForm((f) => ({ ...f, stageId: stageId ?? pipeline?.stages[0]?.id ?? '' }))
+    setOppForm((f) => ({ ...f, stageId: stageId ?? pipeline?.stages[0]?.id ?? '', companyId: '', companyLabel: '' }))
+    setCompanySearch('')
     setOppModalOpen(true)
   }
 
@@ -175,6 +185,7 @@ export default function PipelineKanbanPage() {
       ...(oppForm.value && { value: parseFloat(oppForm.value) }),
       ...(oppForm.notes && { notes: oppForm.notes }),
       ...(oppForm.expectedCloseDate && { expectedCloseDate: new Date(oppForm.expectedCloseDate).toISOString() }),
+      ...(oppForm.companyId && { companyId: oppForm.companyId }),
       assignedToId: user?.id ?? '',
     })
   }
@@ -425,7 +436,7 @@ export default function PipelineKanbanPage() {
       </Sheet>
 
       {/* ── DIALOG: NOVA OPORTUNIDADE ── */}
-      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) setContactSearch('') }}>
+      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setContactSearch(''); setCompanySearch('') } }}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Oportunidade</DialogTitle></DialogHeader>
           <form onSubmit={handleOppSubmit} className="space-y-4 py-2">
@@ -487,6 +498,35 @@ export default function PipelineKanbanPage() {
                   </div>
                 )}
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              {oppForm.companyId ? (
+                <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="flex-1 font-medium">{oppForm.companyLabel}</span>
+                  <button type="button" onClick={() => setOppForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input
+                    placeholder="Buscar empresa..."
+                    value={companySearch}
+                    onChange={(e) => setCompanySearch(e.target.value)}
+                  />
+                  {(companiesData?.data?.length ?? 0) > 0 && companySearch && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                      {companiesData!.data.map((c) => (
+                        <button key={c.id} type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                          onMouseDown={() => { setOppForm((f) => ({ ...f, companyId: c.id, companyLabel: c.name })); setCompanySearch('') }}>
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

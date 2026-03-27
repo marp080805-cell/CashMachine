@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -26,7 +26,7 @@ import {
 import {
   Mail, Phone, Building2, ArrowLeft, Pencil, Plus, MoreVertical,
   Loader2, CheckCircle2, Circle, FileText, Calendar, Clock,
-  MessageSquare, Activity, Trophy, X, Check, AlertTriangle,
+  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search,
 } from 'lucide-react'
 import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
 import type { Opportunity } from '@/types'
@@ -102,12 +102,70 @@ interface EditContactForm {
   cpf: string
   birthday: string
   notes: string
+  companyId: string
+  companyLabel: string
+}
+
+interface CompanyOption { id: string; name: string }
+
+function CompanySearchEdit({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data } = useQuery({
+    queryKey: ['companies-search-edit', q],
+    queryFn: () => api.get<{ data: CompanyOption[] }>(`/companies?search=${encodeURIComponent(q)}&limit=8`),
+    enabled: q.length > 0,
+  })
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="flex-1 font-medium">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <input
+          className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          placeholder="Buscar empresa..."
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+          onFocus={() => q && setOpen(true)}
+        />
+      </div>
+      {open && (data?.data?.length ?? 0) > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+          {data!.data.map((c) => (
+            <button key={c.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onMouseDown={() => { onChange(c.id, c.name); setQ(''); setOpen(false) }}>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface NewOppForm {
   title: string
   pipelineId: string
   value: string
+  companyId: string
+  companyLabel: string
 }
 
 interface NewTaskForm {
@@ -239,10 +297,11 @@ export default function ContactProfilePage() {
   const [activeTab, setActiveTab] = useState('opportunities')
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState<EditContactForm>({
-    name: '', email: '', phone: '', role: '', cpf: '', birthday: '', notes: '',
+    name: '', email: '', phone: '', role: '', cpf: '', birthday: '', notes: '', companyId: '', companyLabel: '',
   })
   const [newOppOpen, setNewOppOpen] = useState(false)
-  const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '' })
+  const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
+  const [oppCompanySearch, setOppCompanySearch] = useState('')
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [newTaskForm, setNewTaskForm] = useState<NewTaskForm>({ title: '', type: 'CALL', priority: 'MEDIUM', dueDate: '' })
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
@@ -286,6 +345,12 @@ export default function ContactProfilePage() {
     enabled: newOppOpen,
   })
 
+  const { data: oppCompaniesData } = useQuery({
+    queryKey: ['companies-search-contact-opp', oppCompanySearch],
+    queryFn: () => api.get<{ data: Array<{ id: string; name: string }> }>(`/companies?search=${encodeURIComponent(oppCompanySearch)}&limit=8`),
+    enabled: newOppOpen && oppCompanySearch.length > 0,
+  })
+
   // Mutations
   const editMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.patch<ContactDetail>(`/contacts/${contactId}`, data),
@@ -323,7 +388,8 @@ export default function ContactProfilePage() {
     onSuccess: () => {
       toast.success('Oportunidade criada!')
       setNewOppOpen(false)
-      setNewOppForm({ title: '', pipelineId: '', value: '' })
+      setNewOppForm({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
+      setOppCompanySearch('')
       void queryClient.invalidateQueries({ queryKey: ['contact-opportunities', contactId] })
     },
     onError: (err: unknown) => {
@@ -365,6 +431,8 @@ export default function ContactProfilePage() {
       cpf: contact.cpf ?? '',
       birthday: contact.dateOfBirth ? contact.dateOfBirth.slice(0, 10) : '',
       notes: contact.notes ?? '',
+      companyId: contact.companyId ?? '',
+      companyLabel: contact.company?.name ?? '',
     })
     setEditOpen(true)
   }
@@ -380,6 +448,7 @@ export default function ContactProfilePage() {
       ...(editForm.cpf ? { cpf: editForm.cpf } : {}),
       ...(editForm.birthday ? { dateOfBirth: new Date(editForm.birthday).toISOString() } : {}),
       ...(editForm.notes ? { notes: editForm.notes } : {}),
+      ...(editForm.companyId ? { companyId: editForm.companyId } : { companyId: null }),
     })
   }
 
@@ -392,6 +461,7 @@ export default function ContactProfilePage() {
       pipelineId: newOppForm.pipelineId,
       contactId,
       ...(newOppForm.value ? { value: parseFloat(newOppForm.value) } : {}),
+      ...(newOppForm.companyId ? { companyId: newOppForm.companyId } : {}),
     })
   }
 
@@ -838,6 +908,14 @@ export default function ContactProfilePage() {
               </div>
             </div>
             <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <CompanySearchEdit
+                value={editForm.companyId}
+                label={editForm.companyLabel}
+                onChange={(id, name) => setEditForm((f) => ({ ...f, companyId: id, companyLabel: name }))}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label>Notas</Label>
               <textarea
                 rows={3}
@@ -899,6 +977,37 @@ export default function ContactProfilePage() {
                 onChange={(e) => setNewOppForm((f) => ({ ...f, value: e.target.value }))}
                 placeholder="0,00"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              {newOppForm.companyId ? (
+                <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="flex-1 font-medium">{newOppForm.companyLabel}</span>
+                  <button type="button" onClick={() => { setNewOppForm((f) => ({ ...f, companyId: '', companyLabel: '' })); setOppCompanySearch('') }}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input
+                    placeholder="Buscar empresa..."
+                    value={oppCompanySearch}
+                    onChange={(e) => setOppCompanySearch(e.target.value)}
+                  />
+                  {(oppCompaniesData?.data?.length ?? 0) > 0 && oppCompanySearch && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                      {oppCompaniesData!.data.map((c) => (
+                        <button key={c.id} type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                          onMouseDown={() => { setNewOppForm((f) => ({ ...f, companyId: c.id, companyLabel: c.name })); setOppCompanySearch('') }}>
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-2 pt-1">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setNewOppOpen(false)}>
