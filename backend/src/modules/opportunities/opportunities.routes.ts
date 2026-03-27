@@ -107,6 +107,9 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
           orderBy: { dueDate: 'asc' },
           include: { assignedTo: { select: { id: true, name: true } } },
         },
+        tagAssignments: {
+          include: { tag: { select: { id: true, name: true, color: true } } },
+        },
       },
     })
 

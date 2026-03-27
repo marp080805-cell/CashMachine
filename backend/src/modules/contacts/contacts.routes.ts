@@ -259,4 +259,27 @@ export default async function contactsRoutes(app: FastifyInstance) {
 
     return reply.send(activities)
   })
+
+  // Conversas do contato
+  app.get('/contacts/:id/conversations', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
+
+    const conversations = await prisma.conversation.findMany({
+      where: { contactId: id, tenantId },
+      orderBy: { lastMessageAt: 'desc' },
+      include: {
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { id: true, content: true, direction: true, createdAt: true },
+        },
+      },
+    })
+
+    return reply.send(conversations)
+  })
 }

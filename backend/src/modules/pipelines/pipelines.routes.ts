@@ -203,7 +203,7 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
     }
   )
 
-  // Configuração completa do funil
+  // Configuração completa do funil (com triggers por stage)
   app.get('/pipelines/:id/config', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const { tenantId } = request.user as { tenantId: string }
@@ -215,12 +215,58 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
           orderBy: { sortOrder: 'asc' },
           include: {
             _count: { select: { stageTriggers: true } },
+            stageTriggers: {
+              where: { tenantId },
+              orderBy: { sortOrder: 'asc' },
+              select: {
+                id: true, name: true, triggerEvent: true, actionType: true,
+                isActive: true, executionCount: true, sortOrder: true,
+              },
+            },
           },
         },
       },
     })
 
     return reply.send(pipeline)
+  })
+
+  // Stage triggers do pipeline, agrupados por stage
+  app.get('/pipelines/:id/stage-triggers', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+
+    await prisma.pipeline.findFirstOrThrow({ where: { id, tenantId } })
+
+    const stages = await prisma.stage.findMany({
+      where: { pipelineId: id },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        sortOrder: true,
+        stageTriggers: {
+          where: { tenantId },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true, name: true, triggerEvent: true, actionType: true,
+            isActive: true, executionCount: true, lastExecutedAt: true,
+            sortOrder: true, applyToExisting: true,
+          },
+        },
+      },
+    })
+
+    const result = stages.map((stage) => ({
+      stageId: stage.id,
+      stageName: stage.name,
+      color: stage.color,
+      sortOrder: stage.sortOrder,
+      triggers: stage.stageTriggers,
+    }))
+
+    return reply.send(result)
   })
 
   // Board com dados enriquecidos para o kanban
