@@ -357,27 +357,27 @@ export default function PipelineKanbanPage() {
         />
       )}
 
-      {/* ── RODAPÉ: PERDIDAS / GANHAS ── */}
-      <div className="border-t bg-muted/30 px-4 py-2 flex items-center gap-4">
-        <button
-          onClick={() => { setClosedTab('lost'); setClosedOpen(true) }}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-red-600 transition-colors"
-        >
-          <XCircle className="h-4 w-4 text-red-400" />
-          <span>{lostCount} perdida{lostCount !== 1 ? 's' : ''}</span>
-        </button>
+      {/* ── BOTÕES FIXOS: PERDIDAS / GANHAS ── */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 items-end">
         <button
           onClick={() => { setClosedTab('won'); setClosedOpen(true) }}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-green-600 transition-colors"
+          className="flex items-center gap-2 bg-background border shadow-md rounded-full px-4 py-2 text-sm font-medium hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
         >
           <Trophy className="h-4 w-4 text-green-500" />
           <span>{wonCount} ganha{wonCount !== 1 ? 's' : ''}</span>
+        </button>
+        <button
+          onClick={() => { setClosedTab('lost'); setClosedOpen(true) }}
+          className="flex items-center gap-2 bg-background border shadow-md rounded-full px-4 py-2 text-sm font-medium hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
+        >
+          <XCircle className="h-4 w-4 text-red-400" />
+          <span>{lostCount} perdida{lostCount !== 1 ? 's' : ''}</span>
         </button>
       </div>
 
       {/* ── SHEET: FECHADOS (Perdidos + Ganhos) ── */}
       <Sheet open={closedOpen} onOpenChange={setClosedOpen}>
-        <SheetContent side="right" className="w-[700px] max-w-full flex flex-col p-0">
+        <SheetContent side="right" className="w-[min(900px,90vw)] flex flex-col p-0">
           <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
             <div className="flex items-center gap-3">
               <SheetTitle>Oportunidades Fechadas</SheetTitle>
