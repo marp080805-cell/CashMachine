@@ -35,6 +35,7 @@ import { ChatWindow } from '@/components/whatsapp/ChatWindow'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
+import { EntityCombobox } from '@/components/shared/EntityCombobox'
 
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
@@ -105,6 +106,10 @@ interface EditData {
   assignedToId: string
   originId: string
   originLabel: string
+  contactId: string
+  contactLabel: string
+  companyId: string
+  companyLabel: string
 }
 
 interface OppMeeting {
@@ -246,6 +251,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<EditData>({
     title: '', value: '', expectedCloseDate: '', notes: '', stageId: '', assignedToId: '', originId: '', originLabel: '',
+    contactId: '', contactLabel: '', companyId: '', companyLabel: '',
   })
 
   const [activityType, setActivityType] = useState('NOTE')
@@ -625,6 +631,10 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       assignedToId: opp.assignedToId,
       originId: opp.originId ?? '',
       originLabel: opp.origin?.name ?? '',
+      contactId: opp.contactId ?? '',
+      contactLabel: opp.contact?.name ?? '',
+      companyId: opp.companyId ?? '',
+      companyLabel: opp.company?.name ?? '',
     })
     setIsEditing(true)
   }
@@ -639,6 +649,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       ...(editData.stageId ? { stageId: editData.stageId } : {}),
       ...(editData.assignedToId ? { assignedToId: editData.assignedToId } : {}),
       ...(editData.originId ? { originId: editData.originId } : {}),
+      ...(editData.contactId ? { contactId: editData.contactId } : {}),
+      ...(editData.companyId ? { companyId: editData.companyId } : { companyId: null }),
     })
   }
 
@@ -907,6 +919,36 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           value={editData.originId}
                           label={editData.originLabel}
                           onChange={(id, path) => setEditData((d) => ({ ...d, originId: id, originLabel: path }))}
+                        />
+                      </FieldWrapper>
+                      <FieldWrapper entityType="opportunity" slug="contact" label="Contato" adminMode={adminMode}>
+                        <EntityCombobox
+                          entityType="contact"
+                          value={editData.contactId}
+                          label={editData.contactLabel}
+                          allowCreate
+                          placeholder="Buscar contato..."
+                          onChange={async (id, lbl) => {
+                            setEditData((d) => ({ ...d, contactId: id, contactLabel: lbl }))
+                            if (id) {
+                              try {
+                                const c = await api.get<{ companyId?: string; company?: { name: string } }>(`/contacts/${id}`)
+                                if (c.companyId && c.company?.name) {
+                                  setEditData((d) => ({ ...d, companyId: c.companyId!, companyLabel: c.company!.name }))
+                                }
+                              } catch { /* ignore */ }
+                            }
+                          }}
+                        />
+                      </FieldWrapper>
+                      <FieldWrapper entityType="opportunity" slug="company" label="Empresa" adminMode={adminMode}>
+                        <EntityCombobox
+                          entityType="company"
+                          value={editData.companyId}
+                          label={editData.companyLabel}
+                          allowCreate
+                          placeholder="Buscar empresa..."
+                          onChange={(id, lbl) => setEditData((d) => ({ ...d, companyId: id, companyLabel: lbl }))}
                         />
                       </FieldWrapper>
                       <FieldWrapper entityType="opportunity" slug="description" label="Notas" placeholder="Observações..." adminMode={adminMode}>

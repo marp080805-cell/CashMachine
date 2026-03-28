@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Pipeline, Opportunity, Stage, Contact } from '@/types'
+import type { Pipeline, Opportunity, Stage } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
@@ -14,8 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
-  Settings, Plus, Loader2, Trash2, X, RotateCcw, Columns, List,
-  ChevronDown, Search, GitBranch, Trophy, XCircle, Building2, Settings2,
+  Settings, Plus, Loader2, Trash2, RotateCcw, Columns, List,
+  ChevronDown, Search, GitBranch, Trophy, XCircle, Settings2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { PipelineTypeCombobox, PREDEFINED_PIPELINE_TYPES } from '@/components/shared/PipelineTypeCombobox'
+import { EntityCombobox } from '@/components/shared/EntityCombobox'
 
 type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
   stages: Array<Stage & { opportunities: Opportunity[] }>
@@ -58,16 +59,14 @@ export default function PipelineKanbanPage() {
   const [newPipelineOpen, setNewPipelineOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [oppForm, setOppForm] = useState({
-    title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '',
+    title: '', value: '', stageId: '', contactId: '', contactLabel: '', notes: '', expectedCloseDate: '',
     companyId: '', companyLabel: '',
   })
   const [cfOppValues, setCfOppValues] = useState<Record<string, unknown>>({})
   const [adminModeOpp, setAdminModeOpp] = useState(false)
-  const [contactSearch, setContactSearch] = useState('')
   const fieldConfig = useFieldConfig()
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
-  const [companySearch, setCompanySearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
   const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES', typeName: '' })
@@ -84,19 +83,6 @@ export default function PipelineKanbanPage() {
     enabled: !!id,
   })
 
-  const { data: contactsData } = useQuery({
-    queryKey: ['contacts-search', contactSearch],
-    queryFn: () =>
-      api.get<{ data: Contact[] }>(`/contacts?limit=20${contactSearch ? `&search=${encodeURIComponent(contactSearch)}` : ''}`),
-    enabled: oppModalOpen,
-  })
-
-  const { data: companiesData } = useQuery({
-    queryKey: ['companies-search-opp', companySearch],
-    queryFn: () =>
-      api.get<{ data: Array<{ id: string; name: string }> }>(`/companies?search=${encodeURIComponent(companySearch)}&limit=8`),
-    enabled: oppModalOpen && companySearch.length > 0,
-  })
 
   const { data: lostOpps } = useQuery({
     queryKey: ['opportunities-lost', id],
@@ -162,8 +148,7 @@ export default function PipelineKanbanPage() {
     onSuccess: () => {
       toast.success('Oportunidade criada!')
       setOppModalOpen(false)
-      setOppForm({ title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '', companyId: '', companyLabel: '' })
-      setContactSearch('')
+      setOppForm({ title: '', value: '', stageId: '', contactId: '', contactLabel: '', notes: '', expectedCloseDate: '', companyId: '', companyLabel: '' })
       setCfOppValues({})
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
@@ -209,7 +194,6 @@ export default function PipelineKanbanPage() {
 
   function openNewOpp(stageId?: string) {
     setOppForm((f) => ({ ...f, stageId: stageId ?? pipeline?.stages[0]?.id ?? '', companyId: '', companyLabel: '' }))
-    setCompanySearch('')
     setOppModalOpen(true)
   }
 
@@ -230,8 +214,6 @@ export default function PipelineKanbanPage() {
       assignedToId: user?.id ?? '',
     })
   }
-
-  const selectedContact = contactsData?.data?.find((c) => c.id === oppForm.contactId)
 
   if (isLoading) {
     return (
@@ -508,7 +490,7 @@ export default function PipelineKanbanPage() {
       </Sheet>
 
       {/* ── DIALOG: NOVA OPORTUNIDADE ── */}
-      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setContactSearch(''); setCompanySearch(''); setCfOppValues({}); setAdminModeOpp(false) } }}>
+      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setCfOppValues({}); setAdminModeOpp(false) } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Nova Oportunidade</DialogTitle>
@@ -552,77 +534,38 @@ export default function PipelineKanbanPage() {
             </FieldWrapper>
             <FieldWrapper entityType="opportunity" slug="contact" label="Contato" defaultRequired={false} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
-              <Label>Contato {fieldConfig.isRequired('opportunity', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-              <div className="space-y-2">
-                <Input
-                  placeholder="Buscar contato por nome ou telefone..."
-                  value={contactSearch}
-                  onChange={(e) => setContactSearch(e.target.value)}
+                <Label>Contato {fieldConfig.isRequired('opportunity', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <EntityCombobox
+                  entityType="contact"
+                  value={oppForm.contactId}
+                  label={oppForm.contactLabel}
+                  allowCreate
+                  placeholder="Buscar contato..."
+                  onChange={async (id, lbl) => {
+                    setOppForm((f) => ({ ...f, contactId: id, contactLabel: lbl }))
+                    if (id) {
+                      try {
+                        const c = await api.get<{ companyId?: string; company?: { name: string } }>(`/contacts/${id}`)
+                        if (c.companyId && c.company?.name) {
+                          setOppForm((f) => ({ ...f, companyId: c.companyId!, companyLabel: c.company!.name }))
+                        }
+                      } catch { /* ignore */ }
+                    }
+                  }}
                 />
-                {selectedContact && (
-                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                    <span className="flex-1 font-medium">{selectedContact.name}</span>
-                    <button type="button" onClick={() => setOppForm((f) => ({ ...f, contactId: '' }))}>
-                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </div>
-                )}
-                {contactSearch && !oppForm.contactId && (
-                  <div className="rounded border divide-y max-h-36 overflow-y-auto">
-                    {(contactsData?.data ?? []).map((contact) => (
-                      <button
-                        key={contact.id} type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                        onClick={() => {
-                          setOppForm((f) => ({
-                            ...f,
-                            contactId: contact.id,
-                            ...(contact.company ? { companyId: contact.company.id, companyLabel: contact.company.name } : {}),
-                          }))
-                          setContactSearch('')
-                        }}
-                      >
-                        <span className="font-medium">{contact.name}</span>
-                        {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
-                      </button>
-                    ))}
-                    {(contactsData?.data ?? []).length === 0 && (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
-                    )}
-                  </div>
-                )}
-              </div>
               </div>
             </FieldWrapper>
             <FieldWrapper entityType="opportunity" slug="company" label="Empresa" defaultRequired={false} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
                 <Label>Empresa {fieldConfig.isRequired('opportunity', 'company', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                {oppForm.companyId ? (
-                  <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1 font-medium">{oppForm.companyLabel}</span>
-                    <button type="button" onClick={() => setOppForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}><X className="h-3.5 w-3.5" /></button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      placeholder="Buscar empresa..."
-                      value={companySearch}
-                      onChange={(e) => setCompanySearch(e.target.value)}
-                    />
-                    {(companiesData?.data?.length ?? 0) > 0 && companySearch && (
-                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
-                        {companiesData!.data.map((c) => (
-                          <button key={c.id} type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                            onMouseDown={() => { setOppForm((f) => ({ ...f, companyId: c.id, companyLabel: c.name })); setCompanySearch('') }}>
-                            {c.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <EntityCombobox
+                  entityType="company"
+                  value={oppForm.companyId}
+                  label={oppForm.companyLabel}
+                  allowCreate
+                  placeholder="Buscar empresa..."
+                  onChange={(id, lbl) => setOppForm((f) => ({ ...f, companyId: id, companyLabel: lbl }))}
+                />
               </div>
             </FieldWrapper>
             <div className="grid grid-cols-2 gap-3">
