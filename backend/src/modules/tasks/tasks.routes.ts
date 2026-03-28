@@ -85,8 +85,31 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const input = createTaskSchema.parse(request.body)
     const { tenantId, id: createdById } = request.user as { tenantId: string; id: string }
 
+    let resolvedCompanyId = input.companyId
+    let resolvedContactId = input.contactId
+
+    if (input.opportunityId) {
+      const opp = await prisma.opportunity.findFirst({ where: { id: input.opportunityId, tenantId } })
+      if (opp) {
+        if (!resolvedCompanyId && opp.companyId) resolvedCompanyId = opp.companyId
+        if (!resolvedContactId && opp.contactId) resolvedContactId = opp.contactId
+      }
+    }
+
+    if (!resolvedCompanyId && resolvedContactId) {
+      const contact = await prisma.contact.findFirst({ where: { id: resolvedContactId, tenantId } })
+      if (contact?.companyId) resolvedCompanyId = contact.companyId
+    }
+
     const task = await prisma.task.create({
-      data: { ...input, tenantId, createdById, status: 'PENDING' },
+      data: {
+        ...input,
+        companyId: resolvedCompanyId,
+        contactId: resolvedContactId,
+        tenantId,
+        createdById,
+        status: 'PENDING',
+      },
       include: taskIncludes,
     })
 

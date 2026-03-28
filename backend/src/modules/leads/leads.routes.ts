@@ -11,6 +11,7 @@ const createLeadSchema = z.object({
   phone: z.string().optional(),
   originId: z.string().uuid().optional(),
   subOriginId: z.string().uuid().optional(),
+  companyName: z.string().optional(),
   // Campos do lead
   source: z.string().optional(),
   score: z.number().optional(),
@@ -94,7 +95,7 @@ export default async function leadsRoutes(app: FastifyInstance) {
     let contactId = input.contactId
 
     if (!contactId) {
-      const contact = await prisma.contact.create({
+      const newContact = await prisma.contact.create({
         data: {
           tenantId,
           name: input.name!,
@@ -104,7 +105,13 @@ export default async function leadsRoutes(app: FastifyInstance) {
           subOriginId: input.subOriginId,
         },
       })
-      contactId = contact.id
+      contactId = newContact.id
+
+      if (input.companyName) {
+        const existing = await prisma.company.findFirst({ where: { tenantId, name: input.companyName } })
+        const company = existing ?? await prisma.company.create({ data: { tenantId, name: input.companyName } })
+        await prisma.contact.update({ where: { id: newContact.id }, data: { companyId: company.id } })
+      }
     }
 
     const lead = await prisma.lead.create({

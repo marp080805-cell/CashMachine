@@ -125,9 +125,16 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
     const input = createOpportunitySchema.parse(request.body)
     const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
 
+    let resolvedCompanyId = input.companyId
+    if (!resolvedCompanyId && input.contactId) {
+      const contact = await prisma.contact.findFirst({ where: { id: input.contactId, tenantId } })
+      if (contact?.companyId) resolvedCompanyId = contact.companyId
+    }
+
     const opportunity = await prisma.opportunity.create({
       data: {
         ...input,
+        companyId: resolvedCompanyId,
         tenantId,
         assignedToId: input.assignedToId ?? userId,
         sdrId: userId,
@@ -164,7 +171,14 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
     const input = createOpportunitySchema.partial().parse(request.body)
 
     await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
-    await prisma.opportunity.update({ where: { id }, data: input })
+
+    let resolvedCompanyId = input.companyId
+    if (!resolvedCompanyId && input.contactId) {
+      const contact = await prisma.contact.findFirst({ where: { id: input.contactId, tenantId } })
+      if (contact?.companyId) resolvedCompanyId = contact.companyId
+    }
+
+    await prisma.opportunity.update({ where: { id }, data: { ...input, ...(resolvedCompanyId && { companyId: resolvedCompanyId }) } })
     return reply.send(await fetchOpp(id))
   })
 

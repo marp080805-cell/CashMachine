@@ -25,6 +25,7 @@ const createContactSchema = z.object({
   originId: z.string().uuid().optional(),
   subOriginId: z.string().uuid().optional(),
   companyId: z.string().uuid().optional(),
+  companyName: z.string().optional(),
   firstContactDate: z.string().datetime().optional(),
   notes: z.string().optional(),
   assignedToId: z.string().uuid().optional(),
@@ -117,8 +118,21 @@ export default async function contactsRoutes(app: FastifyInstance) {
 
     const phone = normalizePhone(input.phone) ?? input.phone ?? undefined
 
+    let resolvedCompanyId = input.companyId
+    if (!resolvedCompanyId && input.companyName) {
+      const existing = await prisma.company.findFirst({ where: { tenantId, name: input.companyName } })
+      if (existing) {
+        resolvedCompanyId = existing.id
+      } else {
+        const created = await prisma.company.create({ data: { tenantId, name: input.companyName } })
+        resolvedCompanyId = created.id
+      }
+    }
+
+    const { companyName: _companyName, ...inputWithoutCompanyName } = input
+
     const contact = await prisma.contact.create({
-      data: { ...input, phone, tenantId },
+      data: { ...inputWithoutCompanyName, phone, tenantId, companyId: resolvedCompanyId },
       include: {
         origin: { select: { id: true, name: true } },
         subOrigin: { select: { id: true, name: true } },
@@ -146,8 +160,22 @@ export default async function contactsRoutes(app: FastifyInstance) {
 
     await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
 
+    let resolvedCompanyId = input.companyId
+    if (!resolvedCompanyId && input.companyName) {
+      const existing = await prisma.company.findFirst({ where: { tenantId, name: input.companyName } })
+      if (existing) {
+        resolvedCompanyId = existing.id
+      } else {
+        const created = await prisma.company.create({ data: { tenantId, name: input.companyName } })
+        resolvedCompanyId = created.id
+      }
+    }
+
+    const { companyName: _companyName, ...inputWithoutCompanyName } = input
+
     const normalizedInput = {
-      ...input,
+      ...inputWithoutCompanyName,
+      ...(resolvedCompanyId && { companyId: resolvedCompanyId }),
       ...(input.phone !== undefined && { phone: normalizePhone(input.phone) ?? input.phone }),
     }
 
