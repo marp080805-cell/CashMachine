@@ -399,6 +399,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     onSuccess: () => {
       toast.success('Oportunidade marcada como GANHA!')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-won', pipelineId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-lost', pipelineId] })
       onClose()
     },
     onError: () => toast.error('Erro ao marcar como ganha'),
@@ -409,6 +411,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     onSuccess: () => {
       toast.success('Oportunidade marcada como PERDIDA')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-lost', pipelineId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-won', pipelineId] })
       onClose()
     },
     onError: () => toast.error('Erro ao marcar como perdida'),
