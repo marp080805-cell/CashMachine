@@ -4,8 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
-import type { Task, User, Contact } from '@/types'
-import type { Opportunity } from '@/types'
+import type { Task, User } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,6 +37,7 @@ import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
+import { EntityCombobox } from '@/components/shared/EntityCombobox'
 import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
@@ -328,16 +328,6 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
     })
   }
 
-  const searchOpportunities = useCallback(async (term: string) => {
-    const data = await api.get<{ data: Opportunity[] }>(`/opportunities?search=${encodeURIComponent(term)}&limit=10`)
-    return (data.data ?? []).map((o) => ({ id: o.id, label: o.title }))
-  }, [])
-
-  const searchContacts = useCallback(async (term: string) => {
-    const data = await api.get<{ data: Contact[] }>(`/contacts?search=${encodeURIComponent(term)}&limit=10`)
-    return (data.data ?? []).map((c) => ({ id: c.id, label: c.name, sub: c.email ?? undefined }))
-  }, [])
-
   const searchLeads = useCallback(async (term: string) => {
     const res = await api.get<{ data: Array<{ id: string; contact: { name: string } }> }>(
       `/leads?search=${encodeURIComponent(term)}&limit=8`
@@ -345,10 +335,6 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
     return (res?.data ?? []).map((l) => ({ id: l.id, label: l.contact?.name ?? l.id }))
   }, [])
 
-  const searchCompanies = useCallback(async (term: string) => {
-    const data = await api.get<{ data: Array<{ id: string; name: string }> }>(`/companies?search=${encodeURIComponent(term)}&limit=10`)
-    return (data.data ?? []).map((c) => ({ id: c.id, label: c.name }))
-  }, [])
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setAdminMode(false); onClose() } }}>
@@ -418,22 +404,23 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           )}
           <div className="space-y-1.5">
             <Label>Vincular a oportunidade</Label>
-            <Autocomplete
+            <EntityCombobox
+              entityType="opportunity"
+              value={form.opportunityId}
+              label={form.opportunityLabel}
+              onChange={(id, lbl) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: lbl }))}
               placeholder="Buscar oportunidade..."
-              searchFn={searchOpportunities}
-              selectedLabel={form.opportunityLabel || undefined}
-              onSelect={(id, label) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: label }))}
-              onClear={() => setForm((f) => ({ ...f, opportunityId: '', opportunityLabel: '' }))}
             />
           </div>
           <div className="space-y-1.5">
             <Label>Vincular a contato</Label>
-            <Autocomplete
+            <EntityCombobox
+              entityType="contact"
+              value={form.contactId}
+              label={form.contactLabel}
+              onChange={(id, lbl) => setForm((f) => ({ ...f, contactId: id, contactLabel: lbl }))}
+              allowCreate
               placeholder="Buscar contato..."
-              searchFn={searchContacts}
-              selectedLabel={form.contactLabel || undefined}
-              onSelect={(id, label) => setForm((f) => ({ ...f, contactId: id, contactLabel: label }))}
-              onClear={() => setForm((f) => ({ ...f, contactId: '', contactLabel: '' }))}
             />
           </div>
           <div className="space-y-1.5">
@@ -467,12 +454,13 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           </div>
           <div className="space-y-1.5">
             <Label>Vincular a empresa</Label>
-            <Autocomplete
+            <EntityCombobox
+              entityType="company"
+              value={form.companyId}
+              label={form.companyLabel}
+              onChange={(id, lbl) => setForm((f) => ({ ...f, companyId: id, companyLabel: lbl }))}
+              allowCreate
               placeholder="Buscar empresa..."
-              searchFn={searchCompanies}
-              selectedLabel={form.companyLabel || undefined}
-              onSelect={(id, label) => setForm((f) => ({ ...f, companyId: id, companyLabel: label }))}
-              onClear={() => setForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}
             />
           </div>
           <FieldWrapper entityType="task" slug="description" label="Descrição" placeholder="Descrição opcional..." adminMode={adminMode}>
