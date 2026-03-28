@@ -112,7 +112,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string }
       const input = z.object({
         name: z.string().optional(),
-        fieldType: z.string().optional(),
+        fieldType: z.enum(['TEXT','TEXTAREA','NUMBER','DECIMAL','DATE','DATETIME','SELECT','MULTISELECT','CHECKBOX','RADIO','URL','PHONE','EMAIL','CURRENCY','FILE']).optional(),
         options: z.array(z.string()).optional(),
         isRequiredGlobal: z.boolean().optional(),
         requiredInStages: z.array(z.string()).optional(),
