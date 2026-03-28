@@ -36,7 +36,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { tenantId } = request.user as { tenantId: string }
       const input = z.object({
-        entityType: z.enum(['opportunity', 'contact', 'company']),
+        entityType: z.enum(['opportunity', 'contact', 'company', 'lead']),
         name: z.string().min(1),
         sortOrder: z.number().default(0),
         isCollapsedByDefault: z.boolean().default(false),
@@ -86,7 +86,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const input = z.object({
         groupId: z.string().uuid(),
-        entityType: z.enum(['opportunity', 'contact', 'company']),
+        entityType: z.enum(['opportunity', 'contact', 'company', 'lead']),
         name: z.string().min(1),
         slug: z.string().regex(/^[a-z0-9_]+$/),
         fieldType: fieldTypeEnum,
@@ -157,7 +157,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
     const { id: userId } = request.user as { id: string }
     const input = z.object({
       customFieldId: z.string().uuid(),
-      entityType: z.enum(['opportunity', 'contact', 'company']),
+      entityType: z.enum(['opportunity', 'contact', 'company', 'lead']),
       entityId: z.string().uuid(),
       valueText: z.string().nullable().optional(),
       valueNumber: z.number().nullable().optional(),
@@ -185,7 +185,7 @@ export default async function customFieldsRoutes(app: FastifyInstance) {
   app.put('/custom-fields/values/bulk', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id: userId } = request.user as { id: string }
     const { entityType, entityId, values } = z.object({
-      entityType: z.enum(['opportunity', 'contact', 'company']),
+      entityType: z.enum(['opportunity', 'contact', 'company', 'lead']),
       entityId: z.string().uuid(),
       values: z.array(z.object({
         customFieldId: z.string().uuid(),

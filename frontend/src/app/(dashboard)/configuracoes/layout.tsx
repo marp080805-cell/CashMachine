@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
-  Users, Radio, MessageSquare, LayoutDashboard, SlidersHorizontal,
+  Users, Radio, MessageSquare, LayoutDashboard,
   GitBranch, Tag, XCircle, Zap, FileText, Link2, Camera, MessageCircle, Columns,
 } from 'lucide-react'
 
@@ -21,7 +21,6 @@ const tabs = [
   { href: '/configuracoes/integracoes', label: 'Integrações', icon: Link2 },
   { href: '/configuracoes/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { href: '/configuracoes/snapshots', label: 'Snapshots', icon: Camera },
-  { href: '/configuracoes/campos-leads', label: 'Campos Leads', icon: SlidersHorizontal },
   { href: '/configuracoes/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ]
 
