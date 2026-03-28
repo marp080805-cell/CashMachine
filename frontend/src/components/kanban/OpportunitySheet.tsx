@@ -621,10 +621,10 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       title: editData.title,
       ...(editData.value !== '' ? { value: parseFloat(editData.value) } : {}),
       ...(editData.expectedCloseDate ? { expectedCloseDate: new Date(editData.expectedCloseDate).toISOString() } : {}),
-      notes: editData.notes,
-      stageId: editData.stageId,
-      assignedToId: editData.assignedToId,
-      originId: editData.originId || null,
+      ...(editData.notes ? { notes: editData.notes } : {}),
+      ...(editData.stageId ? { stageId: editData.stageId } : {}),
+      ...(editData.assignedToId ? { assignedToId: editData.assignedToId } : {}),
+      ...(editData.originId ? { originId: editData.originId } : {}),
     })
   }
 
