@@ -426,7 +426,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
       void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
     },
-    onError: () => toast.error('Erro ao atualizar oportunidade'),
+    onError: (err: unknown) => toast.error((err as { message?: string })?.message ?? 'Erro ao atualizar oportunidade'),
   })
 
   const createActivityMutation = useMutation({

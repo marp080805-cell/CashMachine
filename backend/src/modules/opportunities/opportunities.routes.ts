@@ -29,6 +29,11 @@ const moveSchema = z.object({
   position: z.number().optional(),
 })
 
+// Helper: fetch opportunity with all includes (avoids Prisma 42601 multi-statement issue)
+async function fetchOpp(id: string) {
+  return prisma.opportunity.findFirst({ where: { id }, include: opportunityIncludes })
+}
+
 const opportunityIncludes = {
   contact: { select: { id: true, name: true, phone: true, email: true } },
   company: { select: { id: true, name: true } },
@@ -155,17 +160,12 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
 
   app.patch('/opportunities/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
+    const { tenantId } = request.user as { tenantId: string; id: string }
     const input = createOpportunitySchema.partial().parse(request.body)
 
     await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
-    const opportunity = await prisma.opportunity.update({
-      where: { id },
-      data: input,
-      include: opportunityIncludes,
-    })
-
-    return reply.send(opportunity)
+    await prisma.opportunity.update({ where: { id }, data: input })
+    return reply.send(await fetchOpp(id))
   })
 
   // Mover para outra etapa (com StageHistory)
@@ -197,13 +197,9 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       data: { opportunityId: id, stageId, movedById: userId },
     })
 
-    const updated = await prisma.opportunity.update({
+    await prisma.opportunity.update({
       where: { id },
-      data: {
-        stageId,
-        ...(position !== undefined && { position }),
-      },
-      include: opportunityIncludes,
+      data: { stageId, ...(position !== undefined && { position }) },
     })
 
     await prisma.activity.create({
@@ -217,7 +213,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       },
     })
 
-    return reply.send(updated)
+    return reply.send(await fetchOpp(id))
   })
 
   // Fechar como WON
@@ -232,27 +228,16 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       where: { pipelineId: pipeline.pipelineId, isWon: true },
     })
 
-    const updated = await prisma.opportunity.update({
+    await prisma.opportunity.update({
       where: { id },
-      data: {
-        status: 'WON',
-        closedAt: new Date(),
-        ...(wonStage && { stageId: wonStage.id }),
-      },
-      include: opportunityIncludes,
+      data: { status: 'WON', closedAt: new Date(), ...(wonStage && { stageId: wonStage.id }) },
     })
 
     await prisma.activity.create({
-      data: {
-        tenantId,
-        type: 'OPPORTUNITY_WON',
-        description: `Oportunidade fechada como GANHA`,
-        opportunityId: id,
-        userId,
-      },
+      data: { tenantId, type: 'OPPORTUNITY_WON', description: `Oportunidade fechada como GANHA`, opportunityId: id, userId },
     })
 
-    return reply.send(updated)
+    return reply.send(await fetchOpp(id))
   })
 
   // Fechar como LOST
@@ -270,29 +255,16 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       where: { pipelineId: pipeline.pipelineId, isLost: true },
     })
 
-    const updated = await prisma.opportunity.update({
+    await prisma.opportunity.update({
       where: { id },
-      data: {
-        status: 'LOST',
-        closedAt: new Date(),
-        lostReasonId,
-        ...(notes && { notes }),
-        ...(lostStage && { stageId: lostStage.id }),
-      },
-      include: opportunityIncludes,
+      data: { status: 'LOST', closedAt: new Date(), lostReasonId, ...(notes && { notes }), ...(lostStage && { stageId: lostStage.id }) },
     })
 
     await prisma.activity.create({
-      data: {
-        tenantId,
-        type: 'OPPORTUNITY_LOST',
-        description: `Oportunidade fechada como PERDIDA`,
-        opportunityId: id,
-        userId,
-      },
+      data: { tenantId, type: 'OPPORTUNITY_LOST', description: `Oportunidade fechada como PERDIDA`, opportunityId: id, userId },
     })
 
-    return reply.send(updated)
+    return reply.send(await fetchOpp(id))
   })
 
   // Reabrir oportunidade
@@ -353,7 +325,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       data: { isCurrent: false, unassignedAt: new Date() },
     })
 
-    const updated = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       await tx.opportunityAssignment.create({
         data: {
           opportunityId: id,
@@ -364,11 +336,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
         },
       })
 
-      const result = await tx.opportunity.update({
-        where: { id },
-        data: { closerId, sdrBriefing },
-        include: opportunityIncludes,
-      })
+      await tx.opportunity.update({ where: { id }, data: { closerId, sdrBriefing } })
 
       await tx.activity.create({
         data: {
@@ -381,11 +349,9 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
           userId,
         },
       })
-
-      return result
     })
 
-    return reply.send(updated)
+    return reply.send(await fetchOpp(id))
   })
 
   // Gerenciar tags da oportunidade
