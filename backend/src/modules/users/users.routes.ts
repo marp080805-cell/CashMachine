@@ -17,7 +17,7 @@ export default async function usersRoutes(app: FastifyInstance) {
       orderBy: { name: 'asc' },
     })
 
-    return reply.send(users)
+    return reply.send({ users })
   })
 
   app.get('/users/:id', { preHandler: [app.authenticate] }, async (request, reply) => {

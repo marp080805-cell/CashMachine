@@ -130,6 +130,7 @@ interface EditContactForm {
   socialTwitter: string
   originId: string
   originLabel: string
+  assignedToId: string
 }
 
 interface CompanyOption { id: string; name: string }
@@ -383,6 +384,7 @@ export default function ContactProfilePage() {
     addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
     socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
     originId: '', originLabel: '',
+    assignedToId: '',
   })
   const [newOppOpen, setNewOppOpen] = useState(false)
   const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', stageId: '', value: '', companyId: '', companyLabel: '' })
@@ -439,6 +441,12 @@ export default function ContactProfilePage() {
     queryFn: () => api.get<{ data: Array<{ id: string; name: string }> }>(`/companies?search=${encodeURIComponent(oppCompanySearch)}&limit=8`),
     enabled: newOppOpen && oppCompanySearch.length > 0,
   })
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<{ users: Array<{ id: string; name: string }> }>('/users'),
+  })
+  const users = usersData?.users ?? []
 
   // Mutations
   const editMutation = useMutation({
@@ -545,6 +553,7 @@ export default function ContactProfilePage() {
       socialTwitter: social.twitter ?? '',
       originId: contact.originId ?? '',
       originLabel: (contact as any).origin?.name ?? '',
+      assignedToId: (contact as any).assignedToId ?? '',
     })
     setEditOpen(true)
   }
@@ -580,6 +589,7 @@ export default function ContactProfilePage() {
       notes: editForm.notes || undefined,
       companyId: editForm.companyId || null,
       originId: editForm.originId || undefined,
+      assignedToId: editForm.assignedToId || undefined,
       ...(hasAddress ? { address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -1080,6 +1090,20 @@ export default function ContactProfilePage() {
                   <FieldWrapper entityType="contact" slug="origin" label="Origem / Canal" defaultRequired={false} adminMode={adminModeEdit}>
                     <OriginSearchEdit value={editForm.originId} label={editForm.originLabel} onChange={(id, path) => setEditForm((f) => ({ ...f, originId: id, originLabel: path }))} />
                   </FieldWrapper>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium">Responsável</Label>
+                  <Select value={editForm.assignedToId || 'none'} onValueChange={(v) => setEditForm((f) => ({ ...f, assignedToId: v === 'none' ? '' : v }))}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Selecionar responsável..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="col-span-2">
                   <FieldWrapper entityType="contact" slug="notes" label="Descrição" defaultRequired={false} adminMode={adminModeEdit}>
