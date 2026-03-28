@@ -92,6 +92,7 @@ interface ContactConversation {
 interface Pipeline {
   id: string
   name: string
+  stages: { id: string; name: string; sortOrder: number }[]
 }
 
 interface EditContactForm {
@@ -240,6 +241,7 @@ function OriginSearchEdit({ value, label, onChange }: { value: string; label: st
 interface NewOppForm {
   title: string
   pipelineId: string
+  stageId: string
   value: string
   companyId: string
   companyLabel: string
@@ -382,7 +384,7 @@ export default function ContactProfilePage() {
     originId: '', originLabel: '',
   })
   const [newOppOpen, setNewOppOpen] = useState(false)
-  const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
+  const [newOppForm, setNewOppForm] = useState<NewOppForm>({ title: '', pipelineId: '', stageId: '', value: '', companyId: '', companyLabel: '' })
   const [oppCompanySearch, setOppCompanySearch] = useState('')
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [newTaskForm, setNewTaskForm] = useState<NewTaskForm>({ title: '', type: 'CALL', priority: 'MEDIUM', dueDate: '' })
@@ -470,7 +472,7 @@ export default function ContactProfilePage() {
     onSuccess: () => {
       toast.success('Oportunidade criada!')
       setNewOppOpen(false)
-      setNewOppForm({ title: '', pipelineId: '', value: '', companyId: '', companyLabel: '' })
+      setNewOppForm({ title: '', pipelineId: '', stageId: '', value: '', companyId: '', companyLabel: '' })
       setOppCompanySearch('')
       void queryClient.invalidateQueries({ queryKey: ['contact-opportunities', contactId] })
     },
@@ -582,9 +584,11 @@ export default function ContactProfilePage() {
     e.preventDefault()
     if (!newOppForm.title.trim()) { toast.error('Título é obrigatório'); return }
     if (!newOppForm.pipelineId) { toast.error('Selecione um funil'); return }
+    if (!newOppForm.stageId) { toast.error('O funil selecionado não tem etapas'); return }
     createOppMutation.mutate({
       title: newOppForm.title,
       pipelineId: newOppForm.pipelineId,
+      stageId: newOppForm.stageId,
       contactId,
       ...(newOppForm.value ? { value: parseFloat(newOppForm.value) } : {}),
       ...(newOppForm.companyId ? { companyId: newOppForm.companyId } : {}),
@@ -1185,7 +1189,14 @@ export default function ContactProfilePage() {
             </div>
             <div className="space-y-1.5">
               <Label>Funil *</Label>
-              <Select value={newOppForm.pipelineId} onValueChange={(v) => setNewOppForm((f) => ({ ...f, pipelineId: v }))}>
+              <Select
+                value={newOppForm.pipelineId}
+                onValueChange={(v) => {
+                  const pipeline = pipelines.find((p) => p.id === v)
+                  const firstStage = pipeline?.stages?.[0]?.id ?? ''
+                  setNewOppForm((f) => ({ ...f, pipelineId: v, stageId: firstStage }))
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar funil..." />
                 </SelectTrigger>
