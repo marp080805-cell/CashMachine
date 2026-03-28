@@ -304,15 +304,21 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: 'Sem permissão para reabrir oportunidades' })
     }
 
-    const opp = await prisma.opportunity.findFirst({ where: { id, tenantId } })
-    if (!opp) return reply.status(404).send({ error: 'Oportunidade não encontrada' })
+    try {
+      const opp = await prisma.opportunity.findFirst({ where: { id, tenantId } })
+      if (!opp) return reply.status(404).send({ error: 'Oportunidade não encontrada' })
 
-    const updated = await prisma.opportunity.update({
-      where: { id },
-      data: { status: 'OPEN', closedAt: null, lostReasonId: null },
-      include: opportunityIncludes,
-    })
-    return reply.send(updated)
+      const updated = await prisma.opportunity.update({
+        where: { id },
+        data: { status: 'OPEN', closedAt: null, lostReasonId: null },
+        include: opportunityIncludes,
+      })
+      return reply.send(updated)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      app.log.error({ err, id }, 'reopen opportunity error')
+      return reply.status(500).send({ error: msg })
+    }
   })
 
   app.delete('/opportunities/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
