@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/select'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
-import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { useAuthStore } from '@/stores/authStore'
 
 // ── Status config ──
@@ -60,6 +59,8 @@ function ScoreBar({ score }: { score: number }) {
 
 interface LeadForm {
   contactId: string
+  name: string
+  phone: string
   source: string
   status: string
   score: string
@@ -67,6 +68,8 @@ interface LeadForm {
 
 const defaultLeadForm: LeadForm = {
   contactId: '',
+  name: '',
+  phone: '',
   source: '',
   status: 'NEW',
   score: '0',
@@ -80,7 +83,8 @@ interface QualifyForm {
 interface EditLeadForm {
   contactId: string
   contactLabel: string
-  contactSearch: string
+  name: string
+  phone: string
   status: string
   score: string
   source: string
@@ -102,7 +106,7 @@ export default function LeadsPage() {
 
   const [editLead, setEditLead] = useState<Lead | null>(null)
   const [editForm, setEditForm] = useState<EditLeadForm>({
-    contactId: '', contactLabel: '', contactSearch: '', status: 'NEW', score: '0', source: '',
+    contactId: '', contactLabel: '', name: '', phone: '', status: 'NEW', score: '0', source: '',
   })
   const [editContactSearch, setEditContactSearch] = useState('')
 
@@ -111,7 +115,6 @@ export default function LeadsPage() {
   const [adminModeEdit, setAdminModeEdit] = useState(false)
 
   const queryClient = useQueryClient()
-  const fieldConfig = useFieldConfig()
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
@@ -153,8 +156,21 @@ export default function LeadsPage() {
 
   // Create lead
   const createMutation = useMutation({
-    mutationFn: async (body: Record<string, unknown>) => {
-      const lead = await api.post<Lead>('/leads', body)
+    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; source?: string; status: string; score: number }) => {
+      let contactId = body.contactId
+      if (!contactId && body.name?.trim()) {
+        const contact = await api.post<Contact>('/contacts', {
+          name: body.name.trim(),
+          ...(body.phone?.trim() ? { phone: body.phone.trim() } : {}),
+        })
+        contactId = contact.id
+      }
+      const lead = await api.post<Lead>('/leads', {
+        contactId,
+        ...(body.source ? { source: body.source } : {}),
+        status: body.status,
+        score: body.score,
+      })
       // Save custom field values
       const cfEntries = Object.entries(cfCreateValues).filter(([, v]) => v !== '' && v !== null && v !== undefined)
       if (cfEntries.length > 0) {
@@ -196,13 +212,22 @@ export default function LeadsPage() {
 
   // Edit lead
   const editMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
-      api.patch<Lead>(`/leads/${id}`, body),
+    mutationFn: async ({ id, contactId, name, phone, body }: { id: string; contactId?: string; name?: string; phone?: string; body: Record<string, unknown> }) => {
+      const lead = await api.patch<Lead>(`/leads/${id}`, body)
+      if (contactId && (name?.trim() || phone?.trim())) {
+        await api.patch(`/contacts/${contactId}`, {
+          ...(name?.trim() ? { name: name.trim() } : {}),
+          ...(phone?.trim() ? { phone: phone.trim() } : {}),
+        })
+      }
+      return lead
+    },
     onSuccess: () => {
       toast.success('Lead atualizado com sucesso!')
       setEditLead(null)
       setEditContactSearch('')
       void queryClient.invalidateQueries({ queryKey: ['leads'] })
+      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
     onError: (err: unknown) => {
       toast.error((err as { message?: string })?.message ?? 'Erro ao atualizar lead')
@@ -211,9 +236,13 @@ export default function LeadsPage() {
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.contactId) { toast.error('Selecione um contato'); return }
+    if (!form.contactId && !form.name.trim()) {
+      toast.error('Selecione um contato ou informe um nome'); return
+    }
     createMutation.mutate({
-      contactId: form.contactId,
+      contactId: form.contactId || undefined,
+      name: form.contactId ? undefined : form.name,
+      phone: form.contactId ? undefined : form.phone,
       ...(form.source && { source: form.source }),
       status: form.status,
       score: parseInt(form.score, 10) || 0,
@@ -237,7 +266,8 @@ export default function LeadsPage() {
     setEditForm({
       contactId: lead.contactId ?? '',
       contactLabel: lead.contact?.name ?? '',
-      contactSearch: '',
+      name: lead.contact?.name ?? '',
+      phone: (lead.contact as Contact & { phone?: string })?.phone ?? '',
       status: lead.status,
       score: String(lead.score),
       source: lead.source ?? '',
@@ -250,6 +280,9 @@ export default function LeadsPage() {
     if (!editLead) return
     editMutation.mutate({
       id: editLead.id,
+      contactId: editLead.contactId ?? undefined,
+      name: editForm.name,
+      phone: editForm.phone,
       body: {
         status: editForm.status as 'NEW' | 'NURTURING' | 'QUALIFIED' | 'DISQUALIFIED',
         score: parseInt(editForm.score, 10) || 0,
@@ -458,94 +491,87 @@ export default function LeadsPage() {
             )}
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 py-2">
-            <FieldWrapper entityType="lead" slug="contact" label="Contato" defaultRequired={false} adminMode={adminModeCreate}>
-              <div className="space-y-1.5">
-                <Label>Contato {fieldConfig.isRequired('lead', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Buscar contato por nome ou telefone..."
-                    value={contactSearch}
-                    onChange={(e) => setContactSearch(e.target.value)}
-                  />
-                  {selectedContact && (
-                    <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">{selectedContact.name}</p>
-                        {selectedContact.phone && <p className="text-xs text-muted-foreground">{selectedContact.phone}</p>}
-                        {(selectedContact as Contact & { company?: { name: string } }).company?.name && (
-                          <p className="text-xs text-muted-foreground">🏢 {(selectedContact as Contact & { company?: { name: string } }).company!.name}</p>
+            {/* Nome e Telefone — campos diretos ou via contato selecionado */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldWrapper entityType="lead" slug="name" label="Nome" placeholder="Nome do lead" defaultRequired={true} adminMode={adminModeCreate}>
+                  <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} disabled={!!form.contactId} />
+                </FieldWrapper>
+              </div>
+              <div>
+                <FieldWrapper entityType="lead" slug="phone" label="Telefone" placeholder="(11) 99999-9999" adminMode={adminModeCreate}>
+                  <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} disabled={!!form.contactId} />
+                </FieldWrapper>
+              </div>
+            </div>
+
+            <FieldWrapper entityType="lead" slug="contact" label="Vincular contato existente" adminMode={adminModeCreate}>
+              <div>
+                {form.contactId ? (
+                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{selectedContact?.name}</p>
+                      {selectedContact?.phone && <p className="text-xs text-muted-foreground">{selectedContact.phone}</p>}
+                    </div>
+                    <button type="button" onClick={() => { setForm((f) => ({ ...f, contactId: '', name: '', phone: '' })) }}>
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Buscar contato por nome ou telefone..."
+                      value={contactSearch}
+                      onChange={(e) => setContactSearch(e.target.value)}
+                    />
+                    {contactSearch && (
+                      <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                        {(contactsData?.data ?? []).map((contact) => (
+                          <button
+                            key={contact.id}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                            onClick={() => {
+                              setForm((f) => ({ ...f, contactId: contact.id, name: contact.name, phone: (contact as Contact & { phone?: string }).phone ?? '' }))
+                              setContactSearch('')
+                            }}
+                          >
+                            <span className="font-medium">{contact.name}</span>
+                            {(contact as Contact & { phone?: string }).phone && <span className="text-muted-foreground ml-2 text-xs">— {(contact as Contact & { phone?: string }).phone}</span>}
+                          </button>
+                        ))}
+                        {(contactsData?.data ?? []).length === 0 && (
+                          <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
                         )}
                       </div>
-                      <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: '' }))}>
-                        <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                      </button>
-                    </div>
-                  )}
-                  {contactSearch && !form.contactId && (
-                    <div className="rounded border divide-y max-h-36 overflow-y-auto">
-                      {(contactsData?.data ?? []).map((contact) => (
-                        <button
-                          key={contact.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                          onClick={() => { setForm((f) => ({ ...f, contactId: contact.id })); setContactSearch('') }}
-                        >
-                          <span className="font-medium">{contact.name}</span>
-                          {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
-                        </button>
-                      ))}
-                      {(contactsData?.data ?? []).length === 0 && (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             </FieldWrapper>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FieldWrapper entityType="lead" slug="status" label="Status" defaultRequired={true} adminMode={adminModeCreate}>
-                  <div className="space-y-1.5">
-                    <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                    <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(statusLabels).map(([val, lbl]) => (
-                          <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(statusLabels).map(([val, lbl]) => (
+                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FieldWrapper>
               </div>
               <div>
-                <FieldWrapper entityType="lead" slug="score" label="Score" defaultRequired={false} adminMode={adminModeCreate}>
-                  <div className="space-y-1.5">
-                    <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      required={fieldConfig.isRequired('lead', 'score', false)}
-                      value={form.score}
-                      onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))}
-                    />
-                  </div>
+                <FieldWrapper entityType="lead" slug="score" label="Score (0–100)" adminMode={adminModeCreate}>
+                  <Input type="number" min="0" max="100" value={form.score} onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))} />
                 </FieldWrapper>
               </div>
             </div>
 
-            <FieldWrapper entityType="lead" slug="source" label="Origem" defaultRequired={false} adminMode={adminModeCreate}>
-              <div className="space-y-1.5">
-                <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                <Input
-                  placeholder="Ex: Google Ads, Indicação..."
-                  required={fieldConfig.isRequired('lead', 'source', false)}
-                  value={form.source}
-                  onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
-                />
-              </div>
+            <FieldWrapper entityType="lead" slug="source" label="Origem" placeholder="Ex: Google Ads, Indicação..." adminMode={adminModeCreate}>
+              <Input value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
             </FieldWrapper>
 
             {/* Campos personalizados */}
@@ -561,14 +587,9 @@ export default function LeadsPage() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>
-                Cancelar
-              </Button>
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={createMutation.isPending}>
-                {createMutation.isPending
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
-                  : 'Criar Lead'
-                }
+                {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : 'Criar Lead'}
               </Button>
             </div>
           </form>
@@ -590,92 +611,81 @@ export default function LeadsPage() {
           </DialogHeader>
           {editLead && (
             <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <Label>Contato</Label>
-                {editForm.contactId ? (
-                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">{editForm.contactLabel}</p>
-                    </div>
-                    <button type="button" onClick={() => setEditForm((f) => ({ ...f, contactId: '', contactLabel: '' }))}>
-                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Buscar contato por nome ou telefone..."
-                      value={editContactSearch}
-                      onChange={(e) => setEditContactSearch(e.target.value)}
-                    />
-                    {editContactSearch && (
-                      <div className="rounded border divide-y max-h-36 overflow-y-auto">
-                        {(editContactsData?.data ?? []).map((contact) => (
-                          <button
-                            key={contact.id}
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                            onClick={() => { setEditForm((f) => ({ ...f, contactId: contact.id, contactLabel: contact.name })); setEditContactSearch('') }}
-                          >
-                            <span className="font-medium">{contact.name}</span>
-                            {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
-                          </button>
-                        ))}
-                        {(editContactsData?.data ?? []).length === 0 && (
-                          <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {editLead.contact?.company?.name && (
-                  <p className="text-xs text-muted-foreground">Empresa: {editLead.contact.company.name}</p>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldWrapper entityType="lead" slug="name" label="Nome" placeholder="Nome do lead" defaultRequired={true} adminMode={adminModeEdit}>
+                    <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+                  </FieldWrapper>
+                </div>
+                <div>
+                  <FieldWrapper entityType="lead" slug="phone" label="Telefone" placeholder="(11) 99999-9999" adminMode={adminModeEdit}>
+                    <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
+                  </FieldWrapper>
+                </div>
               </div>
+
+              <FieldWrapper entityType="lead" slug="contact" label="Contato vinculado" adminMode={adminModeEdit}>
+                <div>
+                  {editForm.contactId ? (
+                    <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{editForm.contactLabel}</p>
+                        {editLead.contact?.company?.name && <p className="text-xs text-muted-foreground">🏢 {editLead.contact.company.name}</p>}
+                      </div>
+                      <button type="button" onClick={() => setEditForm((f) => ({ ...f, contactId: '', contactLabel: '' }))}>
+                        <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Buscar contato por nome ou telefone..."
+                        value={editContactSearch}
+                        onChange={(e) => setEditContactSearch(e.target.value)}
+                      />
+                      {editContactSearch && (
+                        <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                          {(editContactsData?.data ?? []).map((contact) => (
+                            <button
+                              key={contact.id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                              onClick={() => { setEditForm((f) => ({ ...f, contactId: contact.id, contactLabel: contact.name })); setEditContactSearch('') }}
+                            >
+                              <span className="font-medium">{contact.name}</span>
+                              {(contact as Contact & { phone?: string }).phone && <span className="text-muted-foreground ml-2 text-xs">— {(contact as Contact & { phone?: string }).phone}</span>}
+                            </button>
+                          ))}
+                          {(editContactsData?.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </FieldWrapper>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FieldWrapper entityType="lead" slug="status" label="Status" defaultRequired={true} adminMode={adminModeEdit}>
-                    <div className="space-y-1.5">
-                      <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(statusLabels).map(([val, lbl]) => (
-                            <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(statusLabels).map(([val, lbl]) => (
+                          <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </FieldWrapper>
                 </div>
                 <div>
-                  <FieldWrapper entityType="lead" slug="score" label="Score" defaultRequired={false} adminMode={adminModeEdit}>
-                    <div className="space-y-1.5">
-                      <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        required={fieldConfig.isRequired('lead', 'score', false)}
-                        value={editForm.score}
-                        onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))}
-                      />
-                    </div>
+                  <FieldWrapper entityType="lead" slug="score" label="Score (0–100)" adminMode={adminModeEdit}>
+                    <Input type="number" min="0" max="100" value={editForm.score} onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))} />
                   </FieldWrapper>
                 </div>
               </div>
 
-              <FieldWrapper entityType="lead" slug="source" label="Origem" defaultRequired={false} adminMode={adminModeEdit}>
-                <div className="space-y-1.5">
-                  <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                  <Input
-                    placeholder="Ex: Google Ads, Indicação..."
-                    required={fieldConfig.isRequired('lead', 'source', false)}
-                    value={editForm.source}
-                    onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
-                  />
-                </div>
+              <FieldWrapper entityType="lead" slug="source" label="Origem" placeholder="Ex: Google Ads, Indicação..." adminMode={adminModeEdit}>
+                <Input value={editForm.source} onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))} />
               </FieldWrapper>
 
               {/* Campos personalizados */}
@@ -690,14 +700,9 @@ export default function LeadsPage() {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setEditLead(null)}>
-                  Cancelar
-                </Button>
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setEditLead(null)}>Cancelar</Button>
                 <Button type="submit" className="flex-1" disabled={editMutation.isPending}>
-                  {editMutation.isPending
-                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
-                    : 'Salvar'
-                  }
+                  {editMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : 'Salvar'}
                 </Button>
               </div>
             </form>
