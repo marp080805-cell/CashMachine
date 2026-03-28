@@ -13,10 +13,12 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   Settings, Plus, Loader2, Trash2, X, RotateCcw, Columns, List,
-  ChevronDown, Search, GitBranch, Trophy, XCircle, Building2,
+  ChevronDown, Search, GitBranch, Trophy, XCircle, Building2, Settings2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useAuthStore } from '@/stores/authStore'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -43,6 +45,8 @@ export default function PipelineKanbanPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -55,6 +59,8 @@ export default function PipelineKanbanPage() {
     title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '',
     companyId: '', companyLabel: '',
   })
+  const [cfOppValues, setCfOppValues] = useState<Record<string, unknown>>({})
+  const [cfOppAdminMode, setCfOppAdminMode] = useState(false)
   const [contactSearch, setContactSearch] = useState('')
   const [companySearch, setCompanySearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
@@ -121,12 +127,26 @@ export default function PipelineKanbanPage() {
   })
 
   const createOppMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.post<Opportunity>('/opportunities', body),
+    mutationFn: async (body: Record<string, unknown>) => {
+      const opp = await api.post<Opportunity>('/opportunities', body)
+      // Save custom field values
+      const cfEntries = Object.entries(cfOppValues).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+      if (cfEntries.length > 0) {
+        await Promise.allSettled(
+          cfEntries.map(([fieldId, value]) =>
+            api.put('/custom-fields/values', { customFieldId: fieldId, entityType: 'opportunity', entityId: opp.id, valueText: typeof value === 'string' ? value : undefined, valueJson: typeof value !== 'string' ? value : undefined })
+          )
+        )
+      }
+      return opp
+    },
     onSuccess: () => {
       toast.success('Oportunidade criada!')
       setOppModalOpen(false)
       setOppForm({ title: '', value: '', stageId: '', contactId: '', notes: '', expectedCloseDate: '', companyId: '', companyLabel: '' })
       setContactSearch('')
+      setCfOppValues({})
+      setCfOppAdminMode(false)
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
     onError: (err: unknown) => {
@@ -436,8 +456,8 @@ export default function PipelineKanbanPage() {
       </Sheet>
 
       {/* ── DIALOG: NOVA OPORTUNIDADE ── */}
-      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setContactSearch(''); setCompanySearch('') } }}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setContactSearch(''); setCompanySearch(''); setCfOppValues({}); setCfOppAdminMode(false) } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Oportunidade</DialogTitle></DialogHeader>
           <form onSubmit={handleOppSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -550,6 +570,32 @@ export default function PipelineKanbanPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
               />
             </div>
+            {/* Campos personalizados */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant={cfOppAdminMode ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => setCfOppAdminMode((v) => !v)}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {cfOppAdminMode ? 'Sair da edição' : 'Personalizar campos'}
+                  </Button>
+                )}
+              </div>
+              <CustomFieldsPanel
+                entityType="opportunity"
+                values={cfOppValues}
+                onChange={(id2, v) => setCfOppValues((p) => ({ ...p, [id2]: v }))}
+                adminMode={cfOppAdminMode}
+                onAdminModeChange={setCfOppAdminMode}
+              />
+            </div>
+
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setOppModalOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={createOppMutation.isPending}>

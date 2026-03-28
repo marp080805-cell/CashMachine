@@ -253,20 +253,40 @@ interface TaskFormModalProps {
 
 function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultTaskForm, ...initialData })
+  const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
+  const [cfAdminMode, setCfAdminMode] = useState(false)
   const { user } = useAuth()
+  const authUser = useAuthStore((s) => s.user)
+  const isTaskAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (open) setForm({ ...defaultTaskForm, ...initialData })
-  }, [open, initialData])
+    if (open) {
+      setForm({ ...defaultTaskForm, ...initialData })
+      if (!taskId) { setCfValues({}); setCfAdminMode(false) }
+    }
+  }, [open, initialData, taskId])
 
   const isEdit = !!taskId
 
   const mutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      isEdit
-        ? api.put<Task>(`/tasks/${taskId}`, body)
-        : api.post<Task>('/tasks', body),
+    mutationFn: async (body: Record<string, unknown>) => {
+      const task = isEdit
+        ? await api.put<Task>(`/tasks/${taskId}`, body)
+        : await api.post<Task>('/tasks', body)
+      // Save custom field values for new tasks
+      if (!isEdit) {
+        const cfEntries = Object.entries(cfValues).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+        if (cfEntries.length > 0) {
+          await Promise.allSettled(
+            cfEntries.map(([fieldId, value]) =>
+              api.put('/custom-fields/values', { customFieldId: fieldId, entityType: 'task', entityId: task.id, valueText: typeof value === 'string' ? value : undefined, valueJson: typeof value !== 'string' ? value : undefined })
+            )
+          )
+        }
+      }
+      return task
+    },
     onSuccess: () => {
       toast.success(isEdit ? 'Tarefa atualizada!' : 'Tarefa criada!')
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -324,7 +344,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
         </DialogHeader>
@@ -451,6 +471,33 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               className="resize-none"
             />
           </div>
+          {/* Campos personalizados */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
+              {isTaskAdmin && (
+                <Button
+                  type="button"
+                  variant={cfAdminMode ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => setCfAdminMode((v) => !v)}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {cfAdminMode ? 'Sair da edição' : 'Personalizar campos'}
+                </Button>
+              )}
+            </div>
+            <CustomFieldsPanel
+              entityType="task"
+              entityId={isEdit ? taskId : undefined}
+              values={isEdit ? undefined : cfValues}
+              onChange={isEdit ? undefined : (id, v) => setCfValues((p) => ({ ...p, [id]: v }))}
+              adminMode={cfAdminMode}
+              onAdminModeChange={setCfAdminMode}
+            />
+          </div>
+
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
               Cancelar

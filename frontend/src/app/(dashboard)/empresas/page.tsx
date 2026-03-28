@@ -223,6 +223,8 @@ export default function EmpresasPage() {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<CompanyForm>(defaultForm)
+  const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
+  const [cfCreateAdminMode, setCfCreateAdminMode] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [cfAdminMode, setCfAdminMode] = useState(false)
   const queryClient = useQueryClient()
@@ -259,12 +261,23 @@ export default function EmpresasPage() {
         form.contactId && api.patch(`/contacts/${form.contactId}`, { companyId: company.id }),
         form.opportunityId && api.patch(`/opportunities/${form.opportunityId}`, { companyId: company.id }),
       ])
+      // Save custom field values
+      const cfEntries = Object.entries(cfCreateValues).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+      if (cfEntries.length > 0) {
+        await Promise.allSettled(
+          cfEntries.map(([fieldId, value]) =>
+            api.put('/custom-fields/values', { customFieldId: fieldId, entityType: 'company', entityId: company.id, valueText: typeof value === 'string' ? value : undefined, valueJson: typeof value !== 'string' ? value : undefined })
+          )
+        )
+      }
       return company
     },
     onSuccess: () => {
       toast.success('Empresa criada!')
       setModalOpen(false)
       setForm(defaultForm)
+      setCfCreateValues({})
+      setCfCreateAdminMode(false)
       void queryClient.invalidateQueries({ queryKey: ['companies'] })
       void queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
@@ -440,8 +453,8 @@ export default function EmpresasPage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setForm(defaultForm) }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfCreateValues({}); setCfCreateAdminMode(false) } }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Empresa</DialogTitle>
           </DialogHeader>
@@ -576,6 +589,32 @@ export default function EmpresasPage() {
                   <OppSearchCompany value={form.opportunityId} label={form.opportunityLabel} onChange={(id, name) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: name }))} />
                 </div>
               </div>
+            </div>
+
+            {/* Campos personalizados */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant={cfCreateAdminMode ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => setCfCreateAdminMode((v) => !v)}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {cfCreateAdminMode ? 'Sair da edição' : 'Personalizar campos'}
+                  </Button>
+                )}
+              </div>
+              <CustomFieldsPanel
+                entityType="company"
+                values={cfCreateValues}
+                onChange={(id, v) => setCfCreateValues((p) => ({ ...p, [id]: v }))}
+                adminMode={cfCreateAdminMode}
+                onAdminModeChange={setCfCreateAdminMode}
+              />
             </div>
 
             <div className="flex gap-2 pt-1 border-t">
