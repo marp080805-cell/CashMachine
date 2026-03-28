@@ -298,29 +298,21 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
   // Reabrir oportunidade
   app.post('/opportunities/:id/reopen', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { tenantId, role } = request.user as { tenantId: string; id: string; role: string }
+    const { tenantId, role } = request.user as { tenantId: string; role: string }
 
     if (!['ADMIN', 'MANAGER'].includes(role)) {
       return reply.status(403).send({ error: 'Sem permissão para reabrir oportunidades' })
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } })
-    const tenantSettings = (tenant?.settings ?? {}) as Record<string, unknown>
-    if (tenantSettings.allowReopenLost === false) {
-      return reply.status(403).send({ error: 'Reabertura de oportunidades está desativada nas configurações' })
-    }
+    const opp = await prisma.opportunity.findFirst({ where: { id, tenantId } })
+    if (!opp) return reply.status(404).send({ error: 'Oportunidade não encontrada' })
 
-    try {
-      const updated = await prisma.opportunity.update({
-        where: { id },
-        data: { status: 'OPEN', closedAt: null, lostReasonId: null },
-        include: opportunityIncludes,
-      })
-      return reply.send(updated)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return reply.status(500).send({ error: `Erro ao reabrir: ${msg}` })
-    }
+    const updated = await prisma.opportunity.update({
+      where: { id },
+      data: { status: 'OPEN', closedAt: null, lostReasonId: null },
+      include: opportunityIncludes,
+    })
+    return reply.send(updated)
   })
 
   app.delete('/opportunities/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
