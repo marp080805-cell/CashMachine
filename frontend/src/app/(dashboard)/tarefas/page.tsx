@@ -31,12 +31,13 @@ import {
   CheckSquare, Phone, Mail, Users, Calendar, FileText,
   Plus, Loader2, CheckCircle2, Circle, Filter, List, Columns,
   MoreVertical, Pencil, Clock, Copy, Trash2, X, ExternalLink,
-  AlertCircle, RefreshCw,
+  AlertCircle, RefreshCw, Settings2,
 } from 'lucide-react'
 import { cn, formatDateTime, formatDate, getInitials } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
 // ── Task type maps ──
@@ -544,6 +545,9 @@ interface TaskDetailSheetProps {
 
 function TaskDetailSheet({ task, onClose, onEdit, onComplete, onDelete }: TaskDetailSheetProps) {
   const Icon = task ? (taskTypeIcons[task.type] ?? FileText) : FileText
+  const [cfAdminMode, setCfAdminMode] = useState(false)
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const { data: activities } = useQuery({
     queryKey: ['activities', 'task', task?.id],
     queryFn: () => api.get<{ data: Array<{ id: string; type: string; description: string; createdAt: string; user: { name: string } }> }>(`/activities?taskId=${task!.id}&limit=10`),
@@ -657,8 +661,21 @@ function TaskDetailSheet({ task, onClose, onEdit, onComplete, onDelete }: TaskDe
 
           {/* Custom fields */}
           <div>
-            <p className="text-xs text-muted-foreground mb-2">Campos Personalizados</p>
-            <CustomFieldsPanel entityType="task" entityId={task.id} />
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground font-medium">Campos Personalizados</p>
+              {isAdmin && (
+                <Button
+                  variant={cfAdminMode ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-6 text-xs gap-1"
+                  onClick={() => setCfAdminMode((v) => !v)}
+                >
+                  <Settings2 className="h-3 w-3" />
+                  {cfAdminMode ? 'Sair da edição' : 'Personalizar'}
+                </Button>
+              )}
+            </div>
+            <CustomFieldsPanel entityType="task" entityId={task.id} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
           </div>
 
           {/* Recent activities */}

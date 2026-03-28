@@ -47,6 +47,8 @@ interface Props {
   entityId?: string          // se fornecido, carrega e salva valores no banco
   values?: Record<string, unknown>        // valores controlados (para formulários novos)
   onChange?: (fieldId: string, value: unknown) => void  // callback para formulários novos
+  adminMode?: boolean        // controlado externamente (botão "Personalizar campos")
+  onAdminModeChange?: (v: boolean) => void
 }
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
@@ -57,12 +59,18 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
 
 const FIELD_TYPES_OPTIONS = Object.entries(FIELD_TYPE_LABELS)
 
-export function CustomFieldsPanel({ entityType, entityId, values, onChange }: Props) {
+export function CustomFieldsPanel({ entityType, entityId, values, onChange, adminMode: adminModeProp, onAdminModeChange }: Props) {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
   const qc = useQueryClient()
 
-  const [adminMode, setAdminMode] = useState(false)
+  const [adminModeInternal, setAdminModeInternal] = useState(false)
+  const adminMode = adminModeProp !== undefined ? adminModeProp : adminModeInternal
+  function setAdminMode(v: boolean | ((prev: boolean) => boolean)) {
+    const next = typeof v === 'function' ? v(adminMode) : v
+    if (onAdminModeChange) onAdminModeChange(next)
+    else setAdminModeInternal(next)
+  }
   const [addingFieldToGroup, setAddingFieldToGroup] = useState<string | null>(null)
   const [newField, setNewField] = useState({ name: '', fieldType: 'TEXT', isRequiredGlobal: false, options: '' })
   const [savingField, setSavingField] = useState(false)
@@ -240,8 +248,8 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange }: Pr
 
   return (
     <div className="space-y-4">
-      {/* Admin toggle */}
-      {isAdmin && (
+      {/* Admin toggle (only shown if not externally controlled) */}
+      {isAdmin && adminModeProp === undefined && (
         <div className="flex items-center justify-end">
           <Button
             variant={adminMode ? 'default' : 'outline'}

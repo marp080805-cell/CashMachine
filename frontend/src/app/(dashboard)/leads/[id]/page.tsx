@@ -5,13 +5,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Lead } from '@/types'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useAuthStore } from '@/stores/authStore'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Pencil, Loader2, Save } from 'lucide-react'
+import { Pencil, Loader2, Save, Settings2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
@@ -38,6 +39,9 @@ export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
+  const [cfAdminMode, setCfAdminMode] = useState(false)
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const [editForm, setEditForm] = useState<{ status: string; score: string; source: string } | null>(null)
 
   const { data: lead, isLoading } = useQuery({
@@ -163,11 +167,22 @@ export default function LeadDetailPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Campos Personalizados</CardTitle>
+          {isAdmin && (
+            <Button
+              variant={cfAdminMode ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => setCfAdminMode((v) => !v)}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {cfAdminMode ? 'Sair da edição' : 'Personalizar campos'}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          <CustomFieldsPanel entityType="lead" entityId={id} />
+          <CustomFieldsPanel entityType="lead" entityId={id} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
         </CardContent>
       </Card>
 

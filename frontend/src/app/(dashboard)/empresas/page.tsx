@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch, Settings2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useAuthStore } from '@/stores/authStore'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
 
@@ -223,7 +224,10 @@ export default function EmpresasPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<CompanyForm>(defaultForm)
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [cfAdminMode, setCfAdminMode] = useState(false)
   const queryClient = useQueryClient()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   const { data: companyContacts } = useQuery({
     queryKey: ['company-contacts', selectedCompany?.id],
@@ -375,7 +379,6 @@ export default function EmpresasPage() {
               <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />Contatos ({companyContacts?.length ?? 0})</TabsTrigger>
               <TabsTrigger value="opps"><TrendingUp className="h-3.5 w-3.5 mr-1" />Oportunidades ({companyOpps?.length ?? 0})</TabsTrigger>
               <TabsTrigger value="info">Dados</TabsTrigger>
-              <TabsTrigger value="campos">Campos</TabsTrigger>
             </TabsList>
             <TabsContent value="contacts" className="flex-1 overflow-y-auto px-6 py-3 space-y-2 mt-0">
               {(companyContacts ?? []).length === 0
@@ -410,14 +413,28 @@ export default function EmpresasPage() {
                   </div>
                 ))}
             </TabsContent>
-            <TabsContent value="info" className="px-6 py-3 space-y-3 mt-0">
+            <TabsContent value="info" className="px-6 py-3 space-y-3 mt-0 overflow-y-auto">
               {selectedCompany?.cnpj && <div><p className="text-xs text-muted-foreground">CNPJ</p><p className="text-sm">{selectedCompany.cnpj}</p></div>}
               {selectedCompany?.website && <div><p className="text-xs text-muted-foreground">Website</p><a href={selectedCompany.website} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">{selectedCompany.website}</a></div>}
               {selectedCompany?.notes && <div><p className="text-xs text-muted-foreground">Notas</p><p className="text-sm">{selectedCompany.notes}</p></div>}
               <div><p className="text-xs text-muted-foreground">Criado em</p><p className="text-sm">{formatDate(selectedCompany?.createdAt ?? '')}</p></div>
-            </TabsContent>
-            <TabsContent value="campos" className="px-6 py-3 mt-0">
-              <CustomFieldsPanel entityType="company" entityId={selectedCompany?.id} />
+              <div className="pt-2 border-t space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</p>
+                  {isAdmin && (
+                    <Button
+                      variant={cfAdminMode ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-6 text-xs gap-1"
+                      onClick={() => setCfAdminMode((v) => !v)}
+                    >
+                      <Settings2 className="h-3 w-3" />
+                      {cfAdminMode ? 'Sair da edição' : 'Personalizar'}
+                    </Button>
+                  )}
+                </div>
+                <CustomFieldsPanel entityType="company" entityId={selectedCompany?.id} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
+              </div>
             </TabsContent>
           </Tabs>
         </SheetContent>
