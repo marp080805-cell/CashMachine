@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Plus, Settings2, Loader2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-type EntityType = 'opportunity' | 'contact' | 'company' | 'lead'
+type EntityType = 'opportunity' | 'contact' | 'company' | 'lead' | 'task'
 
 interface CFField {
   id: string

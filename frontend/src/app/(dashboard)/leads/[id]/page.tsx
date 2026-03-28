@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Lead } from '@/types'
+import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -160,6 +161,15 @@ export default function LeadDetailPage() {
           </Card>
         )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Campos Personalizados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CustomFieldsPanel entityType="lead" entityId={id} />
+        </CardContent>
+      </Card>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm">

@@ -48,6 +48,7 @@ const ENTITY_TYPES = [
   { value: 'contact', label: 'Contato' },
   { value: 'company', label: 'Empresa' },
   { value: 'lead', label: 'Lead' },
+  { value: 'task', label: 'Tarefa' },
 ]
 
 const emptyGroupForm = { name: '', entityType: 'opportunity' }

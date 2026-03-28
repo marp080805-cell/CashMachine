@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
 
@@ -374,6 +375,7 @@ export default function EmpresasPage() {
               <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />Contatos ({companyContacts?.length ?? 0})</TabsTrigger>
               <TabsTrigger value="opps"><TrendingUp className="h-3.5 w-3.5 mr-1" />Oportunidades ({companyOpps?.length ?? 0})</TabsTrigger>
               <TabsTrigger value="info">Dados</TabsTrigger>
+              <TabsTrigger value="campos">Campos</TabsTrigger>
             </TabsList>
             <TabsContent value="contacts" className="flex-1 overflow-y-auto px-6 py-3 space-y-2 mt-0">
               {(companyContacts ?? []).length === 0
@@ -413,6 +415,9 @@ export default function EmpresasPage() {
               {selectedCompany?.website && <div><p className="text-xs text-muted-foreground">Website</p><a href={selectedCompany.website} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">{selectedCompany.website}</a></div>}
               {selectedCompany?.notes && <div><p className="text-xs text-muted-foreground">Notas</p><p className="text-sm">{selectedCompany.notes}</p></div>}
               <div><p className="text-xs text-muted-foreground">Criado em</p><p className="text-sm">{formatDate(selectedCompany?.createdAt ?? '')}</p></div>
+            </TabsContent>
+            <TabsContent value="campos" className="px-6 py-3 mt-0">
+              <CustomFieldsPanel entityType="company" entityId={selectedCompany?.id} />
             </TabsContent>
           </Tabs>
         </SheetContent>

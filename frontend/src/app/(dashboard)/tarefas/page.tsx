@@ -36,6 +36,7 @@ import {
 import { cn, formatDateTime, formatDate, getInitials } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
 // ── Task type maps ──
@@ -653,6 +654,12 @@ function TaskDetailSheet({ task, onClose, onEdit, onComplete, onDelete }: TaskDe
               <p className="text-sm text-foreground whitespace-pre-wrap bg-green-50 rounded-lg p-3 border border-green-100">{task.completionNotes}</p>
             </div>
           )}
+
+          {/* Custom fields */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Campos Personalizados</p>
+            <CustomFieldsPanel entityType="task" entityId={task.id} />
+          </div>
 
           {/* Recent activities */}
           {(activities?.data?.length ?? 0) > 0 && (
