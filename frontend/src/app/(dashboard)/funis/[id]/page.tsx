@@ -470,7 +470,7 @@ export default function PipelineKanbanPage() {
             )}
           </DialogHeader>
           <form onSubmit={handleOppSubmit} className="space-y-4 py-2">
-            <FieldWrapper entityType="opportunity" slug="title" defaultRequired={true} adminMode={adminModeOpp}>
+            <FieldWrapper entityType="opportunity" slug="title" label="Título" defaultRequired={true} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
                 <Label>Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 <Input
@@ -481,7 +481,7 @@ export default function PipelineKanbanPage() {
                 />
               </div>
             </FieldWrapper>
-            <FieldWrapper entityType="opportunity" slug="stage" defaultRequired={true} adminMode={adminModeOpp}>
+            <FieldWrapper entityType="opportunity" slug="stage" label="Etapa" defaultRequired={true} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
                 <Label>Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 <Select value={oppForm.stageId} onValueChange={(v) => setOppForm((f) => ({ ...f, stageId: v }))}>
@@ -499,7 +499,7 @@ export default function PipelineKanbanPage() {
                 </Select>
               </div>
             </FieldWrapper>
-            <FieldWrapper entityType="opportunity" slug="contact" defaultRequired={false} adminMode={adminModeOpp}>
+            <FieldWrapper entityType="opportunity" slug="contact" label="Contato" defaultRequired={false} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
               <Label>Contato {fieldConfig.isRequired('opportunity', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
               <div className="space-y-2">
@@ -536,7 +536,7 @@ export default function PipelineKanbanPage() {
               </div>
               </div>
             </FieldWrapper>
-            <FieldWrapper entityType="opportunity" slug="company" defaultRequired={false} adminMode={adminModeOpp}>
+            <FieldWrapper entityType="opportunity" slug="company" label="Empresa" defaultRequired={false} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
                 <Label>Empresa {fieldConfig.isRequired('opportunity', 'company', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 {oppForm.companyId ? (
@@ -569,7 +569,7 @@ export default function PipelineKanbanPage() {
             </FieldWrapper>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldWrapper entityType="opportunity" slug="value" defaultRequired={false} adminMode={adminModeOpp}>
+                <FieldWrapper entityType="opportunity" slug="value" label="Valor" defaultRequired={false} adminMode={adminModeOpp}>
                   <div className="space-y-1.5">
                     <Label>Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                     <Input type="number" min="0" step="0.01" placeholder="0,00"
@@ -581,7 +581,7 @@ export default function PipelineKanbanPage() {
                 </FieldWrapper>
               </div>
               <div>
-                <FieldWrapper entityType="opportunity" slug="closeDate" defaultRequired={false} adminMode={adminModeOpp}>
+                <FieldWrapper entityType="opportunity" slug="closeDate" label="Fechamento previsto" defaultRequired={false} adminMode={adminModeOpp}>
                   <div className="space-y-1.5">
                     <Label>Previsão de fechamento {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                     <Input type="date"
@@ -593,7 +593,7 @@ export default function PipelineKanbanPage() {
                 </FieldWrapper>
               </div>
             </div>
-            <FieldWrapper entityType="opportunity" slug="description" defaultRequired={false} adminMode={adminModeOpp}>
+            <FieldWrapper entityType="opportunity" slug="description" label="Descrição" defaultRequired={false} adminMode={adminModeOpp}>
               <div className="space-y-1.5">
                 <Label>Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 <textarea rows={2} placeholder="Observações..." value={oppForm.notes}

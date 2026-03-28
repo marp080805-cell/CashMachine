@@ -473,7 +473,7 @@ export default function EmpresasPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <FieldWrapper entityType="company" slug="name" defaultRequired={true} adminMode={adminMode}>
+                  <FieldWrapper entityType="company" slug="name" label="Nome da empresa" defaultRequired={true} adminMode={adminMode}>
                     <div className="space-y-1.5">
                       <Label>Nome {fieldConfig.isRequired('company', 'name', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Input placeholder="Nome da empresa" required={fieldConfig.isRequired('company', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -487,7 +487,7 @@ export default function EmpresasPage() {
                   </div>
                 </div>
                 <div>
-                  <FieldWrapper entityType="company" slug="cnpj" defaultRequired={false} adminMode={adminMode}>
+                  <FieldWrapper entityType="company" slug="cnpj" label="CNPJ" defaultRequired={false} adminMode={adminMode}>
                     <div className="space-y-1.5">
                       <Label>CNPJ {fieldConfig.isRequired('company', 'cnpj', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Input placeholder="00.000.000/0001-00" required={fieldConfig.isRequired('company', 'cnpj', false)} value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
@@ -501,7 +501,7 @@ export default function EmpresasPage() {
                   </div>
                 </div>
                 <div>
-                  <FieldWrapper entityType="company" slug="segment" defaultRequired={false} adminMode={adminMode}>
+                  <FieldWrapper entityType="company" slug="segment" label="Segmento" defaultRequired={false} adminMode={adminMode}>
                     <div className="space-y-1.5">
                       <Label>Setor {fieldConfig.isRequired('company', 'segment', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Input placeholder="Ex: Tecnologia, Saúde..." required={fieldConfig.isRequired('company', 'segment', false)} value={form.segment} onChange={(e) => setForm((f) => ({ ...f, segment: e.target.value }))} />
@@ -509,7 +509,7 @@ export default function EmpresasPage() {
                   </FieldWrapper>
                 </div>
                 <div>
-                  <FieldWrapper entityType="company" slug="website" defaultRequired={false} adminMode={adminMode}>
+                  <FieldWrapper entityType="company" slug="website" label="Site" defaultRequired={false} adminMode={adminMode}>
                     <div className="space-y-1.5">
                       <Label>Website {fieldConfig.isRequired('company', 'website', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Input placeholder="https://empresa.com.br" required={fieldConfig.isRequired('company', 'website', false)} value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
@@ -538,7 +538,7 @@ export default function EmpresasPage() {
                   </div>
                 </div>
                 <div>
-                  <FieldWrapper entityType="company" slug="phone" defaultRequired={false} adminMode={adminMode}>
+                  <FieldWrapper entityType="company" slug="phone" label="Telefone" defaultRequired={false} adminMode={adminMode}>
                     <div className="space-y-1.5">
                       <Label>Telefone {fieldConfig.isRequired('company', 'phone', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Input placeholder="(11) 3333-3333" required={fieldConfig.isRequired('company', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />

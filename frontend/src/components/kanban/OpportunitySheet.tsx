@@ -752,7 +752,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 <TabsContent value="details" className="flex-1 overflow-y-auto p-4 space-y-4 mt-0">
                   {isEditing ? (
                     <div className="space-y-3">
-                      <FieldWrapper entityType="opportunity" slug="title" defaultRequired={true} adminMode={adminMode}>
+                      <FieldWrapper entityType="opportunity" slug="title" label="Título" defaultRequired={true} adminMode={adminMode}>
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</p>
                           <Input
@@ -765,7 +765,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                       </FieldWrapper>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <FieldWrapper entityType="opportunity" slug="value" defaultRequired={false} adminMode={adminMode}>
+                          <FieldWrapper entityType="opportunity" slug="value" label="Valor" defaultRequired={false} adminMode={adminMode}>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
                               <Input
@@ -781,7 +781,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           </FieldWrapper>
                         </div>
                         <div>
-                          <FieldWrapper entityType="opportunity" slug="closeDate" defaultRequired={false} adminMode={adminMode}>
+                          <FieldWrapper entityType="opportunity" slug="closeDate" label="Fechamento previsto" defaultRequired={false} adminMode={adminMode}>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Fechamento previsto {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
                               <Input
@@ -794,7 +794,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           </FieldWrapper>
                         </div>
                         <div>
-                          <FieldWrapper entityType="opportunity" slug="stage" defaultRequired={true} adminMode={adminMode}>
+                          <FieldWrapper entityType="opportunity" slug="stage" label="Etapa" defaultRequired={true} adminMode={adminMode}>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500 ml-0.5">*</span>}</p>
                               {stages.length > 0 ? (
@@ -820,7 +820,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           </FieldWrapper>
                         </div>
                         <div>
-                          <FieldWrapper entityType="opportunity" slug="responsible" defaultRequired={false} adminMode={adminMode}>
+                          <FieldWrapper entityType="opportunity" slug="responsible" label="Responsável" defaultRequired={false} adminMode={adminMode}>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Responsável {fieldConfig.isRequired('opportunity', 'responsible', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
                               {(usersData?.users ?? []).length > 0 ? (
@@ -841,7 +841,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           </FieldWrapper>
                         </div>
                       </div>
-                      <FieldWrapper entityType="opportunity" slug="description" defaultRequired={false} adminMode={adminMode}>
+                      <FieldWrapper entityType="opportunity" slug="description" label="Descrição" defaultRequired={false} adminMode={adminMode}>
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
                           <Textarea

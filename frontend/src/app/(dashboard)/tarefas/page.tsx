@@ -359,7 +359,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <FieldWrapper entityType="task" slug="title" defaultRequired={true} adminMode={adminMode}>
+          <FieldWrapper entityType="task" slug="title" label="Título" defaultRequired={true} adminMode={adminMode}>
             <div className="space-y-1.5">
               <Label>Título {fieldConfig.isRequired('task', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
               <Input
@@ -372,7 +372,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           </FieldWrapper>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FieldWrapper entityType="task" slug="type" defaultRequired={true} adminMode={adminMode}>
+              <FieldWrapper entityType="task" slug="type" label="Tipo" defaultRequired={true} adminMode={adminMode}>
                 <div className="space-y-1.5">
                   <Label>Tipo {fieldConfig.isRequired('task', 'type', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                   <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
@@ -387,7 +387,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               </FieldWrapper>
             </div>
             <div>
-              <FieldWrapper entityType="task" slug="priority" defaultRequired={false} adminMode={adminMode}>
+              <FieldWrapper entityType="task" slug="priority" label="Prioridade" defaultRequired={false} adminMode={adminMode}>
                 <div className="space-y-1.5">
                   <Label>Prioridade {fieldConfig.isRequired('task', 'priority', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                   <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
@@ -402,7 +402,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               </FieldWrapper>
             </div>
           </div>
-          <FieldWrapper entityType="task" slug="dueDate" defaultRequired={false} adminMode={adminMode}>
+          <FieldWrapper entityType="task" slug="dueDate" label="Vencimento" defaultRequired={false} adminMode={adminMode}>
             <div className="space-y-1.5">
               <Label>Vencimento {fieldConfig.isRequired('task', 'dueDate', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
               <Input
@@ -414,7 +414,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             </div>
           </FieldWrapper>
           {users.length > 0 && (
-            <FieldWrapper entityType="task" slug="assignedTo" defaultRequired={false} adminMode={adminMode}>
+            <FieldWrapper entityType="task" slug="assignedTo" label="Responsável" defaultRequired={false} adminMode={adminMode}>
               <div className="space-y-1.5">
                 <Label>Responsável {fieldConfig.isRequired('task', 'assignedTo', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
@@ -487,7 +487,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               onClear={() => setForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}
             />
           </div>
-          <FieldWrapper entityType="task" slug="description" defaultRequired={false} adminMode={adminMode}>
+          <FieldWrapper entityType="task" slug="description" label="Descrição" defaultRequired={false} adminMode={adminMode}>
             <div className="space-y-1.5">
               <Label>Descrição {fieldConfig.isRequired('task', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
               <Textarea

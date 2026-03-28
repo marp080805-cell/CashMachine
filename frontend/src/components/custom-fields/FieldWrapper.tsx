@@ -12,16 +12,16 @@ import { useFieldConfig } from '@/hooks/useFieldConfig'
 interface Props {
   entityType: string
   slug: string
-  label: string              // displayed label text (default)
+  label?: string             // displayed label text (default); optional for backward compat
   placeholder?: string       // default placeholder text
   defaultRequired?: boolean
   adminMode: boolean
-  children: React.ReactNode  // JUST the input (no label div)
-  className?: string         // extra class for the outer div
+  children: React.ReactNode
+  className?: string
 }
 
 export function FieldWrapper({
-  entityType, slug, label: defaultLabel, placeholder: defaultPlaceholder = '',
+  entityType, slug, label: defaultLabel = '', placeholder: defaultPlaceholder = '',
   defaultRequired = false, adminMode, children, className = '',
 }: Props) {
   const { isRequired, getLabel, getPlaceholder, isHidden, setRequired, setLabel, setPlaceholder, setHidden, isUpdating } = useFieldConfig()

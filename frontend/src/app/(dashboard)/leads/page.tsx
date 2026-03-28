@@ -458,7 +458,7 @@ export default function LeadsPage() {
             )}
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 py-2">
-            <FieldWrapper entityType="lead" slug="contact" defaultRequired={false} adminMode={adminModeCreate}>
+            <FieldWrapper entityType="lead" slug="contact" label="Contato" defaultRequired={false} adminMode={adminModeCreate}>
               <div className="space-y-1.5">
                 <Label>Contato {fieldConfig.isRequired('lead', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 <div className="space-y-2">
@@ -505,7 +505,7 @@ export default function LeadsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldWrapper entityType="lead" slug="status" defaultRequired={true} adminMode={adminModeCreate}>
+                <FieldWrapper entityType="lead" slug="status" label="Status" defaultRequired={true} adminMode={adminModeCreate}>
                   <div className="space-y-1.5">
                     <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                     <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
@@ -520,7 +520,7 @@ export default function LeadsPage() {
                 </FieldWrapper>
               </div>
               <div>
-                <FieldWrapper entityType="lead" slug="score" defaultRequired={false} adminMode={adminModeCreate}>
+                <FieldWrapper entityType="lead" slug="score" label="Score" defaultRequired={false} adminMode={adminModeCreate}>
                   <div className="space-y-1.5">
                     <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                     <Input
@@ -536,7 +536,7 @@ export default function LeadsPage() {
               </div>
             </div>
 
-            <FieldWrapper entityType="lead" slug="source" defaultRequired={false} adminMode={adminModeCreate}>
+            <FieldWrapper entityType="lead" slug="source" label="Origem" defaultRequired={false} adminMode={adminModeCreate}>
               <div className="space-y-1.5">
                 <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                 <Input
@@ -635,7 +635,7 @@ export default function LeadsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <FieldWrapper entityType="lead" slug="status" defaultRequired={true} adminMode={adminModeEdit}>
+                  <FieldWrapper entityType="lead" slug="status" label="Status" defaultRequired={true} adminMode={adminModeEdit}>
                     <div className="space-y-1.5">
                       <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
@@ -650,7 +650,7 @@ export default function LeadsPage() {
                   </FieldWrapper>
                 </div>
                 <div>
-                  <FieldWrapper entityType="lead" slug="score" defaultRequired={false} adminMode={adminModeEdit}>
+                  <FieldWrapper entityType="lead" slug="score" label="Score" defaultRequired={false} adminMode={adminModeEdit}>
                     <div className="space-y-1.5">
                       <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                       <Input
@@ -666,7 +666,7 @@ export default function LeadsPage() {
                 </div>
               </div>
 
-              <FieldWrapper entityType="lead" slug="source" defaultRequired={false} adminMode={adminModeEdit}>
+              <FieldWrapper entityType="lead" slug="source" label="Origem" defaultRequired={false} adminMode={adminModeEdit}>
                 <div className="space-y-1.5">
                   <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
                   <Input
