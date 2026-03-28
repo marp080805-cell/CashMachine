@@ -12,29 +12,26 @@ async function main() {
   const sdrPasswordHash = await bcrypt.hash('Sdr@123', 10)
   const closerPasswordHash = await bcrypt.hash('Closer@123', 10)
 
-  let tenant = await prisma.tenant.findFirst({ where: { slug: { in: ['seuresultado', 'cashmind'] } } })
+  // Sempre priorizar o tenant com slug 'seuresultado' (hardcoded no frontend)
+  let tenant = await prisma.tenant.findUnique({ where: { slug: 'seuresultado' } })
 
   if (!tenant) {
-    tenant = await prisma.tenant.create({
-      data: {
-        name: 'CashMind',
-        slug: 'seuresultado',
-        plan: 'FREE',
-        isActive: true,
-      },
-    })
-    console.log('Tenant criado:', tenant.slug)
-  } else {
-    // Garantir que o slug é 'seuresultado' (frontend hardcoded)
-    if (tenant.slug !== 'seuresultado') {
+    // Fallback: existe um tenant 'cashmind' mas ainda não tem o 'seuresultado'?
+    const cashmindTenant = await prisma.tenant.findUnique({ where: { slug: 'cashmind' } })
+    if (cashmindTenant) {
       tenant = await prisma.tenant.update({
-        where: { id: tenant.id },
+        where: { id: cashmindTenant.id },
         data: { slug: 'seuresultado' },
       })
-      console.log('Tenant slug corrigido para: seuresultado')
+      console.log('Tenant slug migrado: cashmind → seuresultado')
     } else {
-      console.log('Tenant já existe:', tenant.slug)
+      tenant = await prisma.tenant.create({
+        data: { name: 'CashMind', slug: 'seuresultado', plan: 'FREE', isActive: true },
+      })
+      console.log('Tenant criado:', tenant.slug)
     }
+  } else {
+    console.log('Tenant já existe:', tenant.slug)
   }
 
   const tenantId = tenant.id
