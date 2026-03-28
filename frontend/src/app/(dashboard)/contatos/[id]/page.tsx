@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Contact, Task, Activity as ActivityType, Tag } from '@/types'
+import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import type { Contact, Task, Activity as ActivityType } from '@/types'
 import { formatDate, formatDateTime, formatCurrency, getInitials, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -38,7 +39,6 @@ interface ContactDetail extends Contact {
   cpf?: string | null
   dateOfBirth?: string | null
   role?: string | null
-  tagAssignments?: Array<{ id: string; tag: Tag }>
 }
 
 interface ContactOpportunity {
@@ -693,25 +693,6 @@ export default function ContactProfilePage() {
               )}
             </div>
 
-            {/* Tags */}
-            {contact.tagAssignments && contact.tagAssignments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {contact.tagAssignments.map((ta) => (
-                  <Badge
-                    key={ta.id}
-                    variant="secondary"
-                    className="text-xs"
-                    style={{
-                      backgroundColor: ta.tag.color + '22',
-                      color: ta.tag.color,
-                      borderColor: ta.tag.color + '44',
-                    }}
-                  >
-                    {ta.tag.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Action Buttons */}
@@ -767,6 +748,7 @@ export default function ContactProfilePage() {
           <TabsTrigger value="tasks">Tarefas</TabsTrigger>
           <TabsTrigger value="conversations">Conversas</TabsTrigger>
           <TabsTrigger value="activities">Atividades</TabsTrigger>
+          <TabsTrigger value="campos">Campos</TabsTrigger>
         </TabsList>
 
         {/* ── Tab: Oportunidades ── */}
@@ -1027,6 +1009,11 @@ export default function ContactProfilePage() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Tab: Campos Personalizados ── */}
+        <TabsContent value="campos" className="mt-4">
+          <CustomFieldsPanel entityType="contact" entityId={contactId} />
         </TabsContent>
       </Tabs>
 
