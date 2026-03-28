@@ -248,7 +248,7 @@ export default function FunisConfigPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PREDEFINED_TYPES.map((t) => (
+                    {PREDEFINED_PIPELINE_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
