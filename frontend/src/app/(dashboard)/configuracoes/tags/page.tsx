@@ -79,6 +79,9 @@ export default function TagsPage() {
         setTags((prev) => [...prev, created])
       }
       setOpen(false)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert('Erro ao salvar: ' + msg)
     } finally {
       setSaving(false)
     }

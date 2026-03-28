@@ -121,6 +121,9 @@ export default function CamposPage() {
         setGroups((prev) => [...prev, { ...created, customFields: [] }])
       }
       setGroupOpen(false)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert('Erro ao salvar grupo: ' + msg)
     } finally {
       setSavingGroup(false)
     }
@@ -193,6 +196,9 @@ export default function CamposPage() {
         ))
       }
       setFieldOpen(false)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert('Erro ao salvar campo: ' + msg)
     } finally {
       setSavingField(false)
     }

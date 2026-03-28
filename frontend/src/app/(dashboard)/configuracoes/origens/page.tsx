@@ -181,6 +181,9 @@ export default function OrigensPage() {
         setOrigins((prev) => [...prev, { ...created, children: [] }])
       }
       setOpen(false)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert('Erro ao salvar: ' + msg)
     } finally {
       setSaving(false)
     }
