@@ -31,13 +31,15 @@ import {
   CheckSquare, Phone, Mail, Users, Calendar, FileText,
   Plus, Loader2, CheckCircle2, Circle, Filter, List, Columns,
   MoreVertical, Pencil, Clock, Copy, Trash2, X, ExternalLink,
-  AlertCircle, RefreshCw,
+  AlertCircle, RefreshCw, Settings2,
 } from 'lucide-react'
 import { cn, formatDateTime, formatDate, getInitials } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useFieldConfig } from '@/hooks/useFieldConfig'
+import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
 // ── Task type maps ──
@@ -254,7 +256,10 @@ interface TaskFormModalProps {
 function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultTaskForm, ...initialData })
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
+  const [adminMode, setAdminMode] = useState(false)
   const { user } = useAuth()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const queryClient = useQueryClient()
   const fieldConfig = useFieldConfig()
 
@@ -341,66 +346,87 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
   }, [])
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setAdminMode(false); onClose() } }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between pr-8">
           <DialogTitle>{isEdit ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
+          {isAdmin && (
+            <Button type="button" variant={adminMode ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+              onClick={() => setAdminMode(v => !v)}>
+              <Settings2 className="h-3.5 w-3.5" />
+              {adminMode ? 'Sair' : 'Personalizar'}
+            </Button>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label>Título {fieldConfig.isRequired('task', 'title', true) && <span className="text-red-500">*</span>}</Label>
-            <Input
-              placeholder="Ex: Ligar para o cliente"
-              required={fieldConfig.isRequired('task', 'title', true)}
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            />
-          </div>
+          <FieldWrapper entityType="task" slug="title" defaultRequired={true} adminMode={adminMode}>
+            <div className="space-y-1.5">
+              <Label>Título {fieldConfig.isRequired('task', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+              <Input
+                placeholder="Ex: Ligar para o cliente"
+                required={fieldConfig.isRequired('task', 'title', true)}
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+          </FieldWrapper>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo {fieldConfig.isRequired('task', 'type', true) && <span className="text-red-500">*</span>}</Label>
-              <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(taskTypeLabels).map(([val, lbl]) => (
-                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div>
+              <FieldWrapper entityType="task" slug="type" defaultRequired={true} adminMode={adminMode}>
+                <div className="space-y-1.5">
+                  <Label>Tipo {fieldConfig.isRequired('task', 'type', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                  <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(taskTypeLabels).map(([val, lbl]) => (
+                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FieldWrapper>
             </div>
-            <div className="space-y-1.5">
-              <Label>Prioridade {fieldConfig.isRequired('task', 'priority', false) && <span className="text-red-500">*</span>}</Label>
-              <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(priorityLabels).map(([val, lbl]) => (
-                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div>
+              <FieldWrapper entityType="task" slug="priority" defaultRequired={false} adminMode={adminMode}>
+                <div className="space-y-1.5">
+                  <Label>Prioridade {fieldConfig.isRequired('task', 'priority', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                  <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(priorityLabels).map(([val, lbl]) => (
+                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FieldWrapper>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Vencimento {fieldConfig.isRequired('task', 'dueDate', false) && <span className="text-red-500">*</span>}</Label>
-            <Input
-              type="datetime-local"
-              required={fieldConfig.isRequired('task', 'dueDate', false)}
-              value={form.dueDate}
-              onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-            />
-          </div>
+          <FieldWrapper entityType="task" slug="dueDate" defaultRequired={false} adminMode={adminMode}>
+            <div className="space-y-1.5">
+              <Label>Vencimento {fieldConfig.isRequired('task', 'dueDate', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+              <Input
+                type="datetime-local"
+                required={fieldConfig.isRequired('task', 'dueDate', false)}
+                value={form.dueDate}
+                onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
+            </div>
+          </FieldWrapper>
           {users.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Responsável {fieldConfig.isRequired('task', 'assignedTo', false) && <span className="text-red-500">*</span>}</Label>
-              <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <FieldWrapper entityType="task" slug="assignedTo" defaultRequired={false} adminMode={adminMode}>
+              <div className="space-y-1.5">
+                <Label>Responsável {fieldConfig.isRequired('task', 'assignedTo', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </FieldWrapper>
           )}
           <div className="space-y-1.5">
             <Label>Vincular a oportunidade</Label>
@@ -461,17 +487,19 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               onClear={() => setForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>Descrição {fieldConfig.isRequired('task', 'description', false) && <span className="text-red-500">*</span>}</Label>
-            <Textarea
-              rows={3}
-              placeholder="Descrição opcional..."
-              required={fieldConfig.isRequired('task', 'description', false)}
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="resize-none"
-            />
-          </div>
+          <FieldWrapper entityType="task" slug="description" defaultRequired={false} adminMode={adminMode}>
+            <div className="space-y-1.5">
+              <Label>Descrição {fieldConfig.isRequired('task', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+              <Textarea
+                rows={3}
+                placeholder="Descrição opcional..."
+                required={fieldConfig.isRequired('task', 'description', false)}
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="resize-none"
+              />
+            </div>
+          </FieldWrapper>
           {/* Campos personalizados */}
           <div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
@@ -480,6 +508,8 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               entityId={isEdit ? taskId : undefined}
               values={isEdit ? undefined : cfValues}
               onChange={isEdit ? undefined : (id, v) => setCfValues((p) => ({ ...p, [id]: v }))}
+              adminMode={adminMode}
+              onAdminModeChange={setAdminMode}
             />
           </div>
 

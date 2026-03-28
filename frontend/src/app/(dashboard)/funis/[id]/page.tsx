@@ -13,12 +13,14 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   Settings, Plus, Loader2, Trash2, X, RotateCcw, Columns, List,
-  ChevronDown, Search, GitBranch, Trophy, XCircle, Building2,
+  ChevronDown, Search, GitBranch, Trophy, XCircle, Building2, Settings2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useFieldConfig } from '@/hooks/useFieldConfig'
+import { useAuthStore } from '@/stores/authStore'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -57,8 +59,11 @@ export default function PipelineKanbanPage() {
     companyId: '', companyLabel: '',
   })
   const [cfOppValues, setCfOppValues] = useState<Record<string, unknown>>({})
+  const [adminModeOpp, setAdminModeOpp] = useState(false)
   const [contactSearch, setContactSearch] = useState('')
   const fieldConfig = useFieldConfig()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const [companySearch, setCompanySearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
@@ -452,37 +457,51 @@ export default function PipelineKanbanPage() {
       </Sheet>
 
       {/* ── DIALOG: NOVA OPORTUNIDADE ── */}
-      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setContactSearch(''); setCompanySearch(''); setCfOppValues({}) } }}>
+      <Dialog open={oppModalOpen} onOpenChange={(open) => { setOppModalOpen(open); if (!open) { setContactSearch(''); setCompanySearch(''); setCfOppValues({}); setAdminModeOpp(false) } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Oportunidade</DialogTitle></DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
+            <DialogTitle>Nova Oportunidade</DialogTitle>
+            {isAdmin && (
+              <Button type="button" variant={adminModeOpp ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+                onClick={() => setAdminModeOpp(v => !v)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                {adminModeOpp ? 'Sair' : 'Personalizar'}
+              </Button>
+            )}
+          </DialogHeader>
           <form onSubmit={handleOppSubmit} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500">*</span>}</Label>
-              <Input
-                placeholder="Ex: Contrato Empresa XYZ"
-                required={fieldConfig.isRequired('opportunity', 'title', true)}
-                value={oppForm.title}
-                onChange={(e) => setOppForm((f) => ({ ...f, title: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500">*</span>}</Label>
-              <Select value={oppForm.stageId} onValueChange={(v) => setOppForm((f) => ({ ...f, stageId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecionar etapa..." /></SelectTrigger>
-                <SelectContent>
-                  {pipeline.stages.sort((a, b) => a.sortOrder - b.sortOrder).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} />
-                        {s.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Contato {fieldConfig.isRequired('opportunity', 'contact', false) && <span className="text-red-500">*</span>}</Label>
+            <FieldWrapper entityType="opportunity" slug="title" defaultRequired={true} adminMode={adminModeOpp}>
+              <div className="space-y-1.5">
+                <Label>Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <Input
+                  placeholder="Ex: Contrato Empresa XYZ"
+                  required={fieldConfig.isRequired('opportunity', 'title', true)}
+                  value={oppForm.title}
+                  onChange={(e) => setOppForm((f) => ({ ...f, title: e.target.value }))}
+                />
+              </div>
+            </FieldWrapper>
+            <FieldWrapper entityType="opportunity" slug="stage" defaultRequired={true} adminMode={adminModeOpp}>
+              <div className="space-y-1.5">
+                <Label>Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <Select value={oppForm.stageId} onValueChange={(v) => setOppForm((f) => ({ ...f, stageId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar etapa..." /></SelectTrigger>
+                  <SelectContent>
+                    {pipeline.stages.sort((a, b) => a.sortOrder - b.sortOrder).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} />
+                          {s.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </FieldWrapper>
+            <FieldWrapper entityType="opportunity" slug="contact" defaultRequired={false} adminMode={adminModeOpp}>
+              <div className="space-y-1.5">
+              <Label>Contato {fieldConfig.isRequired('opportunity', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
               <div className="space-y-2">
                 <Input
                   placeholder="Buscar contato por nome ou telefone..."
@@ -515,61 +534,74 @@ export default function PipelineKanbanPage() {
                   </div>
                 )}
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Empresa {fieldConfig.isRequired('opportunity', 'company', false) && <span className="text-red-500">*</span>}</Label>
-              {oppForm.companyId ? (
-                <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="flex-1 font-medium">{oppForm.companyLabel}</span>
-                  <button type="button" onClick={() => setOppForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}><X className="h-3.5 w-3.5" /></button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <Input
-                    placeholder="Buscar empresa..."
-                    value={companySearch}
-                    onChange={(e) => setCompanySearch(e.target.value)}
-                  />
-                  {(companiesData?.data?.length ?? 0) > 0 && companySearch && (
-                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
-                      {companiesData!.data.map((c) => (
-                        <button key={c.id} type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                          onMouseDown={() => { setOppForm((f) => ({ ...f, companyId: c.id, companyLabel: c.name })); setCompanySearch('') }}>
-                          {c.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              </div>
+            </FieldWrapper>
+            <FieldWrapper entityType="opportunity" slug="company" defaultRequired={false} adminMode={adminModeOpp}>
+              <div className="space-y-1.5">
+                <Label>Empresa {fieldConfig.isRequired('opportunity', 'company', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                {oppForm.companyId ? (
+                  <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex-1 font-medium">{oppForm.companyLabel}</span>
+                    <button type="button" onClick={() => setOppForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Buscar empresa..."
+                      value={companySearch}
+                      onChange={(e) => setCompanySearch(e.target.value)}
+                    />
+                    {(companiesData?.data?.length ?? 0) > 0 && companySearch && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                        {companiesData!.data.map((c) => (
+                          <button key={c.id} type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                            onMouseDown={() => { setOppForm((f) => ({ ...f, companyId: c.id, companyLabel: c.name })); setCompanySearch('') }}>
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </FieldWrapper>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500">*</span>}</Label>
-                <Input type="number" min="0" step="0.01" placeholder="0,00"
-                  required={fieldConfig.isRequired('opportunity', 'value', false)}
-                  value={oppForm.value}
-                  onChange={(e) => setOppForm((f) => ({ ...f, value: e.target.value }))}
-                />
+              <div>
+                <FieldWrapper entityType="opportunity" slug="value" defaultRequired={false} adminMode={adminModeOpp}>
+                  <div className="space-y-1.5">
+                    <Label>Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                    <Input type="number" min="0" step="0.01" placeholder="0,00"
+                      required={fieldConfig.isRequired('opportunity', 'value', false)}
+                      value={oppForm.value}
+                      onChange={(e) => setOppForm((f) => ({ ...f, value: e.target.value }))}
+                    />
+                  </div>
+                </FieldWrapper>
               </div>
-              <div className="space-y-1.5">
-                <Label>Previsão de fechamento {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500">*</span>}</Label>
-                <Input type="date"
-                  required={fieldConfig.isRequired('opportunity', 'closeDate', false)}
-                  value={oppForm.expectedCloseDate}
-                  onChange={(e) => setOppForm((f) => ({ ...f, expectedCloseDate: e.target.value }))}
-                />
+              <div>
+                <FieldWrapper entityType="opportunity" slug="closeDate" defaultRequired={false} adminMode={adminModeOpp}>
+                  <div className="space-y-1.5">
+                    <Label>Previsão de fechamento {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                    <Input type="date"
+                      required={fieldConfig.isRequired('opportunity', 'closeDate', false)}
+                      value={oppForm.expectedCloseDate}
+                      onChange={(e) => setOppForm((f) => ({ ...f, expectedCloseDate: e.target.value }))}
+                    />
+                  </div>
+                </FieldWrapper>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500">*</span>}</Label>
-              <textarea rows={2} placeholder="Observações..." value={oppForm.notes}
-                onChange={(e) => setOppForm((f) => ({ ...f, notes: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
-            </div>
+            <FieldWrapper entityType="opportunity" slug="description" defaultRequired={false} adminMode={adminModeOpp}>
+              <div className="space-y-1.5">
+                <Label>Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <textarea rows={2} placeholder="Observações..." value={oppForm.notes}
+                  onChange={(e) => setOppForm((f) => ({ ...f, notes: e.target.value }))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                />
+              </div>
+            </FieldWrapper>
             {/* Campos personalizados */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
@@ -577,6 +609,8 @@ export default function PipelineKanbanPage() {
                 entityType="opportunity"
                 values={cfOppValues}
                 onChange={(id2, v) => setCfOppValues((p) => ({ ...p, [id2]: v }))}
+                adminMode={adminModeOpp}
+                onAdminModeChange={setAdminModeOpp}
               />
             </div>
 

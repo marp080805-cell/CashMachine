@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink, GitBranch } from 'lucide-react'
+import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink, GitBranch, Settings2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -16,7 +16,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useFieldConfig } from '@/hooks/useFieldConfig'
+import { useAuthStore } from '@/stores/authStore'
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
 
@@ -217,8 +219,11 @@ export default function ContatosPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<ContactForm>(defaultForm)
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
+  const [adminMode, setAdminMode] = useState(false)
   const queryClient = useQueryClient()
   const fieldConfig = useFieldConfig()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', page, search],
@@ -357,10 +362,17 @@ export default function ContatosPage() {
         emptyMessage="Nenhum contato encontrado"
       />
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfValues({}) } }}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfValues({}); setAdminMode(false) } }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Novo Contato</DialogTitle>
+            {isAdmin && (
+              <Button type="button" variant={adminMode ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+                onClick={() => setAdminMode(v => !v)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                {adminMode ? 'Sair' : 'Personalizar'}
+              </Button>
+            )}
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6 py-2">
 
@@ -368,37 +380,63 @@ export default function ContatosPage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Nome {fieldConfig.isRequired('contact', 'name', true) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="Nome completo" required={fieldConfig.isRequired('contact', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="name" defaultRequired={true} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Nome {fieldConfig.isRequired('contact', 'name', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="Nome completo" required={fieldConfig.isRequired('contact', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>CPF {fieldConfig.isRequired('contact', 'cpf', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="000.000.000-00" required={fieldConfig.isRequired('contact', 'cpf', false)} value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="cpf" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>CPF {fieldConfig.isRequired('contact', 'cpf', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="000.000.000-00" required={fieldConfig.isRequired('contact', 'cpf', false)} value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Nacionalidade</Label>
-                  <Input placeholder="Ex: Brasileira" value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} />
+                <div>
+                  <div className="space-y-1.5">
+                    <Label>Nacionalidade</Label>
+                    <Input placeholder="Ex: Brasileira" value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Empresa {fieldConfig.isRequired('contact', 'company', false) && <span className="text-red-500">*</span>}</Label>
-                  <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="company" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Empresa {fieldConfig.isRequired('contact', 'company', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Cargo {fieldConfig.isRequired('contact', 'jobTitle', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="Ex: Diretor Comercial" required={fieldConfig.isRequired('contact', 'jobTitle', false)} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="jobTitle" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Cargo {fieldConfig.isRequired('contact', 'jobTitle', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="Ex: Diretor Comercial" required={fieldConfig.isRequired('contact', 'jobTitle', false)} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Categoria</Label>
-                  <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                <div>
+                  <div className="space-y-1.5">
+                    <Label>Categoria</Label>
+                    <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Aniversário {fieldConfig.isRequired('contact', 'dateOfBirth', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input type="date" required={fieldConfig.isRequired('contact', 'dateOfBirth', false)} value={form.birthday} onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="dateOfBirth" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Aniversário {fieldConfig.isRequired('contact', 'dateOfBirth', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input type="date" required={fieldConfig.isRequired('contact', 'dateOfBirth', false)} value={form.birthday} onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Site</Label>
-                  <Input placeholder="https://..." value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                <div>
+                  <div className="space-y-1.5">
+                    <Label>Site</Label>
+                    <Input placeholder="https://..." value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                  </div>
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label>Origem / Canal</Label>
@@ -415,13 +453,21 @@ export default function ContatosPage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Informações para contato</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>E-mail {fieldConfig.isRequired('contact', 'email', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input type="email" placeholder="email@exemplo.com" required={fieldConfig.isRequired('contact', 'email', false)} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="email" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>E-mail {fieldConfig.isRequired('contact', 'email', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input type="email" placeholder="email@exemplo.com" required={fieldConfig.isRequired('contact', 'email', false)} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone {fieldConfig.isRequired('contact', 'phone', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="(11) 99999-9999" required={fieldConfig.isRequired('contact', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="phone" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Telefone {fieldConfig.isRequired('contact', 'phone', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="(11) 99999-9999" required={fieldConfig.isRequired('contact', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
               </div>
             </div>
@@ -506,6 +552,8 @@ export default function ContatosPage() {
                 entityType="contact"
                 values={cfValues}
                 onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))}
+                adminMode={adminMode}
+                onAdminModeChange={setAdminMode}
               />
             </div>
 

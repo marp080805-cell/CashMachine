@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch, Settings2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -19,7 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useFieldConfig } from '@/hooks/useFieldConfig'
+import { useAuthStore } from '@/stores/authStore'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
 
@@ -224,9 +226,12 @@ export default function EmpresasPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<CompanyForm>(defaultForm)
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
+  const [adminMode, setAdminMode] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const queryClient = useQueryClient()
   const fieldConfig = useFieldConfig()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   const { data: companyContacts } = useQuery({
     queryKey: ['company-contacts', selectedCompany?.id],
@@ -436,10 +441,17 @@ export default function EmpresasPage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfCreateValues({}) } }}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfCreateValues({}); setAdminMode(false) } }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Nova Empresa</DialogTitle>
+            {isAdmin && (
+              <Button type="button" variant={adminMode ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+                onClick={() => setAdminMode(v => !v)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                {adminMode ? 'Sair' : 'Personalizar'}
+              </Button>
+            )}
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6 py-2">
 
@@ -447,29 +459,49 @@ export default function EmpresasPage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Nome {fieldConfig.isRequired('company', 'name', true) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="Nome da empresa" required={fieldConfig.isRequired('company', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                <div className="col-span-2">
+                  <FieldWrapper entityType="company" slug="name" defaultRequired={true} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Nome {fieldConfig.isRequired('company', 'name', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="Nome da empresa" required={fieldConfig.isRequired('company', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Razão Social</Label>
-                  <Input placeholder="Razão social" value={form.legalName} onChange={(e) => setForm((f) => ({ ...f, legalName: e.target.value }))} />
+                <div className="col-span-2">
+                  <div className="space-y-1.5">
+                    <Label>Razão Social</Label>
+                    <Input placeholder="Razão social" value={form.legalName} onChange={(e) => setForm((f) => ({ ...f, legalName: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>CNPJ {fieldConfig.isRequired('company', 'cnpj', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="00.000.000/0001-00" required={fieldConfig.isRequired('company', 'cnpj', false)} value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="company" slug="cnpj" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>CNPJ {fieldConfig.isRequired('company', 'cnpj', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="00.000.000/0001-00" required={fieldConfig.isRequired('company', 'cnpj', false)} value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Categoria</Label>
-                  <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                <div>
+                  <div className="space-y-1.5">
+                    <Label>Categoria</Label>
+                    <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Setor {fieldConfig.isRequired('company', 'segment', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="Ex: Tecnologia, Saúde..." required={fieldConfig.isRequired('company', 'segment', false)} value={form.segment} onChange={(e) => setForm((f) => ({ ...f, segment: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="company" slug="segment" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Setor {fieldConfig.isRequired('company', 'segment', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="Ex: Tecnologia, Saúde..." required={fieldConfig.isRequired('company', 'segment', false)} value={form.segment} onChange={(e) => setForm((f) => ({ ...f, segment: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Website {fieldConfig.isRequired('company', 'website', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="https://empresa.com.br" required={fieldConfig.isRequired('company', 'website', false)} value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="company" slug="website" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Website {fieldConfig.isRequired('company', 'website', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="https://empresa.com.br" required={fieldConfig.isRequired('company', 'website', false)} value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label>Origem / Canal</Label>
@@ -486,13 +518,19 @@ export default function EmpresasPage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Informações para contato</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>E-mail</Label>
-                  <Input type="email" placeholder="contato@empresa.com.br" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+                <div>
+                  <div className="space-y-1.5">
+                    <Label>E-mail</Label>
+                    <Input type="email" placeholder="contato@empresa.com.br" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone {fieldConfig.isRequired('company', 'phone', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="(11) 3333-3333" required={fieldConfig.isRequired('company', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="company" slug="phone" defaultRequired={false} adminMode={adminMode}>
+                    <div className="space-y-1.5">
+                      <Label>Telefone {fieldConfig.isRequired('company', 'phone', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input placeholder="(11) 3333-3333" required={fieldConfig.isRequired('company', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
               </div>
             </div>
@@ -581,6 +619,8 @@ export default function EmpresasPage() {
                 entityType="company"
                 values={cfCreateValues}
                 onChange={(id, v) => setCfCreateValues((p) => ({ ...p, [id]: v }))}
+                adminMode={adminMode}
+                onAdminModeChange={setAdminMode}
               />
             </div>
 

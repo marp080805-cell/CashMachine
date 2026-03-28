@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, X, Loader2, Filter, Zap, Pencil } from 'lucide-react'
+import { Plus, Search, X, Loader2, Filter, Zap, Pencil, Settings2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -19,7 +19,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useFieldConfig } from '@/hooks/useFieldConfig'
+import { useAuthStore } from '@/stores/authStore'
 
 // ── Status config ──
 
@@ -105,9 +107,13 @@ export default function LeadsPage() {
   const [editContactSearch, setEditContactSearch] = useState('')
 
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
+  const [adminModeCreate, setAdminModeCreate] = useState(false)
+  const [adminModeEdit, setAdminModeEdit] = useState(false)
 
   const queryClient = useQueryClient()
   const fieldConfig = useFieldConfig()
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   // Leads query
   const { data, isLoading } = useQuery({
@@ -439,89 +445,108 @@ export default function LeadsPage() {
       />
 
       {/* Create Lead Modal */}
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setForm(defaultLeadForm); setContactSearch(''); setCfCreateValues({}) } }}>
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setForm(defaultLeadForm); setContactSearch(''); setCfCreateValues({}); setAdminModeCreate(false) } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Novo Lead</DialogTitle>
+            {isAdmin && (
+              <Button type="button" variant={adminModeCreate ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+                onClick={() => setAdminModeCreate(v => !v)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                {adminModeCreate ? 'Sair' : 'Personalizar'}
+              </Button>
+            )}
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Contato {fieldConfig.isRequired('lead', 'contact', false) && <span className="text-red-500">*</span>}</Label>
-              <div className="space-y-2">
-                <Input
-                  placeholder="Buscar contato por nome ou telefone..."
-                  value={contactSearch}
-                  onChange={(e) => setContactSearch(e.target.value)}
-                />
-                {selectedContact && (
-                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">{selectedContact.name}</p>
-                      {selectedContact.phone && <p className="text-xs text-muted-foreground">{selectedContact.phone}</p>}
-                      {(selectedContact as Contact & { company?: { name: string } }).company?.name && (
-                        <p className="text-xs text-muted-foreground">🏢 {(selectedContact as Contact & { company?: { name: string } }).company!.name}</p>
+            <FieldWrapper entityType="lead" slug="contact" defaultRequired={false} adminMode={adminModeCreate}>
+              <div className="space-y-1.5">
+                <Label>Contato {fieldConfig.isRequired('lead', 'contact', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Buscar contato por nome ou telefone..."
+                    value={contactSearch}
+                    onChange={(e) => setContactSearch(e.target.value)}
+                  />
+                  {selectedContact && (
+                    <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{selectedContact.name}</p>
+                        {selectedContact.phone && <p className="text-xs text-muted-foreground">{selectedContact.phone}</p>}
+                        {(selectedContact as Contact & { company?: { name: string } }).company?.name && (
+                          <p className="text-xs text-muted-foreground">🏢 {(selectedContact as Contact & { company?: { name: string } }).company!.name}</p>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: '' }))}>
+                        <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    </div>
+                  )}
+                  {contactSearch && !form.contactId && (
+                    <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                      {(contactsData?.data ?? []).map((contact) => (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                          onClick={() => { setForm((f) => ({ ...f, contactId: contact.id })); setContactSearch('') }}
+                        >
+                          <span className="font-medium">{contact.name}</span>
+                          {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
+                        </button>
+                      ))}
+                      {(contactsData?.data ?? []).length === 0 && (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
                       )}
                     </div>
-                    <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: '' }))}>
-                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </div>
-                )}
-                {contactSearch && !form.contactId && (
-                  <div className="rounded border divide-y max-h-36 overflow-y-auto">
-                    {(contactsData?.data ?? []).map((contact) => (
-                      <button
-                        key={contact.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                        onClick={() => { setForm((f) => ({ ...f, contactId: contact.id })); setContactSearch('') }}
-                      >
-                        <span className="font-medium">{contact.name}</span>
-                        {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}
-                      </button>
-                    ))}
-                    {(contactsData?.data ?? []).length === 0 && (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            </FieldWrapper>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500">*</span>}</Label>
-                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(statusLabels).map(([val, lbl]) => (
-                      <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div>
+                <FieldWrapper entityType="lead" slug="status" defaultRequired={true} adminMode={adminModeCreate}>
+                  <div className="space-y-1.5">
+                    <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                    <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(statusLabels).map(([val, lbl]) => (
+                          <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </FieldWrapper>
               </div>
-              <div className="space-y-1.5">
-                <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500">*</span>}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  required={fieldConfig.isRequired('lead', 'score', false)}
-                  value={form.score}
-                  onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))}
-                />
+              <div>
+                <FieldWrapper entityType="lead" slug="score" defaultRequired={false} adminMode={adminModeCreate}>
+                  <div className="space-y-1.5">
+                    <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      required={fieldConfig.isRequired('lead', 'score', false)}
+                      value={form.score}
+                      onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))}
+                    />
+                  </div>
+                </FieldWrapper>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500">*</span>}</Label>
-              <Input
-                placeholder="Ex: Google Ads, Indicação..."
-                required={fieldConfig.isRequired('lead', 'source', false)}
-                value={form.source}
-                onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
-              />
-            </div>
+            <FieldWrapper entityType="lead" slug="source" defaultRequired={false} adminMode={adminModeCreate}>
+              <div className="space-y-1.5">
+                <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                <Input
+                  placeholder="Ex: Google Ads, Indicação..."
+                  required={fieldConfig.isRequired('lead', 'source', false)}
+                  value={form.source}
+                  onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+                />
+              </div>
+            </FieldWrapper>
 
             {/* Campos personalizados */}
             <div>
@@ -530,6 +555,8 @@ export default function LeadsPage() {
                 entityType="lead"
                 values={cfCreateValues}
                 onChange={(id, v) => setCfCreateValues((p) => ({ ...p, [id]: v }))}
+                adminMode={adminModeCreate}
+                onAdminModeChange={setAdminModeCreate}
               />
             </div>
 
@@ -549,10 +576,17 @@ export default function LeadsPage() {
       </Dialog>
 
       {/* Edit Lead Modal */}
-      <Dialog open={!!editLead} onOpenChange={(open) => { if (!open) { setEditLead(null); setEditContactSearch('') } }}>
+      <Dialog open={!!editLead} onOpenChange={(open) => { if (!open) { setEditLead(null); setEditContactSearch(''); setAdminModeEdit(false) } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Editar Lead</DialogTitle>
+            {isAdmin && (
+              <Button type="button" variant={adminModeEdit ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+                onClick={() => setAdminModeEdit(v => !v)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                {adminModeEdit ? 'Sair' : 'Personalizar'}
+              </Button>
+            )}
           </DialogHeader>
           {editLead && (
             <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
@@ -600,39 +634,49 @@ export default function LeadsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500">*</span>}</Label>
-                  <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(statusLabels).map(([val, lbl]) => (
-                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div>
+                  <FieldWrapper entityType="lead" slug="status" defaultRequired={true} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(statusLabels).map(([val, lbl]) => (
+                            <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500">*</span>}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    required={fieldConfig.isRequired('lead', 'score', false)}
-                    value={editForm.score}
-                    onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))}
-                  />
+                <div>
+                  <FieldWrapper entityType="lead" slug="score" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        required={fieldConfig.isRequired('lead', 'score', false)}
+                        value={editForm.score}
+                        onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))}
+                      />
+                    </div>
+                  </FieldWrapper>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500">*</span>}</Label>
-                <Input
-                  placeholder="Ex: Google Ads, Indicação..."
-                  required={fieldConfig.isRequired('lead', 'source', false)}
-                  value={editForm.source}
-                  onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
-                />
-              </div>
+              <FieldWrapper entityType="lead" slug="source" defaultRequired={false} adminMode={adminModeEdit}>
+                <div className="space-y-1.5">
+                  <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                  <Input
+                    placeholder="Ex: Google Ads, Indicação..."
+                    required={fieldConfig.isRequired('lead', 'source', false)}
+                    value={editForm.source}
+                    onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
+                  />
+                </div>
+              </FieldWrapper>
 
               {/* Campos personalizados */}
               <div>
@@ -640,6 +684,8 @@ export default function LeadsPage() {
                 <CustomFieldsPanel
                   entityType="lead"
                   entityId={editLead.id}
+                  adminMode={adminModeEdit}
+                  onAdminModeChange={setAdminModeEdit}
                 />
               </div>
 
