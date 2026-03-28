@@ -357,6 +357,24 @@ export default function PipelineKanbanPage() {
         />
       )}
 
+      {/* ── RODAPÉ: PERDIDAS / GANHAS ── */}
+      <div className="border-t bg-muted/30 px-4 py-2 flex items-center gap-4">
+        <button
+          onClick={() => { setClosedTab('lost'); setClosedOpen(true) }}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-red-600 transition-colors"
+        >
+          <XCircle className="h-4 w-4 text-red-400" />
+          <span>{lostCount} perdida{lostCount !== 1 ? 's' : ''}</span>
+        </button>
+        <button
+          onClick={() => { setClosedTab('won'); setClosedOpen(true) }}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-green-600 transition-colors"
+        >
+          <Trophy className="h-4 w-4 text-green-500" />
+          <span>{wonCount} ganha{wonCount !== 1 ? 's' : ''}</span>
+        </button>
+      </div>
+
       {/* ── SHEET: FECHADOS (Perdidos + Ganhos) ── */}
       <Sheet open={closedOpen} onOpenChange={setClosedOpen}>
         <SheetContent side="right" className="w-[700px] max-w-full flex flex-col p-0">
