@@ -26,12 +26,13 @@ import {
   Video, Handshake, Tag as TagIcon, AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { Opportunity, WhatsappNumber, User, Task, CustomFieldGroup, CustomFieldValue, Activity as ActivityType, Tag } from '@/types'
+import type { Opportunity, WhatsappNumber, User, Task, Activity as ActivityType, Tag } from '@/types'
 import { api } from '@/lib/api'
 import { formatCurrency, formatDate, formatDateTime, getInitials, cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { ChatWindow } from '@/components/whatsapp/ChatWindow'
+import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 
 interface OpportunitySheetProps {
   opportunity: Opportunity | null
@@ -212,9 +213,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [newConvChannel, setNewConvChannel] = useState('WHATSAPP')
 
-  // Custom fields editing state
-  const [cfEditing, setCfEditing] = useState<Record<string, string>>({})
-
   // Handoff state
   const [handoffCloserId, setHandoffCloserId] = useState('')
   const [handoffBriefing, setHandoffBriefing] = useState('')
@@ -247,19 +245,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
         `/whatsapp/conversations?contactId=${opportunity!.contactId}&limit=1`
       ),
     enabled: !!opportunity?.contactId,
-  })
-
-  // Custom fields (tab: custom-fields)
-  const { data: cfGroupsData, isLoading: cfLoading } = useQuery({
-    queryKey: ['custom-fields-groups', 'opportunity'],
-    queryFn: () => api.get<CustomFieldGroup[]>('/custom-fields?entityType=opportunity'),
-    enabled: activeTab === 'custom-fields',
-  })
-
-  const { data: cfValuesData } = useQuery({
-    queryKey: ['custom-field-values', opportunity?.id],
-    queryFn: () => api.get<CustomFieldValue[]>(`/opportunities/${opportunity!.id}/custom-field-values`),
-    enabled: activeTab === 'custom-fields' && !!opportunity?.id,
   })
 
   // Tasks tab
@@ -452,25 +437,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     onError: () => toast.error('Erro ao criar conversa'),
   })
 
-  const saveCfMutation = useMutation({
-    mutationFn: ({ fieldId, value, existingId }: { fieldId: string; value: string; existingId?: string }) => {
-      if (existingId) {
-        return api.put<CustomFieldValue>(`/custom-field-values/${existingId}`, { value })
-      }
-      return api.post<CustomFieldValue>('/custom-field-values', {
-        customFieldId: fieldId,
-        entityType: 'opportunity',
-        entityId: opportunity!.id,
-        value,
-      })
-    },
-    onSuccess: () => {
-      toast.success('Campo salvo!')
-      void queryClient.invalidateQueries({ queryKey: ['custom-field-values', opportunity!.id] })
-    },
-    onError: () => toast.error('Erro ao salvar campo'),
-  })
-
   // Handoff mutation
   const handoffMutation = useMutation({
     mutationFn: ({ closerId, briefing }: { closerId: string; briefing: string }) =>
@@ -536,8 +502,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const effectiveNumberId = selectedNumberId || numbers[0]?.id || ''
   const tasks = oppDetail?.tasks ?? []
   const tabTasks = tasksTabData ?? []
-  const cfGroups = cfGroupsData ?? []
-  const cfValues = cfValuesData ?? []
   const meetings = meetingsData?.meetings ?? []
   const conversations = conversationsData?.conversations ?? []
   const timeline = timelineData ?? []
@@ -614,16 +578,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       opportunityId: opportunity!.id,
       ...(opportunity!.contactId ? { contactId: opportunity!.contactId } : {}),
     })
-  }
-
-  function getCfValue(fieldId: string): CustomFieldValue | undefined {
-    return cfValues.find((v) => v.customFieldId === fieldId)
-  }
-
-  function getCfDisplayValue(fieldId: string): string {
-    const v = getCfValue(fieldId)
-    if (!v) return ''
-    return v.valueText ?? v.valueNumber?.toString() ?? (v.valueDate ? formatDate(v.valueDate) : '') ?? ''
   }
 
   const contact = opportunity.contact
@@ -982,75 +936,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 </TabsContent>
 
                 {/* ── Tab: Campos Personalizados ── */}
-                <TabsContent value="custom-fields" className="flex-1 overflow-y-auto p-4 space-y-4 mt-0">
-                  {cfLoading ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">Carregando campos...</p>
-                  ) : cfGroups.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">Nenhum campo personalizado configurado</p>
-                  ) : (
-                    cfGroups.map((group) => (
-                      <div key={group.id} className="space-y-3">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{group.name}</p>
-                        {group.customFields.map((field) => {
-                          const existingValue = getCfValue(field.id)
-                          const displayValue = getCfDisplayValue(field.id)
-                          const editingValue = cfEditing[field.id] ?? displayValue
-
-                          return (
-                            <div key={field.id} className="space-y-1">
-                              <Label className="text-xs">{field.name}</Label>
-                              <div className="flex gap-2">
-                                {field.fieldType === 'SELECT' && field.options ? (
-                                  <Select
-                                    value={editingValue}
-                                    onValueChange={(v) => setCfEditing((s) => ({ ...s, [field.id]: v }))}
-                                  >
-                                    <SelectTrigger className="h-8 text-xs flex-1">
-                                      <SelectValue placeholder="Selecionar..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {field.options.map((opt) => (
-                                        <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                ) : field.fieldType === 'TEXTAREA' ? (
-                                  <Textarea
-                                    rows={2}
-                                    value={editingValue}
-                                    onChange={(e) => setCfEditing((s) => ({ ...s, [field.id]: e.target.value }))}
-                                    className="text-xs resize-none flex-1"
-                                  />
-                                ) : (
-                                  <Input
-                                    type={field.fieldType === 'NUMBER' || field.fieldType === 'CURRENCY' ? 'number' : field.fieldType === 'DATE' ? 'date' : 'text'}
-                                    value={editingValue}
-                                    onChange={(e) => setCfEditing((s) => ({ ...s, [field.id]: e.target.value }))}
-                                    className="h-8 text-xs flex-1"
-                                  />
-                                )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 text-xs shrink-0"
-                                  disabled={saveCfMutation.isPending}
-                                  onClick={() => {
-                                    saveCfMutation.mutate({
-                                      fieldId: field.id,
-                                      value: editingValue,
-                                      existingId: existingValue?.id,
-                                    })
-                                  }}
-                                >
-                                  <Check className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))
-                  )}
+                <TabsContent value="custom-fields" className="flex-1 overflow-y-auto p-4 mt-0">
+                  <CustomFieldsPanel entityType="opportunity" entityId={opportunity?.id} />
                 </TabsContent>
 
                 {/* ── Tab: Tarefas ── */}
