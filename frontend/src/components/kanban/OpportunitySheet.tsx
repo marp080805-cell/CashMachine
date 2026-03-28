@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -23,7 +23,7 @@ import {
   Trophy, X, Loader2, MessageSquare, Phone, ExternalLink,
   Pencil, Check, Trash2, CheckCircle2, Circle, Plus,
   Calendar, Mail, FileText, Users, Clock, Activity,
-  Video, Handshake, Tag as TagIcon, AlertTriangle, Settings2,
+  Video, Handshake, Tag as TagIcon, AlertTriangle, Settings2, GitBranch,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Opportunity, WhatsappNumber, User, Task, Activity as ActivityType, Tag } from '@/types'
@@ -36,6 +36,59 @@ import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
 
+
+interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
+
+function OriginSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, path: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data: origins = [] } = useQuery({
+    queryKey: ['origins-flat'],
+    queryFn: () => api.get<FlatOrigin[]>('/origins/flat'),
+  })
+
+  const filtered = origins.filter((o) => !q || o.path.toLowerCase().includes(q.toLowerCase()))
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <GitBranch className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="flex-1 font-medium truncate">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar origem (ex: Mídia Paga > Meta Ads)..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-52 overflow-y-auto">
+          {filtered.map((o) => (
+            <button key={o.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              style={{ paddingLeft: `${12 + o.depth * 16}px` }}
+              onMouseDown={() => { onChange(o.id, o.path); setQ(''); setOpen(false) }}>
+              <span className="text-muted-foreground text-xs">{o.depth > 0 ? '↳ ' : ''}</span>{o.name}
+              {o.depth > 0 && <span className="text-xs text-muted-foreground ml-2 truncate">{o.path}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface OpportunitySheetProps {
   opportunity: Opportunity | null
@@ -50,6 +103,8 @@ interface EditData {
   notes: string
   stageId: string
   assignedToId: string
+  originId: string
+  originLabel: string
 }
 
 interface OppMeeting {
@@ -188,7 +243,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<EditData>({
-    title: '', value: '', expectedCloseDate: '', notes: '', stageId: '', assignedToId: '',
+    title: '', value: '', expectedCloseDate: '', notes: '', stageId: '', assignedToId: '', originId: '', originLabel: '',
   })
 
   const [activityType, setActivityType] = useState('NOTE')
@@ -533,13 +588,16 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const timeline = timelineData ?? []
 
   function openEdit() {
+    const opp = oppDetail ?? opportunity!
     setEditData({
-      title: opportunity!.title,
-      value: opportunity!.value !== null ? String(opportunity!.value) : '',
-      expectedCloseDate: opportunity!.expectedCloseDate ? opportunity!.expectedCloseDate.slice(0, 10) : '',
-      notes: opportunity!.notes ?? '',
-      stageId: opportunity!.stageId,
-      assignedToId: opportunity!.assignedToId,
+      title: opp.title,
+      value: opp.value !== null ? String(opp.value) : '',
+      expectedCloseDate: opp.expectedCloseDate ? opp.expectedCloseDate.slice(0, 10) : '',
+      notes: opp.notes ?? '',
+      stageId: opp.stageId,
+      assignedToId: opp.assignedToId,
+      originId: opp.originId ?? '',
+      originLabel: opp.origin?.name ?? '',
     })
     setIsEditing(true)
   }
@@ -553,6 +611,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       notes: editData.notes,
       stageId: editData.stageId,
       assignedToId: editData.assignedToId,
+      originId: editData.originId || null,
     })
   }
 
@@ -806,6 +865,13 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           )}
                         </FieldWrapper>
                       </div>
+                      <FieldWrapper entityType="opportunity" slug="origin" label="Origem / Canal" adminMode={adminMode}>
+                        <OriginSearch
+                          value={editData.originId}
+                          label={editData.originLabel}
+                          onChange={(id, path) => setEditData((d) => ({ ...d, originId: id, originLabel: path }))}
+                        />
+                      </FieldWrapper>
                       <FieldWrapper entityType="opportunity" slug="description" label="Notas" placeholder="Observações..." adminMode={adminMode}>
                         <Textarea
                           rows={3}
@@ -827,103 +893,85 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        {contact && (
-                          <div className="col-span-2">
-                            <p className="text-xs text-muted-foreground mb-1">Contato</p>
-                            <Link
-                              href={`/contatos/${opportunity.contactId}`}
-                              className="text-sm font-medium hover:underline text-primary"
-                            >
-                              {contact.name}
-                            </Link>
-                            {contact.email && (
-                              <p className="text-xs text-muted-foreground">{contact.email}</p>
+                      {(() => {
+                        const opp = oppDetail ?? opportunity
+                        return (
+                          <div className="grid grid-cols-2 gap-3">
+                            {contact && (
+                              <div className="col-span-2">
+                                <p className="text-xs text-muted-foreground mb-1">Contato</p>
+                                <Link
+                                  href={`/contatos/${opp.contactId}`}
+                                  className="text-sm font-medium hover:underline text-primary"
+                                >
+                                  {contact.name}
+                                </Link>
+                                {contact.email && <p className="text-xs text-muted-foreground">{contact.email}</p>}
+                                {contact.phone && <p className="text-xs text-muted-foreground">{contact.phone}</p>}
+                              </div>
                             )}
-                            {contact.phone && (
-                              <p className="text-xs text-muted-foreground">{contact.phone}</p>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Valor</p>
+                              <p className="text-sm font-semibold">{formatCurrency(opp.value)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Status</p>
+                              <Badge variant={opp.status === 'OPEN' ? 'secondary' : opp.status === 'WON' ? 'success' : 'danger'}>
+                                {opp.status === 'OPEN' ? 'Aberto' : opp.status === 'WON' ? 'Ganho' : 'Perdido'}
+                              </Badge>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Fechamento Previsto</p>
+                              <p className="text-sm">{opp.expectedCloseDate ? formatDate(opp.expectedCloseDate) : '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Etapa</p>
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: opp.stage?.color ?? '#888' }} />
+                                <p className="text-sm">{opp.stage?.name ?? '—'}</p>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Responsável</p>
+                              <p className="text-sm">{opp.assignedTo.name}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Origem</p>
+                              <p className="text-sm">{opp.origin ? `${opp.origin.name}${opp.subOrigin ? ` / ${opp.subOrigin.name}` : ''}` : '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Criado em</p>
+                              <p className="text-sm">{formatDate(opp.createdAt)}</p>
+                            </div>
+                            {opp.sdr && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">SDR</p>
+                                <p className="text-sm">{opp.sdr.name}</p>
+                              </div>
+                            )}
+                            {opp.closer && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Closer</p>
+                                <p className="text-sm">{opp.closer.name}</p>
+                              </div>
+                            )}
+                            {opp.company && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Empresa</p>
+                                <Link href={`/empresas/${opp.companyId}`} className="text-sm hover:underline text-primary">
+                                  {opp.company.name}
+                                </Link>
+                              </div>
+                            )}
+                            {opp.notes && (
+                              <div className="col-span-2">
+                                <p className="text-xs text-muted-foreground mb-1">Notas</p>
+                                <p className="text-sm whitespace-pre-wrap">{opp.notes}</p>
+                              </div>
                             )}
                           </div>
-                        )}
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Valor</p>
-                          <p className="text-sm font-semibold">{formatCurrency(opportunity.value)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Status</p>
-                          <Badge variant={opportunity.status === 'OPEN' ? 'secondary' : opportunity.status === 'WON' ? 'success' : 'danger'}>
-                            {opportunity.status === 'OPEN' ? 'Aberto' : opportunity.status === 'WON' ? 'Ganho' : 'Perdido'}
-                          </Badge>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Fechamento Previsto</p>
-                          <p className="text-sm">{opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate) : '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Etapa</p>
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: opportunity.stage?.color ?? '#888' }} />
-                            <p className="text-sm">{opportunity.stage?.name ?? '—'}</p>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Responsável</p>
-                          <p className="text-sm">{opportunity.assignedTo.name}</p>
-                        </div>
-                        {opportunity.origin && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Origem</p>
-                            <p className="text-sm">{opportunity.origin.name}{opportunity.subOrigin ? ` / ${opportunity.subOrigin.name}` : ''}</p>
-                          </div>
-                        )}
-                        {opportunity.temperature && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Temperatura</p>
-                            <Badge variant="secondary" className={cn(
-                              opportunity.temperature === 'HOT' && 'bg-red-100 text-red-700',
-                              opportunity.temperature === 'WARM' && 'bg-orange-100 text-orange-700',
-                              opportunity.temperature === 'COLD' && 'bg-blue-100 text-blue-700',
-                            )}>
-                              {opportunity.temperature === 'HOT' ? 'Quente' : opportunity.temperature === 'WARM' ? 'Morno' : 'Frio'}
-                            </Badge>
-                          </div>
-                        )}
-                        {opportunity.qualificationScore !== null && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Score de Qualificação</p>
-                            <p className="text-sm font-medium">{opportunity.qualificationScore}</p>
-                          </div>
-                        )}
-                        {opportunity.company && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Empresa</p>
-                            <Link
-                              href={`/empresas/${opportunity.companyId}`}
-                              className="text-sm hover:underline text-primary"
-                            >
-                              {opportunity.company.name}
-                            </Link>
-                          </div>
-                        )}
-                        {opportunity.sdr && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">SDR</p>
-                            <p className="text-sm">{opportunity.sdr.name}</p>
-                          </div>
-                        )}
-                        {opportunity.closer && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Closer</p>
-                            <p className="text-sm">{opportunity.closer.name}</p>
-                          </div>
-                        )}
-                        {opportunity.notes && (
-                          <div className="col-span-2">
-                            <p className="text-xs text-muted-foreground mb-1">Notas</p>
-                            <p className="text-sm whitespace-pre-wrap">{opportunity.notes}</p>
-                          </div>
-                        )}
-                      </div>
+                        )
+                      })()}
 
                       {/* Campos personalizados (view) */}
                       <CustomFieldsPanel
