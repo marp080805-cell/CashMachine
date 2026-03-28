@@ -23,7 +23,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   // Tenant inicial criado automaticamente no boot
   ADMIN_TENANT_NAME: z.string().default('CashMind'),
-  ADMIN_TENANT_SLUG: z.string().default('cashmind'),
+  ADMIN_TENANT_SLUG: z.string().default('seuresultado'),
   ADMIN_NAME: z.string().default('Admin'),
   ADMIN_EMAIL: z.string().email().default('admin@cashmind.com'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin@123'),

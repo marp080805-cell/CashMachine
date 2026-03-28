@@ -150,30 +150,30 @@ async function bootstrap() {
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
 
-  // Bootstrap: criar tenant + admin se não existirem
-  const existingTenant = await prisma.tenant.findUnique({
+  // Bootstrap: garantir tenant + admin sempre existem (upsert)
+  const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 12)
+  const tenant = await prisma.tenant.upsert({
     where: { slug: env.ADMIN_TENANT_SLUG },
+    create: {
+      name: env.ADMIN_TENANT_NAME,
+      slug: env.ADMIN_TENANT_SLUG,
+      isActive: true,
+    },
+    update: {},
   })
-
-  if (!existingTenant) {
-    const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 12)
-    const tenant = await prisma.tenant.create({
-      data: {
-        name: env.ADMIN_TENANT_NAME,
-        slug: env.ADMIN_TENANT_SLUG,
-        users: {
-          create: {
-            email: env.ADMIN_EMAIL,
-            name: env.ADMIN_NAME,
-            passwordHash,
-            role: 'ADMIN',
-            isActive: true,
-          },
-        },
-      },
-    })
-    console.log(`Tenant criado: ${tenant.slug} | Admin: ${env.ADMIN_EMAIL}`)
-  }
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: env.ADMIN_EMAIL } },
+    create: {
+      tenantId: tenant.id,
+      email: env.ADMIN_EMAIL,
+      name: env.ADMIN_NAME,
+      passwordHash,
+      role: 'ADMIN',
+      isActive: true,
+    },
+    update: { isActive: true },
+  })
+  console.log(`Bootstrap OK: tenant=${tenant.slug} admin=${env.ADMIN_EMAIL}`)
 
   await app.listen({ port: env.API_PORT, host: '0.0.0.0' })
   console.log(`CashMind API running on port ${env.API_PORT}`)
