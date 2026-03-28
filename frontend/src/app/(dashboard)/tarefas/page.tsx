@@ -38,7 +38,6 @@ import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
-import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
@@ -261,7 +260,6 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const queryClient = useQueryClient()
-  const fieldConfig = useFieldConfig()
 
   useEffect(() => {
     if (open) {
@@ -359,75 +357,44 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <FieldWrapper entityType="task" slug="title" label="Título" defaultRequired={true} adminMode={adminMode}>
-            <div className="space-y-1.5">
-              <Label>Título {fieldConfig.isRequired('task', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-              <Input
-                placeholder="Ex: Ligar para o cliente"
-                required={fieldConfig.isRequired('task', 'title', true)}
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              />
-            </div>
+          <FieldWrapper entityType="task" slug="title" label="Título" placeholder="Ex: Ligar para o cliente" defaultRequired={true} adminMode={adminMode}>
+            <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
           </FieldWrapper>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldWrapper entityType="task" slug="type" label="Tipo" defaultRequired={true} adminMode={adminMode}>
-                <div className="space-y-1.5">
-                  <Label>Tipo {fieldConfig.isRequired('task', 'type', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(taskTypeLabels).map(([val, lbl]) => (
-                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </FieldWrapper>
-            </div>
-            <div>
-              <FieldWrapper entityType="task" slug="priority" label="Prioridade" defaultRequired={false} adminMode={adminMode}>
-                <div className="space-y-1.5">
-                  <Label>Prioridade {fieldConfig.isRequired('task', 'priority', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                  <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(priorityLabels).map(([val, lbl]) => (
-                        <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </FieldWrapper>
-            </div>
-          </div>
-          <FieldWrapper entityType="task" slug="dueDate" label="Vencimento" defaultRequired={false} adminMode={adminMode}>
-            <div className="space-y-1.5">
-              <Label>Vencimento {fieldConfig.isRequired('task', 'dueDate', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-              <Input
-                type="datetime-local"
-                required={fieldConfig.isRequired('task', 'dueDate', false)}
-                value={form.dueDate}
-                onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-              />
-            </div>
-          </FieldWrapper>
-          {users.length > 0 && (
-            <FieldWrapper entityType="task" slug="assignedTo" label="Responsável" defaultRequired={false} adminMode={adminMode}>
-              <div className="space-y-1.5">
-                <Label>Responsável {fieldConfig.isRequired('task', 'assignedTo', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
-                  <SelectContent>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <FieldWrapper entityType="task" slug="type" label="Tipo" defaultRequired={true} adminMode={adminMode}>
+              <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(taskTypeLabels).map(([val, lbl]) => (
+                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FieldWrapper>
-          )}
+            <FieldWrapper entityType="task" slug="priority" label="Prioridade" adminMode={adminMode}>
+              <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(priorityLabels).map(([val, lbl]) => (
+                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FieldWrapper>
+          </div>
+          <FieldWrapper entityType="task" slug="dueDate" label="Vencimento" adminMode={adminMode}>
+            <Input type="datetime-local" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} />
+          </FieldWrapper>
+          <FieldWrapper entityType="task" slug="assignedTo" label="Responsável" adminMode={adminMode}>
+            <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
+              <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+              <SelectContent>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FieldWrapper>
           <div className="space-y-1.5">
             <Label>Vincular a oportunidade</Label>
             <Autocomplete
@@ -487,18 +454,13 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               onClear={() => setForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}
             />
           </div>
-          <FieldWrapper entityType="task" slug="description" label="Descrição" defaultRequired={false} adminMode={adminMode}>
-            <div className="space-y-1.5">
-              <Label>Descrição {fieldConfig.isRequired('task', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-              <Textarea
-                rows={3}
-                placeholder="Descrição opcional..."
-                required={fieldConfig.isRequired('task', 'description', false)}
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className="resize-none"
-              />
-            </div>
+          <FieldWrapper entityType="task" slug="description" label="Descrição" placeholder="Descrição opcional..." adminMode={adminMode}>
+            <Textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              className="resize-none"
+            />
           </FieldWrapper>
           {/* Campos personalizados */}
           <div>
@@ -933,22 +895,30 @@ const kanbanColumns: { key: string; label: string; statuses: string[]; color: st
 
 interface KanbanCardProps {
   task: Task
-  onStatusChange: (id: string, status: string) => void
+  isDragging: boolean
+  onDragStart: (id: string) => void
+  onDragEnd: () => void
   onComplete: (id: string) => void
   onEdit: (task: Task) => void
   onOpenDetail: (task: Task) => void
 }
 
-function KanbanCard({ task, onStatusChange, onComplete, onEdit, onOpenDetail }: KanbanCardProps) {
+function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onComplete, onEdit, onOpenDetail }: KanbanCardProps) {
   const Icon = taskTypeIcons[task.type] ?? FileText
   const dueDisplay = getDueDateDisplay(task.dueDate, task.status)
   const isCompleted = task.status === 'COMPLETED'
 
   return (
-    <div className={cn(
-      'rounded-lg border bg-card p-3 shadow-sm hover:shadow-md transition-shadow cursor-default border-l-4',
-      priorityBorderColors[task.priority] ?? 'border-l-gray-300',
-    )}>
+    <div
+      draggable={!isCompleted}
+      onDragStart={(e) => { e.dataTransfer.setData('taskId', task.id); onDragStart(task.id) }}
+      onDragEnd={onDragEnd}
+      className={cn(
+        'rounded-lg border bg-card p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-l-4',
+        priorityBorderColors[task.priority] ?? 'border-l-gray-300',
+        isDragging && 'opacity-40 scale-95',
+      )}
+    >
       {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <button
@@ -978,56 +948,42 @@ function KanbanCard({ task, onStatusChange, onComplete, onEdit, onOpenDetail }: 
 
       {/* Opportunity link */}
       {task.opportunity && (
-        <Link
-          href={`/oportunidades/${task.opportunity.id}`}
-          className="flex items-center gap-1 text-xs text-primary hover:underline mb-1.5"
-        >
+        <Link href={`/oportunidades/${task.opportunity.id}`} className="flex items-center gap-1 text-xs text-primary hover:underline mb-1.5">
           <CheckSquare className="h-3 w-3 shrink-0" />
           <span className="truncate">{task.opportunity.title}</span>
         </Link>
       )}
 
-      {/* Footer: due date + assignee */}
+      {/* Footer: due date + assignee + actions */}
       <div className="flex items-center justify-between mt-2">
         <span className={cn('text-xs', dueDisplay.className)}>{dueDisplay.label}</span>
-        {task.assignedTo && (
-          <Avatar className="h-6 w-6" title={task.assignedTo.name}>
-            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-              {getInitials(task.assignedTo.name)}
-            </AvatarFallback>
-          </Avatar>
-        )}
+        <div className="flex items-center gap-1">
+          {task.assignedTo && (
+            <Avatar className="h-6 w-6" title={task.assignedTo.name}>
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                {getInitials(task.assignedTo.name)}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-60 hover:opacity-100">
+                <MoreVertical className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => onEdit(task)}>
+                <Pencil className="h-3.5 w-3.5 mr-2" />Editar
+              </DropdownMenuItem>
+              {!isCompleted && (
+                <DropdownMenuItem onClick={() => onComplete(task.id)}>
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-green-500" />Concluir
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-
-      {/* Status change select */}
-      <div className="mt-2 pt-2 border-t">
-        <Select
-          value={task.status}
-          onValueChange={(v) => {
-            if (v === 'COMPLETED') { onComplete(task.id) }
-            else { onStatusChange(task.id, v) }
-          }}
-        >
-          <SelectTrigger className="h-7 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(statusLabels).map(([val, lbl]) => (
-              <SelectItem key={val} value={val} className="text-xs">{lbl}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Edit button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full h-7 mt-1 text-xs text-muted-foreground"
-        onClick={() => onEdit(task)}
-      >
-        <Pencil className="h-3 w-3 mr-1" />Editar
-      </Button>
     </div>
   )
 }
@@ -1041,25 +997,58 @@ interface KanbanViewProps {
 }
 
 function KanbanView({ tasks, onStatusChange, onComplete, onEdit, onOpenDetail }: KanbanViewProps) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [overCol, setOverCol] = useState<string | null>(null)
+
   return (
     <div className="flex gap-4 overflow-x-auto pb-4 pt-1">
       {kanbanColumns.map((col) => {
         const colTasks = tasks.filter((t) => col.statuses.includes(t.status))
+        const isOver = overCol === col.key
         return (
-          <div key={col.key} className={cn('w-72 shrink-0 rounded-lg border p-3', col.color)}>
+          <div
+            key={col.key}
+            onDragOver={(e) => { e.preventDefault(); setOverCol(col.key) }}
+            onDragLeave={() => setOverCol(null)}
+            onDrop={(e) => {
+              e.preventDefault()
+              const taskId = e.dataTransfer.getData('taskId')
+              if (taskId) {
+                const targetStatus = col.statuses[0]
+                if (targetStatus === 'COMPLETED') { onComplete(taskId) }
+                else { onStatusChange(taskId, targetStatus) }
+              }
+              setOverCol(null)
+              setDraggingId(null)
+            }}
+            className={cn(
+              'w-72 shrink-0 rounded-lg border p-3 transition-colors',
+              col.color,
+              isOver && 'ring-2 ring-primary/40 bg-primary/5',
+            )}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">{col.label}</h3>
               <Badge variant="secondary" className="text-xs h-5 px-1.5">{colTasks.length}</Badge>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-h-[80px]">
               {colTasks.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-6">Nenhuma tarefa</p>
+                <div className={cn(
+                  'rounded-md border-2 border-dashed py-6 text-center transition-colors',
+                  isOver ? 'border-primary/40 bg-primary/5' : 'border-transparent',
+                )}>
+                  <p className="text-xs text-muted-foreground">
+                    {isOver ? 'Soltar aqui' : 'Nenhuma tarefa'}
+                  </p>
+                </div>
               )}
               {colTasks.map((task) => (
                 <KanbanCard
                   key={task.id}
                   task={task}
-                  onStatusChange={onStatusChange}
+                  isDragging={draggingId === task.id}
+                  onDragStart={setDraggingId}
+                  onDragEnd={() => { setDraggingId(null); setOverCol(null) }}
                   onComplete={onComplete}
                   onEdit={onEdit}
                   onOpenDetail={onOpenDetail}
@@ -1130,14 +1119,16 @@ type TabKey = 'today' | 'week' | 'overdue' | 'all'
 interface Filters {
   type: string
   priority: string
+  status: string
   assignedToId: string
   opportunitySearch: string
+  contactSearch: string
 }
 
 export default function TarefasPage() {
   const [view, setView] = useState<ViewMode>('list')
   const [activeTab, setActiveTab] = useState<TabKey>('today')
-  const [filters, setFilters] = useState<Filters>({ type: '', priority: '', assignedToId: '', opportunitySearch: '' })
+  const [filters, setFilters] = useState<Filters>({ type: '', priority: '', status: '', assignedToId: '', opportunitySearch: '', contactSearch: '' })
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
@@ -1169,6 +1160,7 @@ export default function TarefasPage() {
     }
     if (filters.type) params.set('type', filters.type)
     if (filters.priority) params.set('priority', filters.priority)
+    if (filters.status) params.set('status', filters.status)
     if (filters.assignedToId) params.set('assignedToId', filters.assignedToId)
     return params.toString()
   }
@@ -1177,11 +1169,11 @@ export default function TarefasPage() {
     queryKey: ['tasks', activeTab, filters, view],
     queryFn: () => {
       if (view === 'kanban') {
-        // Fetch all for kanban
         const params = new URLSearchParams()
         params.set('limit', '200')
         if (filters.type) params.set('type', filters.type)
         if (filters.priority) params.set('priority', filters.priority)
+        if (filters.status) params.set('status', filters.status)
         if (filters.assignedToId) params.set('assignedToId', filters.assignedToId)
         return api.get<Task[]>(`/tasks?${params.toString()}`)
       }
@@ -1220,12 +1212,11 @@ export default function TarefasPage() {
 
   const filteredTasks = tasks ?? []
 
-  // Client-side opportunity search filter
-  const displayTasks = filters.opportunitySearch
-    ? filteredTasks.filter((t) =>
-        t.opportunity?.title.toLowerCase().includes(filters.opportunitySearch.toLowerCase())
-      )
-    : filteredTasks
+  const displayTasks = filteredTasks.filter((t) => {
+    if (filters.opportunitySearch && !t.opportunity?.title.toLowerCase().includes(filters.opportunitySearch.toLowerCase())) return false
+    if (filters.contactSearch && !t.contact?.name.toLowerCase().includes(filters.contactSearch.toLowerCase())) return false
+    return true
+  })
 
   function getEditFormData(task: Task): Partial<TaskFormData> {
     // Format dueDate for datetime-local input
@@ -1248,7 +1239,7 @@ export default function TarefasPage() {
     }
   }
 
-  const hasFilters = !!(filters.type || filters.priority || filters.assignedToId || filters.opportunitySearch)
+  const hasFilters = !!(filters.type || filters.priority || filters.status || filters.assignedToId || filters.opportunitySearch || filters.contactSearch)
 
   const tabLabels: Record<TabKey, string> = {
     today: 'Hoje',
@@ -1348,19 +1339,47 @@ export default function TarefasPage() {
           </Select>
         )}
 
+        {/* Status filter */}
+        <Select
+          value={filters.status || 'ALL'}
+          onValueChange={(v) => setFilters((f) => ({ ...f, status: v === 'ALL' ? '' : v }))}
+        >
+          <SelectTrigger className="h-8 w-[160px] text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todos os status</SelectItem>
+            {Object.entries(statusLabels).map(([val, lbl]) => (
+              <SelectItem key={val} value={val} className="text-xs">{lbl}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Opportunity search */}
         <div className="relative">
           <Input
             placeholder="Buscar por oportunidade..."
-            className="h-8 text-xs w-[200px]"
+            className="h-8 text-xs w-[180px]"
             value={filters.opportunitySearch}
             onChange={(e) => setFilters((f) => ({ ...f, opportunitySearch: e.target.value }))}
           />
           {filters.opportunitySearch && (
-            <button
-              className="absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => setFilters((f) => ({ ...f, opportunitySearch: '' }))}
-            >
+            <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => setFilters((f) => ({ ...f, opportunitySearch: '' }))}>
+              <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+        </div>
+
+        {/* Contact search */}
+        <div className="relative">
+          <Input
+            placeholder="Buscar por contato..."
+            className="h-8 text-xs w-[160px]"
+            value={filters.contactSearch}
+            onChange={(e) => setFilters((f) => ({ ...f, contactSearch: e.target.value }))}
+          />
+          {filters.contactSearch && (
+            <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => setFilters((f) => ({ ...f, contactSearch: '' }))}>
               <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
             </button>
           )}
@@ -1376,7 +1395,7 @@ export default function TarefasPage() {
             variant="ghost"
             size="sm"
             className="h-8 text-xs"
-            onClick={() => setFilters({ type: '', priority: '', assignedToId: '', opportunitySearch: '' })}
+            onClick={() => setFilters({ type: '', priority: '', status: '', assignedToId: '', opportunitySearch: '', contactSearch: '' })}
           >
             Limpar filtros
           </Button>
