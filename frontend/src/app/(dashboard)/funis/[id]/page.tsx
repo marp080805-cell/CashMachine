@@ -377,7 +377,7 @@ export default function PipelineKanbanPage() {
 
       {/* ── SHEET: FECHADOS (Perdidos + Ganhos) ── */}
       <Sheet open={closedOpen} onOpenChange={setClosedOpen}>
-        <SheetContent side="right" className="w-[min(900px,90vw)] flex flex-col p-0">
+        <SheetContent side="right" className="flex flex-col p-0" style={{ width: 'min(960px, 90vw)', maxWidth: 'min(960px, 90vw)' }}>
           <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
             <div className="flex items-center gap-3">
               <SheetTitle>Oportunidades Fechadas</SheetTitle>
