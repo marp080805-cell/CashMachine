@@ -61,6 +61,8 @@ interface LeadForm {
   contactId: string
   name: string
   phone: string
+  companyId: string
+  companyLabel: string
   source: string
   status: string
   score: string
@@ -70,6 +72,8 @@ const defaultLeadForm: LeadForm = {
   contactId: '',
   name: '',
   phone: '',
+  companyId: '',
+  companyLabel: '',
   source: '',
   status: 'NEW',
   score: '0',
@@ -85,6 +89,8 @@ interface EditLeadForm {
   contactLabel: string
   name: string
   phone: string
+  companyId: string
+  companyLabel: string
   status: string
   score: string
   source: string
@@ -106,9 +112,11 @@ export default function LeadsPage() {
 
   const [editLead, setEditLead] = useState<Lead | null>(null)
   const [editForm, setEditForm] = useState<EditLeadForm>({
-    contactId: '', contactLabel: '', name: '', phone: '', status: 'NEW', score: '0', source: '',
+    contactId: '', contactLabel: '', name: '', phone: '', companyId: '', companyLabel: '', status: 'NEW', score: '0', source: '',
   })
   const [editContactSearch, setEditContactSearch] = useState('')
+  const [companySearch, setCompanySearch] = useState('')
+  const [editCompanySearch, setEditCompanySearch] = useState('')
 
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
   const [adminModeCreate, setAdminModeCreate] = useState(false)
@@ -147,6 +155,18 @@ export default function LeadsPage() {
     enabled: !!editLead,
   })
 
+  // Company search
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies-search-lead', companySearch],
+    queryFn: () => api.get<{ data: { id: string; name: string }[] }>(`/companies?limit=10${companySearch ? `&search=${encodeURIComponent(companySearch)}` : ''}`),
+    enabled: createOpen && companySearch.length > 0,
+  })
+  const { data: editCompaniesData } = useQuery({
+    queryKey: ['companies-search-lead-edit', editCompanySearch],
+    queryFn: () => api.get<{ data: { id: string; name: string }[] }>(`/companies?limit=10${editCompanySearch ? `&search=${encodeURIComponent(editCompanySearch)}` : ''}`),
+    enabled: !!editLead && editCompanySearch.length > 0,
+  })
+
   // Pipelines for qualify modal
   const { data: pipelinesData } = useQuery({
     queryKey: ['pipelines-list'],
@@ -156,14 +176,17 @@ export default function LeadsPage() {
 
   // Create lead
   const createMutation = useMutation({
-    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; source?: string; status: string; score: number }) => {
+    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; source?: string; status: string; score: number }) => {
       let contactId = body.contactId
       if (!contactId && body.name?.trim()) {
         const contact = await api.post<Contact>('/contacts', {
           name: body.name.trim(),
           ...(body.phone?.trim() ? { phone: body.phone.trim() } : {}),
+          ...(body.companyId ? { companyId: body.companyId } : {}),
         })
         contactId = contact.id
+      } else if (contactId && body.companyId) {
+        await api.patch(`/contacts/${contactId}`, { companyId: body.companyId })
       }
       const lead = await api.post<Lead>('/leads', {
         contactId,
@@ -212,12 +235,13 @@ export default function LeadsPage() {
 
   // Edit lead
   const editMutation = useMutation({
-    mutationFn: async ({ id, contactId, name, phone, body }: { id: string; contactId?: string; name?: string; phone?: string; body: Record<string, unknown> }) => {
+    mutationFn: async ({ id, contactId, name, phone, companyId, body }: { id: string; contactId?: string; name?: string; phone?: string; companyId?: string; body: Record<string, unknown> }) => {
       const lead = await api.patch<Lead>(`/leads/${id}`, body)
-      if (contactId && (name?.trim() || phone?.trim())) {
+      if (contactId && (name?.trim() || phone?.trim() || companyId !== undefined)) {
         await api.patch(`/contacts/${contactId}`, {
           ...(name?.trim() ? { name: name.trim() } : {}),
           ...(phone?.trim() ? { phone: phone.trim() } : {}),
+          ...(companyId !== undefined ? { companyId: companyId || null } : {}),
         })
       }
       return lead
@@ -243,6 +267,7 @@ export default function LeadsPage() {
       contactId: form.contactId || undefined,
       name: form.contactId ? undefined : form.name,
       phone: form.contactId ? undefined : form.phone,
+      companyId: form.companyId || undefined,
       ...(form.source && { source: form.source }),
       status: form.status,
       score: parseInt(form.score, 10) || 0,
@@ -268,6 +293,8 @@ export default function LeadsPage() {
       contactLabel: lead.contact?.name ?? '',
       name: lead.contact?.name ?? '',
       phone: (lead.contact as Contact & { phone?: string })?.phone ?? '',
+      companyId: lead.contact?.company?.id ?? '',
+      companyLabel: lead.contact?.company?.name ?? '',
       status: lead.status,
       score: String(lead.score),
       source: lead.source ?? '',
@@ -283,6 +310,7 @@ export default function LeadsPage() {
       contactId: editLead.contactId ?? undefined,
       name: editForm.name,
       phone: editForm.phone,
+      companyId: editForm.companyId,
       body: {
         status: editForm.status as 'NEW' | 'NURTURING' | 'QUALIFIED' | 'DISQUALIFIED',
         score: parseInt(editForm.score, 10) || 0,
@@ -550,6 +578,38 @@ export default function LeadsPage() {
               </div>
             </FieldWrapper>
 
+            <FieldWrapper entityType="lead" slug="company" label="Empresa" placeholder="Buscar empresa..." adminMode={adminModeCreate}>
+              <div>
+                {form.companyId ? (
+                  <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                    <span className="flex-1 font-medium">{form.companyLabel}</span>
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}>
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Buscar empresa..."
+                      value={companySearch}
+                      onChange={(e) => setCompanySearch(e.target.value)}
+                    />
+                    {companySearch && (
+                      <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                        {(companiesData?.data ?? []).map((company) => (
+                          <button key={company.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                            onClick={() => { setForm((f) => ({ ...f, companyId: company.id, companyLabel: company.name })); setCompanySearch('') }}>
+                            {company.name}
+                          </button>
+                        ))}
+                        {(companiesData?.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nenhuma empresa encontrada</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </FieldWrapper>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FieldWrapper entityType="lead" slug="status" label="Status" defaultRequired={true} adminMode={adminModeCreate}>
@@ -630,7 +690,6 @@ export default function LeadsPage() {
                     <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium">{editForm.contactLabel}</p>
-                        {editLead.contact?.company?.name && <p className="text-xs text-muted-foreground">🏢 {editLead.contact.company.name}</p>}
                       </div>
                       <button type="button" onClick={() => setEditForm((f) => ({ ...f, contactId: '', contactLabel: '' }))}>
                         <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -657,6 +716,38 @@ export default function LeadsPage() {
                             </button>
                           ))}
                           {(editContactsData?.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum contato encontrado</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </FieldWrapper>
+
+              <FieldWrapper entityType="lead" slug="company" label="Empresa" placeholder="Buscar empresa..." adminMode={adminModeEdit}>
+                <div>
+                  {editForm.companyId ? (
+                    <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
+                      <span className="flex-1 font-medium">{editForm.companyLabel}</span>
+                      <button type="button" onClick={() => setEditForm((f) => ({ ...f, companyId: '', companyLabel: '' }))}>
+                        <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Buscar empresa..."
+                        value={editCompanySearch}
+                        onChange={(e) => setEditCompanySearch(e.target.value)}
+                      />
+                      {editCompanySearch && (
+                        <div className="rounded border divide-y max-h-36 overflow-y-auto">
+                          {(editCompaniesData?.data ?? []).map((company) => (
+                            <button key={company.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                              onClick={() => { setEditForm((f) => ({ ...f, companyId: company.id, companyLabel: company.name })); setEditCompanySearch('') }}>
+                              {company.name}
+                            </button>
+                          ))}
+                          {(editCompaniesData?.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nenhuma empresa encontrada</p>}
                         </div>
                       )}
                     </div>
