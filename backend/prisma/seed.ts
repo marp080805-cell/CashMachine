@@ -25,7 +25,16 @@ async function main() {
     })
     console.log('Tenant criado:', tenant.slug)
   } else {
-    console.log('Tenant já existe:', tenant.slug)
+    // Garantir que o slug é 'seuresultado' (frontend hardcoded)
+    if (tenant.slug !== 'seuresultado') {
+      tenant = await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: { slug: 'seuresultado' },
+      })
+      console.log('Tenant slug corrigido para: seuresultado')
+    } else {
+      console.log('Tenant já existe:', tenant.slug)
+    }
   }
 
   const tenantId = tenant.id
@@ -116,13 +125,14 @@ async function main() {
 
   for (const tag of tagsData) {
     await prisma.tag.upsert({
-      where: { tenantId_name: { tenantId, name: tag.name } },
+      where: { tenantId_name_entityType: { tenantId, name: tag.name, entityType: 'opportunity' } },
       update: {},
       create: {
         tenantId,
         name: tag.name,
         color: tag.color,
         category: tag.category,
+        entityType: 'opportunity',
         createdById: admin.id,
         isLocked: false,
       },
