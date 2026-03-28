@@ -197,7 +197,7 @@ export default function PipelineKanbanPage() {
       void queryClient.invalidateQueries({ queryKey: ['opportunities-lost', id] })
       void queryClient.invalidateQueries({ queryKey: ['opportunities-won', id] })
     },
-    onError: () => toast.error('Erro ao reabrir oportunidade'),
+    onError: (err: unknown) => toast.error((err as { message?: string })?.message ?? 'Erro ao reabrir oportunidade'),
   })
 
   function openNewOpp(stageId?: string) {
