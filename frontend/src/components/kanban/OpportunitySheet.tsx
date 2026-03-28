@@ -237,6 +237,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const [lostDialogOpen, setLostDialogOpen] = useState(false)
   const [lostReasonId, setLostReasonId] = useState('')
   const [wonDialogOpen, setWonDialogOpen] = useState(false)
+  const [deleteOppDialogOpen, setDeleteOppDialogOpen] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>()
   const [startMessage, setStartMessage] = useState('')
   const [selectedNumberId, setSelectedNumberId] = useState('')
@@ -393,6 +394,19 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   }, [existingConvsData])
 
   // — Mutations —
+
+  const deleteOppMutation = useMutation({
+    mutationFn: () => api.delete<void>(`/opportunities/${opportunity!.id}`),
+    onSuccess: () => {
+      toast.success('Oportunidade excluída')
+      setDeleteOppDialogOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-won', pipelineId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities-lost', pipelineId] })
+      onClose()
+    },
+    onError: () => toast.error('Erro ao excluir oportunidade'),
+  })
 
   const wonMutation = useMutation({
     mutationFn: () => api.post<Opportunity>(`/opportunities/${opportunity!.id}/won`, {}),
@@ -693,7 +707,17 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
           <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
             <div className="flex items-start gap-2 pr-8">
               <div className="min-w-0 flex-1">
-                <SheetTitle className="truncate text-base">{opportunity.title}</SheetTitle>
+                <div className="flex items-center gap-2">
+                  <SheetTitle className="truncate text-base flex-1">{opportunity.title}</SheetTitle>
+                  <button
+                    type="button"
+                    title="Excluir oportunidade"
+                    className="shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    onClick={() => setDeleteOppDialogOpen(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {contact && (
                   <Link
                     href={`/contatos/${opportunity.contactId}`}
@@ -1541,6 +1565,15 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
           </div>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={deleteOppDialogOpen}
+        onOpenChange={setDeleteOppDialogOpen}
+        title="Excluir Oportunidade"
+        description={`Tem certeza que deseja excluir "${opportunity.title}"? Todas as tarefas, atividades e histórico vinculados serão perdidos.`}
+        confirmLabel="Excluir"
+        variant="destructive"
+        onConfirm={() => deleteOppMutation.mutate()}
+      />
       <ConfirmDialog
         open={!!deletingTaskId}
         onOpenChange={(open) => !open && setDeletingTaskId(null)}

@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch, Settings2 } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch, Settings2, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -21,6 +21,7 @@ import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -234,6 +235,7 @@ export default function EmpresasPage() {
   const [adminMode, setAdminMode] = useState(false)
   const [adminModeEdit, setAdminModeEdit] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [deletingCompany, setDeletingCompany] = useState<Company | null>(null)
   const queryClient = useQueryClient()
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
@@ -342,6 +344,17 @@ export default function EmpresasPage() {
     onError: (err: unknown) => {
       toast.error((err as { message?: string })?.message ?? 'Erro ao criar empresa')
     },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/companies/${id}`),
+    onSuccess: () => {
+      toast.success('Empresa excluída')
+      setDeletingCompany(null)
+      setSelectedCompany(null)
+      void queryClient.invalidateQueries({ queryKey: ['companies'] })
+    },
+    onError: () => toast.error('Erro ao excluir empresa'),
   })
 
   const editMutation = useMutation({
@@ -495,6 +508,14 @@ export default function EmpresasPage() {
                 <SheetTitle className="text-base">{selectedCompany?.name}</SheetTitle>
                 {selectedCompany?.segment && <p className="text-xs text-muted-foreground">{selectedCompany.segment}</p>}
               </div>
+              <Button
+                type="button" variant="ghost" size="sm"
+                className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                title="Excluir empresa"
+                onClick={() => selectedCompany && setDeletingCompany(selectedCompany)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
               {isAdmin && (
                 <Button type="button" variant={adminModeEdit ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5 shrink-0"
                   onClick={() => setAdminModeEdit(v => !v)}>
@@ -930,6 +951,16 @@ export default function EmpresasPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deletingCompany}
+        onOpenChange={(open) => !open && setDeletingCompany(null)}
+        title="Excluir Empresa"
+        description={`Tem certeza que deseja excluir "${deletingCompany?.name}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        variant="destructive"
+        onConfirm={() => deletingCompany && deleteMutation.mutate(deletingCompany.id)}
+      />
     </div>
   )
 }
