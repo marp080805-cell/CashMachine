@@ -40,6 +40,8 @@ interface CompanyDetail {
   createdAt: string
   updatedAt: string
   _count?: { contacts: number; opportunities: number }
+  email?: string | null
+  phone?: string | null
   legalName?: string | null
   category?: string | null
   contacts?: ContactItem[]
