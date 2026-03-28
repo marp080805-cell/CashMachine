@@ -12,13 +12,13 @@ async function main() {
   const sdrPasswordHash = await bcrypt.hash('Sdr@123', 10)
   const closerPasswordHash = await bcrypt.hash('Closer@123', 10)
 
-  let tenant = await prisma.tenant.findFirst({ where: { slug: 'cashmind' } })
+  let tenant = await prisma.tenant.findFirst({ where: { slug: { in: ['seuresultado', 'cashmind'] } } })
 
   if (!tenant) {
     tenant = await prisma.tenant.create({
       data: {
-        name: 'CashMind Demo',
-        slug: 'cashmind',
+        name: 'CashMind',
+        slug: 'seuresultado',
         plan: 'FREE',
         isActive: true,
       },
