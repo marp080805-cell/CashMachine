@@ -190,7 +190,7 @@ export default function PipelineKanbanPage() {
   })
 
   const reopenOppMutation = useMutation({
-    mutationFn: (oppId: string) => api.post(`/opportunities/${oppId}/reopen`),
+    mutationFn: (oppId: string) => api.post(`/opportunities/${oppId}/reopen`, {}),
     onSuccess: () => {
       toast.success('Oportunidade reaberta!')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
