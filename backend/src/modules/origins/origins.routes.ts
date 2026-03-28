@@ -162,38 +162,4 @@ export default async function originsRoutes(app: FastifyInstance) {
     }
   )
 
-  // Motivos de perda
-  app.get('/lost-reasons', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string }
-    const reasons = await prisma.lostReason.findMany({
-      where: { tenantId, isActive: true },
-      orderBy: { name: 'asc' },
-    })
-    return reply.send(reasons)
-  })
-
-  app.post(
-    '/lost-reasons',
-    { preHandler: [app.authenticate, requirePermission('origins:manage')] },
-    async (request, reply) => {
-      const { tenantId } = request.user as { tenantId: string }
-      const { name } = z.object({ name: z.string().min(1) }).parse(request.body)
-      const reason = await prisma.lostReason.create({ data: { name, tenantId } })
-      return reply.status(201).send(reason)
-    }
-  )
-
-  app.patch(
-    '/lost-reasons/:id',
-    { preHandler: [app.authenticate, requirePermission('origins:manage')] },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      const { tenantId } = request.user as { tenantId: string }
-      const input = z.object({ name: z.string().optional(), isActive: z.boolean().optional() }).parse(request.body)
-
-      await prisma.lostReason.findFirstOrThrow({ where: { id, tenantId } })
-      const reason = await prisma.lostReason.update({ where: { id }, data: input })
-      return reply.send(reason)
-    }
-  )
 }
