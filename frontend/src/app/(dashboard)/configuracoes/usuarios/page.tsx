@@ -52,10 +52,11 @@ export default function UsuariosPage() {
   const [saving, setSaving] = useState(false)
   const queryClient = useQueryClient()
 
-  const { data: users = [], isLoading } = useQuery({
+  const { data: usersResponse, isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api.get<UserItem[]>('/users'),
+    queryFn: () => api.get<{ users: UserItem[] }>('/users'),
   })
+  const users = usersResponse?.users ?? []
 
   async function handleCreate() {
     if (!form.name || !form.email || !form.password) {
