@@ -4,14 +4,23 @@ import { prisma } from '../../lib/prisma'
 
 const createCompanySchema = z.object({
   name: z.string().min(1),
+  legalName: z.string().optional(),
   cnpj: z.string().optional(),
+  category: z.string().optional(),
   segment: z.string().optional(),
   website: z.string().optional(),
-  address: z.string().optional(),
+  email: z.string().email().optional(),
   phone: z.string().optional(),
+  whatsapp: z.string().optional(),
+  mobile: z.string().optional(),
+  fax: z.string().optional(),
+  extension: z.string().optional(),
+  address: z.string().optional(),
+  addressJson: z.record(z.any()).optional(),
+  socialProfiles: z.record(z.string()).optional(),
   employeeCount: z.number().int().optional(),
   annualRevenue: z.number().optional(),
-  addressJson: z.record(z.any()).optional(),
+  originId: z.string().uuid().optional(),
   notes: z.string().optional(),
 })
 

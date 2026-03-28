@@ -174,14 +174,24 @@ model Company {
   tenantId      String
   tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name          String
+  legalName     String?  // Razão social
   cnpj          String?
-  segment       String?
+  category      String?  // Categoria
+  segment       String?  // Setor
   website       String?
+  email         String?
   phone         String?
+  whatsapp      String?
+  mobile        String?
+  fax           String?
+  extension     String?  // Ramal
   address       String?
   addressJson   Json?    // {street, number, complement, city, state, zip, country}
+  socialProfiles Json?   // {linkedin, instagram, facebook, twitter}
   employeeCount Int?
   annualRevenue Decimal? @db.Decimal(15, 2)
+  originId      String?
+  origin        Origin?  @relation(fields: [originId], references: [id])
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -452,6 +462,7 @@ model Origin {
 
   subOrigins     SubOrigin[]
   contacts       Contact[]
+  companies      Company[]
   opportunities  Opportunity[]
   goals          Goal[]
   goalBreakdowns GoalBreakdown[] @relation("GoalBreakdownOrigin")
