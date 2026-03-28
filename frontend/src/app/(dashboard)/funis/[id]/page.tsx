@@ -244,6 +244,7 @@ export default function PipelineKanbanPage() {
   const lostCount = lostOpps?.data.length ?? 0
   const wonCount = wonOpps?.data.length ?? 0
   const closedCount = lostCount + wonCount
+  const wonValue = (wonOpps?.data ?? []).reduce((sum, o) => sum + Number(o.value ?? 0), 0)
 
   const allOpenOpps = pipeline.stages.flatMap((s) =>
     s.opportunities.map((o) => ({ ...o, stageName: s.name, stageColor: s.color }))
@@ -335,17 +336,33 @@ export default function PipelineKanbanPage() {
           )}
         </div>
 
-        {/* Fechados */}
-        {closedCount > 0 && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 text-xs text-muted-foreground gap-1.5"
-            onClick={() => setClosedOpen(true)}
-          >
-            <span>Fechados</span>
-            <Badge variant="secondary" className="text-xs h-4 px-1">{closedCount}</Badge>
-          </Button>
+        {/* Fechados — ganhas e perdidas separados */}
+        {(wonCount > 0 || lostCount > 0) && (
+          <div className="flex items-center gap-1">
+            {wonCount > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs gap-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                onClick={() => { setClosedTab('won'); setClosedOpen(true) }}
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                <span>{wonCount} ganha{wonCount !== 1 ? 's' : ''}</span>
+                {wonValue > 0 && <span className="font-semibold">{formatCurrency(wonValue)}</span>}
+              </Button>
+            )}
+            {lostCount > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => { setClosedTab('lost'); setClosedOpen(true) }}
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                <span>{lostCount} perdida{lostCount !== 1 ? 's' : ''}</span>
+              </Button>
+            )}
+          </div>
         )}
 
         {/* Configurações */}
