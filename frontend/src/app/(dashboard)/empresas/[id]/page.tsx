@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Company } from '@/types'
+
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -28,11 +28,20 @@ interface OppItem {
   stage?: { name: string; color?: string }
 }
 
-interface CompanyDetail extends Company {
+interface CompanyDetail {
+  id: string
+  tenantId: string
+  name: string
+  cnpj: string | null
+  segment: string | null
+  website: string | null
+  address: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+  _count?: { contacts: number; opportunities: number }
   legalName?: string | null
   category?: string | null
-  segment?: string | null
-  notes?: string | null
   contacts?: ContactItem[]
   opportunities?: OppItem[]
 }
