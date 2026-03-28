@@ -700,7 +700,7 @@ export default function PipelineKanbanPage() {
                 <PipelineTypeCombobox
                   value={newPipelineForm.type}
                   typeName={newPipelineForm.typeName}
-                  existingTypeNames={[...new Set((allPipelines ?? []).filter((p) => (p as { typeName?: string }).typeName).map((p) => (p as { typeName?: string }).typeName as string))]}
+                  existingTypeNames={Array.from(new Set((allPipelines ?? []).filter((p) => (p as { typeName?: string }).typeName).map((p) => (p as { typeName?: string }).typeName as string)))}
                   onChange={(type, typeName) => setNewPipelineForm((f) => ({ ...f, type, typeName }))}
                 />
               ) : (

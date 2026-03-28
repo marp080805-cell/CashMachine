@@ -80,11 +80,11 @@ export default function FunisConfigPage() {
   })
 
   // Collect distinct custom typeNames from existing pipelines for suggestions
-  const existingTypeNames = [...new Set(
+  const existingTypeNames = Array.from(new Set(
     pipelines
       .filter((p) => p.typeName)
       .map((p) => p.typeName as string)
-  )]
+  ))
 
   function openCreate() {
     setEditing(null)
