@@ -252,7 +252,6 @@ export default function LeadsPage() {
       }
       const lead = await api.post<Lead>('/leads', {
         contactId,
-        ...(body.source ? { source: body.source } : {}),
         status: body.status,
         score: body.score,
       })
