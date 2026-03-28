@@ -8,7 +8,8 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink, GitBranch, Settings2 } from 'lucide-react'
+import { Plus, Search, X, Loader2, ExternalLink, GitBranch, Settings2 } from 'lucide-react'
+import { EntityCombobox } from '@/components/shared/EntityCombobox'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -31,7 +32,6 @@ interface ContactForm {
   notes: string
   companyId: string
   companyLabel: string
-  companyName: string
   opportunityId: string
   opportunityLabel: string
   cpf: string
@@ -58,112 +58,12 @@ interface ContactForm {
 }
 
 const defaultForm: ContactForm = {
-  name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', companyName: '', opportunityId: '', opportunityLabel: '',
+  name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', opportunityId: '', opportunityLabel: '',
   cpf: '', role: '', nationality: '', category: '', website: '', birthday: '',
   addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
   socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
   originId: '', originLabel: '',
   assignedToId: '',
-}
-
-interface Opportunity { id: string; title: string }
-
-function OppSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
-  const [q, setQ] = useState('')
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  const { data } = useQuery({
-    queryKey: ['opps-search-contact', q],
-    queryFn: () => api.get<{ data: Opportunity[] }>(`/opportunities?search=${encodeURIComponent(q)}&limit=8`),
-    enabled: q.length > 0,
-  })
-
-  useEffect(() => {
-    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  if (value) return (
-    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
-      <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="flex-1 font-medium">{label}</span>
-      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
-    </div>
-  )
-
-  return (
-    <div ref={ref} className="relative">
-      <Input
-        placeholder="Buscar oportunidade..."
-        value={q}
-        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
-        onFocus={() => q && setOpen(true)}
-      />
-      {open && (data?.data?.length ?? 0) > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
-          {data!.data.map((o) => (
-            <button key={o.id} type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-              onMouseDown={() => { onChange(o.id, o.title); setQ(''); setOpen(false) }}>
-              {o.title}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-interface Company { id: string; name: string }
-
-function CompanySearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, name: string) => void }) {
-  const [q, setQ] = useState('')
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  const { data } = useQuery({
-    queryKey: ['companies-search', q],
-    queryFn: () => api.get<{ data: Company[] }>(`/companies?search=${encodeURIComponent(q)}&limit=8`),
-    enabled: q.length > 0,
-  })
-
-  useEffect(() => {
-    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  if (value) return (
-    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
-      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="flex-1 font-medium">{label}</span>
-      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
-    </div>
-  )
-
-  return (
-    <div ref={ref} className="relative">
-      <Input
-        placeholder="Buscar empresa..."
-        value={q}
-        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
-        onFocus={() => q && setOpen(true)}
-      />
-      {open && (data?.data?.length ?? 0) > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
-          {data!.data.map((c) => (
-            <button key={c.id} type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-              onMouseDown={() => { onChange(c.id, c.name); setQ(''); setOpen(false) }}>
-              {c.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function OriginSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, path: string) => void }) {
@@ -294,7 +194,6 @@ export default function ContatosPage() {
       website: form.website || undefined,
       dateOfBirth: form.birthday ? new Date(form.birthday).toISOString() : undefined,
       companyId: form.companyId || undefined,
-      companyName: (!form.companyId && form.companyName.trim()) ? form.companyName.trim() : undefined,
       originId: form.originId || undefined,
       assignedToId: form.assignedToId || undefined,
       ...(hasAddress ? { address } : {}),
@@ -409,19 +308,14 @@ export default function ContatosPage() {
                 </div>
                 <div className="col-span-2">
                   <FieldWrapper entityType="contact" slug="company" label="Empresa" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-2">
-                      <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name, companyName: '' }))} />
-                      {!form.companyId && (
-                        <>
-                          <Input
-                            placeholder="Ou digite o nome da empresa (será criada automaticamente)"
-                            value={form.companyName}
-                            onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
-                          />
-                          <p className="text-xs text-muted-foreground">Digite o nome da empresa. Será criada automaticamente se não existir.</p>
-                        </>
-                      )}
-                    </div>
+                    <EntityCombobox
+                      entityType="company"
+                      value={form.companyId}
+                      label={form.companyLabel}
+                      onChange={(id, lbl) => setForm((f) => ({ ...f, companyId: id, companyLabel: lbl }))}
+                      allowCreate
+                      placeholder="Buscar ou criar empresa..."
+                    />
                   </FieldWrapper>
                 </div>
                 <div>
@@ -545,7 +439,13 @@ export default function ContatosPage() {
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label>Vincular a oportunidade</Label>
-                  <OppSearch value={form.opportunityId} label={form.opportunityLabel} onChange={(id, name) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: name }))} />
+                  <EntityCombobox
+                    entityType="opportunity"
+                    value={form.opportunityId}
+                    label={form.opportunityLabel}
+                    onChange={(id, lbl) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: lbl }))}
+                    placeholder="Buscar oportunidade..."
+                  />
                 </div>
               </div>
             </div>
