@@ -573,7 +573,14 @@ export default function PipelineKanbanPage() {
                       <button
                         key={contact.id} type="button"
                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                        onClick={() => { setOppForm((f) => ({ ...f, contactId: contact.id })); setContactSearch('') }}
+                        onClick={() => {
+                          setOppForm((f) => ({
+                            ...f,
+                            contactId: contact.id,
+                            ...(contact.company ? { companyId: contact.company.id, companyLabel: contact.company.name } : {}),
+                          }))
+                          setContactSearch('')
+                        }}
                       >
                         <span className="font-medium">{contact.name}</span>
                         {contact.phone && <span className="text-muted-foreground ml-2 text-xs">— {contact.phone}</span>}

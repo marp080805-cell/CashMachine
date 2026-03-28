@@ -31,6 +31,7 @@ interface ContactForm {
   notes: string
   companyId: string
   companyLabel: string
+  companyName: string
   opportunityId: string
   opportunityLabel: string
   cpf: string
@@ -57,7 +58,7 @@ interface ContactForm {
 }
 
 const defaultForm: ContactForm = {
-  name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', opportunityId: '', opportunityLabel: '',
+  name: '', email: '', phone: '', notes: '', companyId: '', companyLabel: '', companyName: '', opportunityId: '', opportunityLabel: '',
   cpf: '', role: '', nationality: '', category: '', website: '', birthday: '',
   addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
   socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
@@ -293,6 +294,7 @@ export default function ContatosPage() {
       website: form.website || undefined,
       dateOfBirth: form.birthday ? new Date(form.birthday).toISOString() : undefined,
       companyId: form.companyId || undefined,
+      companyName: (!form.companyId && form.companyName.trim()) ? form.companyName.trim() : undefined,
       originId: form.originId || undefined,
       assignedToId: form.assignedToId || undefined,
       ...(hasAddress ? { address } : {}),
@@ -407,7 +409,19 @@ export default function ContatosPage() {
                 </div>
                 <div className="col-span-2">
                   <FieldWrapper entityType="contact" slug="company" label="Empresa" defaultRequired={false} adminMode={adminModeCreate}>
-                    <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                    <div className="space-y-2">
+                      <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name, companyName: '' }))} />
+                      {!form.companyId && (
+                        <>
+                          <Input
+                            placeholder="Ou digite o nome da empresa (será criada automaticamente)"
+                            value={form.companyName}
+                            onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+                          />
+                          <p className="text-xs text-muted-foreground">Digite o nome da empresa. Será criada automaticamente se não existir.</p>
+                        </>
+                      )}
+                    </div>
                   </FieldWrapper>
                 </div>
                 <div>

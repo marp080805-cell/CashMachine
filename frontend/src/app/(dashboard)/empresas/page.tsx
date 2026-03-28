@@ -417,7 +417,19 @@ export default function EmpresasPage() {
     {
       key: 'name',
       header: 'Nome',
-      render: (row: Company) => <span className="font-medium">{row.name}</span>,
+      render: (row: Company) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{row.name}</span>
+          <Link
+            href={`/empresas/${row.id}`}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            title="Abrir página da empresa"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      ),
     },
     {
       key: 'cnpj',

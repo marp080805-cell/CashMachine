@@ -118,6 +118,7 @@ interface LeadForm {
   phone: string
   companyId: string
   companyLabel: string
+  companyName: string
   originId: string
   originLabel: string
   status: string
@@ -131,6 +132,7 @@ const defaultLeadForm: LeadForm = {
   phone: '',
   companyId: '',
   companyLabel: '',
+  companyName: '',
   originId: '',
   originLabel: '',
   status: 'NEW',
@@ -243,19 +245,21 @@ export default function LeadsPage() {
 
   // Create lead
   const createMutation = useMutation({
-    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; originId?: string; status: string; score: number; assignedToId?: string }) => {
+    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; companyName?: string; originId?: string; status: string; score: number; assignedToId?: string }) => {
       let contactId = body.contactId
       if (!contactId && body.name?.trim()) {
         const contact = await api.post<Contact>('/contacts', {
           name: body.name.trim(),
           ...(body.phone?.trim() ? { phone: body.phone.trim() } : {}),
           ...(body.companyId ? { companyId: body.companyId } : {}),
+          ...(body.companyName ? { companyName: body.companyName } : {}),
           ...(body.originId ? { originId: body.originId } : {}),
         })
         contactId = contact.id
-      } else if (contactId && (body.companyId || body.originId)) {
+      } else if (contactId && (body.companyId || body.companyName || body.originId)) {
         await api.patch(`/contacts/${contactId}`, {
           ...(body.companyId ? { companyId: body.companyId } : {}),
+          ...(body.companyName ? { companyName: body.companyName } : {}),
           ...(body.originId ? { originId: body.originId } : {}),
         })
       }
@@ -340,6 +344,7 @@ export default function LeadsPage() {
       name: form.contactId ? undefined : form.name,
       phone: form.contactId ? undefined : form.phone,
       companyId: form.companyId || undefined,
+      companyName: (!form.companyId && form.companyName.trim()) ? form.companyName.trim() : undefined,
       originId: form.originId || undefined,
       status: form.status,
       score: parseInt(form.score, 10) || 0,
@@ -637,7 +642,13 @@ export default function LeadsPage() {
                             type="button"
                             className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
                             onClick={() => {
-                              setForm((f) => ({ ...f, contactId: contact.id, name: contact.name, phone: (contact as Contact & { phone?: string }).phone ?? '' }))
+                              setForm((f) => ({
+                                ...f,
+                                contactId: contact.id,
+                                name: contact.name,
+                                phone: (contact as Contact & { phone?: string }).phone ?? '',
+                                ...(contact.company ? { companyId: contact.company.id, companyLabel: contact.company.name, companyName: '' } : {}),
+                              }))
                               setContactSearch('')
                             }}
                           >
@@ -656,7 +667,7 @@ export default function LeadsPage() {
             </FieldWrapper>
 
             <FieldWrapper entityType="lead" slug="company" label="Empresa" placeholder="Buscar empresa..." adminMode={adminModeCreate}>
-              <div>
+              <div className="space-y-2">
                 {form.companyId ? (
                   <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
                     <span className="flex-1 font-medium">{form.companyLabel}</span>
@@ -667,7 +678,7 @@ export default function LeadsPage() {
                 ) : (
                   <div className="space-y-2">
                     <Input
-                      placeholder="Buscar empresa..."
+                      placeholder="Buscar empresa existente..."
                       value={companySearch}
                       onChange={(e) => setCompanySearch(e.target.value)}
                     />
@@ -675,13 +686,19 @@ export default function LeadsPage() {
                       <div className="rounded border divide-y max-h-36 overflow-y-auto">
                         {(companiesData?.data ?? []).map((company) => (
                           <button key={company.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                            onClick={() => { setForm((f) => ({ ...f, companyId: company.id, companyLabel: company.name })); setCompanySearch('') }}>
+                            onClick={() => { setForm((f) => ({ ...f, companyId: company.id, companyLabel: company.name, companyName: '' })); setCompanySearch('') }}>
                             {company.name}
                           </button>
                         ))}
                         {(companiesData?.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nenhuma empresa encontrada</p>}
                       </div>
                     )}
+                    <Input
+                      placeholder="Nome da Empresa (será criada se não existir)"
+                      value={form.companyName}
+                      onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">Digite o nome acima para criar uma nova empresa automaticamente.</p>
                   </div>
                 )}
               </div>
