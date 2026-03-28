@@ -4,6 +4,17 @@ const { PrismaClient } = require('@prisma/client')
 
 async function main() {
   const prisma = new PrismaClient()
+
+  // ── pipelines: typeName (free-text pipeline type label) ──────────
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS "typeName" TEXT
+    `)
+    console.log('[migration] pipelines.typeName ok')
+  } catch (e) {
+    console.warn('[migration] pipelines.typeName warning:', e.message)
+  }
+
   try {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE whatsapp_numbers
