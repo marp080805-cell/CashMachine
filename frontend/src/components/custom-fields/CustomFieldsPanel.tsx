@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Loader2, Check, X } from 'lucide-react'
+import { Plus, Loader2, Check, X, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 type EntityType = 'opportunity' | 'contact' | 'company' | 'lead' | 'task'
@@ -76,6 +76,10 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
   const [savingField, setSavingField] = useState(false)
   const [savingValues, setSavingValues] = useState<Record<string, boolean>>({})
 
+  // Inline edit state for existing fields
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [fieldEditDraft, setFieldEditDraft] = useState<{ name: string; fieldType: string; options: string }>({ name: '', fieldType: 'TEXT', options: '' })
+
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ['custom-fields-groups', entityType],
     queryFn: () => api.get<CFGroup[]>(`/custom-fields/groups?entityType=${entityType}`),
@@ -85,6 +89,26 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
     queryKey: ['custom-field-values', entityType, entityId],
     queryFn: () => api.get<FieldValue[]>(`/custom-fields/values/${entityType}/${entityId}`),
     enabled: !!entityId,
+  })
+
+  const updateFieldMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; fieldType?: string; options?: string[] }) =>
+      api.patch(`/custom-fields/${id}`, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['custom-fields-groups', entityType] })
+      setEditingField(null)
+      toast.success('Campo atualizado!')
+    },
+    onError: () => toast.error('Erro ao atualizar campo'),
+  })
+
+  const deleteFieldMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/custom-fields/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['custom-fields-groups', entityType] })
+      toast.success('Campo removido!')
+    },
+    onError: () => toast.error('Erro ao remover campo'),
   })
 
   const allFields = groups.flatMap((g) => g.customFields ?? [])
@@ -156,6 +180,32 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
     } finally {
       setSavingField(false)
     }
+  }
+
+  function startEditField(field: CFField) {
+    setEditingField(field.id)
+    setFieldEditDraft({
+      name: field.name,
+      fieldType: field.fieldType,
+      options: field.options?.join(', ') ?? '',
+    })
+  }
+
+  function saveEditField(field: CFField) {
+    const options = ['SELECT', 'MULTISELECT'].includes(fieldEditDraft.fieldType) && fieldEditDraft.options
+      ? fieldEditDraft.options.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined
+    updateFieldMutation.mutate({
+      id: field.id,
+      name: fieldEditDraft.name || undefined,
+      fieldType: fieldEditDraft.fieldType !== field.fieldType ? fieldEditDraft.fieldType : undefined,
+      options,
+    })
+  }
+
+  function confirmDeleteField(field: CFField) {
+    if (!window.confirm(`Remover o campo "${field.name}"? Esta ação não pode ser desfeita.`)) return
+    deleteFieldMutation.mutate(field.id)
   }
 
   function renderFieldInput(field: CFField) {
@@ -232,23 +282,106 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
               <div className="grid grid-cols-2 gap-3">
                 {(group.customFields ?? []).map((field) => (
                   <div key={field.id} className={`space-y-1.5 ${field.fieldType === 'TEXTAREA' ? 'col-span-2' : ''}`}>
-                    <div className="flex items-center gap-2">
-                      <Label>
-                        {field.name}
-                        {field.isRequiredGlobal && <span className="text-red-500 ml-0.5">*</span>}
-                      </Label>
-                      {adminMode && (
-                        <div className="ml-auto flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">Obrigatório</span>
-                          <Switch
-                            checked={field.isRequiredGlobal}
-                            onCheckedChange={() => void toggleRequired(field)}
-                            className="h-4 w-7 scale-75"
-                          />
+                    {adminMode && editingField === field.id ? (
+                      /* Inline edit form */
+                      <div className="rounded-lg border bg-muted/20 p-3 space-y-2 col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Editar campo &quot;{field.name}&quot;</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nome</Label>
+                            <Input
+                              value={fieldEditDraft.name}
+                              onChange={(e) => setFieldEditDraft((d) => ({ ...d, name: e.target.value }))}
+                              className="h-8 text-sm"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Tipo</Label>
+                            <Select value={fieldEditDraft.fieldType} onValueChange={(v) => setFieldEditDraft((d) => ({ ...d, fieldType: v }))}>
+                              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {FIELD_TYPES_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v} className="text-sm">{l}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    {renderFieldInput(field)}
+                        {['SELECT', 'MULTISELECT'].includes(fieldEditDraft.fieldType) && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Opções (separadas por vírgula)</Label>
+                            <Input
+                              value={fieldEditDraft.options}
+                              onChange={(e) => setFieldEditDraft((d) => ({ ...d, options: e.target.value }))}
+                              placeholder="Opção 1, Opção 2"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 justify-between">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => confirmDeleteField(field)}
+                            disabled={deleteFieldMutation.isPending}
+                          >
+                            {deleteFieldMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                            Remover
+                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setEditingField(null)}
+                            >
+                              <X className="h-3 w-3 mr-1" /> Cancelar
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => saveEditField(field)}
+                              disabled={updateFieldMutation.isPending || !fieldEditDraft.name}
+                            >
+                              {updateFieldMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                              Salvar
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Label>
+                            {field.name}
+                            {field.isRequiredGlobal && <span className="text-red-500 ml-0.5">*</span>}
+                          </Label>
+                          {adminMode && (
+                            <div className="ml-auto flex items-center gap-1.5">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-5 w-5 opacity-50 hover:opacity-100"
+                                onClick={() => startEditField(field)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <span className="text-xs text-muted-foreground">Obrigatório</span>
+                              <Switch
+                                checked={field.isRequiredGlobal}
+                                onCheckedChange={() => void toggleRequired(field)}
+                                className="h-4 w-7 scale-75"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        {renderFieldInput(field)}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

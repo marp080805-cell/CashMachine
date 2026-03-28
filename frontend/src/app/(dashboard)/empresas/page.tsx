@@ -227,6 +227,7 @@ export default function EmpresasPage() {
   const [form, setForm] = useState<CompanyForm>(defaultForm)
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
   const [adminMode, setAdminMode] = useState(false)
+  const [adminModeEdit, setAdminModeEdit] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const queryClient = useQueryClient()
   const fieldConfig = useFieldConfig()
@@ -375,17 +376,24 @@ export default function EmpresasPage() {
       />
 
       {/* Company Detail Sheet */}
-      <Sheet open={!!selectedCompany} onOpenChange={(open) => !open && setSelectedCompany(null)}>
+      <Sheet open={!!selectedCompany} onOpenChange={(open) => { if (!open) { setSelectedCompany(null); setAdminModeEdit(false) } }}>
         <SheetContent className="w-full sm:max-w-lg flex flex-col p-0">
           <SheetHeader className="px-6 py-4 border-b">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <SheetTitle className="text-base">{selectedCompany?.name}</SheetTitle>
                 {selectedCompany?.segment && <p className="text-xs text-muted-foreground">{selectedCompany.segment}</p>}
               </div>
+              {isAdmin && (
+                <Button type="button" variant={adminModeEdit ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5 shrink-0"
+                  onClick={() => setAdminModeEdit(v => !v)}>
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {adminModeEdit ? 'Sair' : 'Personalizar'}
+                </Button>
+              )}
             </div>
           </SheetHeader>
           <Tabs defaultValue="contacts" className="flex-1 flex flex-col overflow-hidden">
@@ -434,7 +442,12 @@ export default function EmpresasPage() {
               <div><p className="text-xs text-muted-foreground">Criado em</p><p className="text-sm">{formatDate(selectedCompany?.createdAt ?? '')}</p></div>
               <div className="pt-2 border-t space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</p>
-                <CustomFieldsPanel entityType="company" entityId={selectedCompany?.id} />
+                <CustomFieldsPanel
+                  entityType="company"
+                  entityId={selectedCompany?.id}
+                  adminMode={adminModeEdit}
+                  onAdminModeChange={setAdminModeEdit}
+                />
               </div>
             </TabsContent>
           </Tabs>

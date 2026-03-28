@@ -23,7 +23,7 @@ import {
   Trophy, X, Loader2, MessageSquare, Phone, ExternalLink,
   Pencil, Check, Trash2, CheckCircle2, Circle, Plus,
   Calendar, Mail, FileText, Users, Clock, Activity,
-  Video, Handshake, Tag as TagIcon, AlertTriangle,
+  Video, Handshake, Tag as TagIcon, AlertTriangle, Settings2,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Opportunity, WhatsappNumber, User, Task, Activity as ActivityType, Tag } from '@/types'
@@ -225,6 +225,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const [showNewTagForm, setShowNewTagForm] = useState(false)
   const [newTagData, setNewTagData] = useState({ name: '', color: '#6366f1' })
 
+  const [adminMode, setAdminMode] = useState(false)
+
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
@@ -314,6 +316,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     setHandoffCloserId('')
     setHandoffBriefing('')
     setShowTagPicker(false)
+    setAdminMode(false)
   }, [opportunity?.id])
 
   // Auto-load existing WhatsApp conversation
@@ -702,6 +705,13 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   {lostMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                   <span className="ml-1">Perdido</span>
                 </Button>
+                {isAdmin && (
+                  <Button type="button" variant={adminMode ? 'default' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5"
+                    onClick={() => setAdminMode(v => !v)}>
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {adminMode ? 'Sair' : 'Personalizar'}
+                  </Button>
+                )}
                 <div className="ml-auto">
                   {isEditing ? (
                     <div className="flex gap-1">
@@ -959,7 +969,12 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
                 {/* ── Tab: Campos Personalizados ── */}
                 <TabsContent value="custom-fields" className="flex-1 overflow-y-auto p-4 mt-0">
-                  <CustomFieldsPanel entityType="opportunity" entityId={opportunity?.id} />
+                  <CustomFieldsPanel
+                    entityType="opportunity"
+                    entityId={opportunity?.id}
+                    adminMode={adminMode}
+                    onAdminModeChange={setAdminMode}
+                  />
                 </TabsContent>
 
                 {/* ── Tab: Tarefas ── */}
