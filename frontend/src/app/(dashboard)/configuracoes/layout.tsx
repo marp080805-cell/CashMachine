@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
-  Users, Radio, MessageSquare, LayoutDashboard, Target, SlidersHorizontal,
-  GitBranch, Tag, Globe, XCircle, Zap, FileText, Link2, Camera, MessageCircle, Columns,
+  Users, Radio, MessageSquare, LayoutDashboard, SlidersHorizontal,
+  GitBranch, Tag, XCircle, Zap, FileText, Link2, Camera, MessageCircle, Columns,
 } from 'lucide-react'
 
 const tabs = [
@@ -13,7 +13,7 @@ const tabs = [
   { href: '/configuracoes/funis', label: 'Funis', icon: GitBranch },
   { href: '/configuracoes/campos', label: 'Campos', icon: Columns },
   { href: '/configuracoes/tags', label: 'Tags', icon: Tag },
-  { href: '/configuracoes/origens', label: 'Origens', icon: Globe },
+  { href: '/configuracoes/origens', label: 'Canais', icon: Radio },
   { href: '/configuracoes/motivos-perda', label: 'Motivos Perda', icon: XCircle },
   { href: '/configuracoes/automacoes', label: 'Automações', icon: Zap },
   { href: '/configuracoes/templates-mensagem', label: 'Templates', icon: MessageSquare },
@@ -21,7 +21,6 @@ const tabs = [
   { href: '/configuracoes/integracoes', label: 'Integrações', icon: Link2 },
   { href: '/configuracoes/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { href: '/configuracoes/snapshots', label: 'Snapshots', icon: Camera },
-  { href: '/configuracoes/canais', label: 'Canais', icon: Radio },
   { href: '/configuracoes/campos-leads', label: 'Campos Leads', icon: SlidersHorizontal },
   { href: '/configuracoes/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ]

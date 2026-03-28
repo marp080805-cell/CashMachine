@@ -66,7 +66,7 @@ function OriginTreeNode({
         <Button
           variant="ghost" size="sm" className="h-7 text-xs px-2"
           onClick={() => onCreateChild(node.id)}
-          title="Adicionar sub-origem"
+          title="Adicionar sub-canal"
         >
           <Plus className="h-3 w-3 mr-1" /> Sub
         </Button>
@@ -195,10 +195,10 @@ export default function OrigensPage() {
   }
 
   const modalTitle = mode === 'edit'
-    ? 'Editar Origem'
+    ? 'Editar Canal'
     : mode === 'create-child'
-    ? 'Nova Sub-origem'
-    : 'Nova Origem'
+    ? 'Novo Sub-canal'
+    : 'Novo Canal'
 
   if (loading) return <div className="text-muted-foreground text-sm">Carregando...</div>
 
@@ -206,13 +206,13 @@ export default function OrigensPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Origens e Canais</h2>
+          <h2 className="text-lg font-semibold">Canais de Captação</h2>
           <p className="text-sm text-muted-foreground">
-            Estrutura de canais de captação com profundidade ilimitada (ex: Mídia Paga → Meta Ads → Campanha)
+            Estrutura hierárquica com profundidade ilimitada (ex: Mídia Paga → Meta Ads → Campanha)
           </p>
         </div>
         <Button onClick={openCreateRoot} size="sm">
-          <Plus className="h-4 w-4 mr-1" /> Nova Origem
+          <Plus className="h-4 w-4 mr-1" /> Novo Canal
         </Button>
       </div>
 
@@ -250,7 +250,7 @@ export default function OrigensPage() {
               placeholder={
                 mode === 'create-child'
                   ? 'Ex: Meta Ads, Google Search, Campanha...'
-                  : 'Ex: Mídia Paga, Orgânico, Indicação...'
+                  : 'Ex: Mídia Paga, Orgânico, Indicação, WhatsApp...'
               }
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter' && name) void handleSave() }}
