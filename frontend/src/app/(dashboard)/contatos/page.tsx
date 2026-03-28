@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/dialog'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
-import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { useAuthStore } from '@/stores/authStore'
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
@@ -220,9 +219,7 @@ export default function ContatosPage() {
   const [form, setForm] = useState<ContactForm>(defaultForm)
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
   const [adminModeCreate, setAdminModeCreate] = useState(false)
-  const [adminModeEdit, setAdminModeEdit] = useState(false)
   const queryClient = useQueryClient()
-  const fieldConfig = useFieldConfig()
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
@@ -382,70 +379,54 @@ export default function ContatosPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <FieldWrapper entityType="contact" slug="name" defaultRequired={true} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>Nome {fieldConfig.isRequired('contact', 'name', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input placeholder="Nome completo" required={fieldConfig.isRequired('contact', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="name" label="Nome" placeholder="Nome completo" defaultRequired={true} adminMode={adminModeCreate}>
+                    <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                   </FieldWrapper>
                 </div>
                 <div>
-                  <FieldWrapper entityType="contact" slug="cpf" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>CPF {fieldConfig.isRequired('contact', 'cpf', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input placeholder="000.000.000-00" required={fieldConfig.isRequired('contact', 'cpf', false)} value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="cpf" label="CPF" placeholder="000.000.000-00" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
                   </FieldWrapper>
                 </div>
                 <div>
-                  <div className="space-y-1.5">
-                    <Label>Nacionalidade</Label>
-                    <Input placeholder="Ex: Brasileira" value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} />
-                  </div>
+                  <FieldWrapper entityType="contact" slug="nationality" label="Nacionalidade" placeholder="Ex: Brasileira" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} />
+                  </FieldWrapper>
                 </div>
                 <div className="col-span-2">
-                  <FieldWrapper entityType="contact" slug="company" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>Empresa {fieldConfig.isRequired('contact', 'company', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="company" label="Empresa" defaultRequired={false} adminMode={adminModeCreate}>
+                    <CompanySearch value={form.companyId} label={form.companyLabel} onChange={(id, name) => setForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
                   </FieldWrapper>
                 </div>
                 <div>
-                  <FieldWrapper entityType="contact" slug="jobTitle" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>Cargo {fieldConfig.isRequired('contact', 'jobTitle', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input placeholder="Ex: Diretor Comercial" required={fieldConfig.isRequired('contact', 'jobTitle', false)} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="jobTitle" label="Cargo" placeholder="Ex: Diretor Comercial" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
                   </FieldWrapper>
                 </div>
                 <div>
-                  <div className="space-y-1.5">
-                    <Label>Categoria</Label>
-                    <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
-                  </div>
-                </div>
-                <div>
-                  <FieldWrapper entityType="contact" slug="dateOfBirth" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>Aniversário {fieldConfig.isRequired('contact', 'dateOfBirth', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input type="date" required={fieldConfig.isRequired('contact', 'dateOfBirth', false)} value={form.birthday} onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="category" label="Categoria" placeholder="Ex: Cliente, Parceiro..." defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
                   </FieldWrapper>
                 </div>
                 <div>
-                  <div className="space-y-1.5">
-                    <Label>Site</Label>
-                    <Input placeholder="https://..." value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
-                  </div>
+                  <FieldWrapper entityType="contact" slug="dateOfBirth" label="Aniversário" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input type="date" value={form.birthday} onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} />
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Origem / Canal</Label>
-                  <OriginSearch value={form.originId} label={form.originLabel} onChange={(id, path) => setForm((f) => ({ ...f, originId: id, originLabel: path }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="website" label="Site" placeholder="https://..." defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Descrição</Label>
-                  <textarea rows={2} placeholder="Observações..." value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="origin" label="Origem / Canal" defaultRequired={false} adminMode={adminModeCreate}>
+                    <OriginSearch value={form.originId} label={form.originLabel} onChange={(id, path) => setForm((f) => ({ ...f, originId: id, originLabel: path }))} />
+                  </FieldWrapper>
+                </div>
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="notes" label="Descrição" defaultRequired={false} adminMode={adminModeCreate}>
+                    <textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+                  </FieldWrapper>
                 </div>
               </div>
             </div>
@@ -455,19 +436,13 @@ export default function ContatosPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Informações para contato</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <FieldWrapper entityType="contact" slug="email" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>E-mail {fieldConfig.isRequired('contact', 'email', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input type="email" placeholder="email@exemplo.com" required={fieldConfig.isRequired('contact', 'email', false)} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="email" label="E-mail" placeholder="email@exemplo.com" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
                   </FieldWrapper>
                 </div>
                 <div>
-                  <FieldWrapper entityType="contact" slug="phone" defaultRequired={false} adminMode={adminModeCreate}>
-                    <div className="space-y-1.5">
-                      <Label>Telefone {fieldConfig.isRequired('contact', 'phone', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
-                      <Input placeholder="(11) 99999-9999" required={fieldConfig.isRequired('contact', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-                    </div>
+                  <FieldWrapper entityType="contact" slug="phone" label="Telefone" placeholder="(11) 99999-9999" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                   </FieldWrapper>
                 </div>
               </div>
@@ -477,38 +452,32 @@ export default function ContatosPage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados de endereço</h3>
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label>CEP</Label>
-                  <Input placeholder="00000-000" value={form.addrZip} onChange={(e) => setForm((f) => ({ ...f, addrZip: e.target.value }))} />
+                <FieldWrapper entityType="contact" slug="addrZip" label="CEP" placeholder="00000-000" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrZip} onChange={(e) => setForm((f) => ({ ...f, addrZip: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="addrCountry" label="País" placeholder="Brasil" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrCountry} onChange={(e) => setForm((f) => ({ ...f, addrCountry: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="addrState" label="Estado" placeholder="SP" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrState} onChange={(e) => setForm((f) => ({ ...f, addrState: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="addrCity" label="Cidade" placeholder="São Paulo" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrCity} onChange={(e) => setForm((f) => ({ ...f, addrCity: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="addrNeighborhood" label="Bairro" placeholder="Bairro" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrNeighborhood} onChange={(e) => setForm((f) => ({ ...f, addrNeighborhood: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="addrNumber" label="Número" placeholder="123" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrNumber} onChange={(e) => setForm((f) => ({ ...f, addrNumber: e.target.value }))} />
+                </FieldWrapper>
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="addrStreet" label="Rua" placeholder="Rua Example" defaultRequired={false} adminMode={adminModeCreate}>
+                    <Input value={form.addrStreet} onChange={(e) => setForm((f) => ({ ...f, addrStreet: e.target.value }))} />
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>País</Label>
-                  <Input placeholder="Brasil" value={form.addrCountry} onChange={(e) => setForm((f) => ({ ...f, addrCountry: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Estado</Label>
-                  <Input placeholder="SP" value={form.addrState} onChange={(e) => setForm((f) => ({ ...f, addrState: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Cidade</Label>
-                  <Input placeholder="São Paulo" value={form.addrCity} onChange={(e) => setForm((f) => ({ ...f, addrCity: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Bairro</Label>
-                  <Input placeholder="Bairro" value={form.addrNeighborhood} onChange={(e) => setForm((f) => ({ ...f, addrNeighborhood: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Número</Label>
-                  <Input placeholder="123" value={form.addrNumber} onChange={(e) => setForm((f) => ({ ...f, addrNumber: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Rua</Label>
-                  <Input placeholder="Rua Example" value={form.addrStreet} onChange={(e) => setForm((f) => ({ ...f, addrStreet: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Complemento</Label>
-                  <Input placeholder="Sala 10" value={form.addrComplement} onChange={(e) => setForm((f) => ({ ...f, addrComplement: e.target.value }))} />
-                </div>
+                <FieldWrapper entityType="contact" slug="addrComplement" label="Complemento" placeholder="Sala 10" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.addrComplement} onChange={(e) => setForm((f) => ({ ...f, addrComplement: e.target.value }))} />
+                </FieldWrapper>
               </div>
             </div>
 
@@ -516,22 +485,18 @@ export default function ContatosPage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Redes sociais</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>LinkedIn</Label>
-                  <Input placeholder="linkedin.com/in/usuario" value={form.socialLinkedin} onChange={(e) => setForm((f) => ({ ...f, socialLinkedin: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Instagram</Label>
-                  <Input placeholder="instagram.com/usuario" value={form.socialInstagram} onChange={(e) => setForm((f) => ({ ...f, socialInstagram: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Facebook</Label>
-                  <Input placeholder="facebook.com/usuario" value={form.socialFacebook} onChange={(e) => setForm((f) => ({ ...f, socialFacebook: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>X (Twitter)</Label>
-                  <Input placeholder="x.com/usuario" value={form.socialTwitter} onChange={(e) => setForm((f) => ({ ...f, socialTwitter: e.target.value }))} />
-                </div>
+                <FieldWrapper entityType="contact" slug="socialLinkedin" label="LinkedIn" placeholder="linkedin.com/in/usuario" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.socialLinkedin} onChange={(e) => setForm((f) => ({ ...f, socialLinkedin: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="socialInstagram" label="Instagram" placeholder="instagram.com/usuario" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.socialInstagram} onChange={(e) => setForm((f) => ({ ...f, socialInstagram: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="socialFacebook" label="Facebook" placeholder="facebook.com/usuario" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.socialFacebook} onChange={(e) => setForm((f) => ({ ...f, socialFacebook: e.target.value }))} />
+                </FieldWrapper>
+                <FieldWrapper entityType="contact" slug="socialTwitter" label="X (Twitter)" placeholder="x.com/usuario" defaultRequired={false} adminMode={adminModeCreate}>
+                  <Input value={form.socialTwitter} onChange={(e) => setForm((f) => ({ ...f, socialTwitter: e.target.value }))} />
+                </FieldWrapper>
               </div>
             </div>
 
