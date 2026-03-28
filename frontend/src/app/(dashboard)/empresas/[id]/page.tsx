@@ -30,12 +30,8 @@ interface OppItem {
 
 interface CompanyDetail extends Company {
   legalName?: string | null
-  cnpj?: string | null
   category?: string | null
   segment?: string | null
-  email?: string | null
-  phone?: string | null
-  website?: string | null
   notes?: string | null
   contacts?: ContactItem[]
   opportunities?: OppItem[]
