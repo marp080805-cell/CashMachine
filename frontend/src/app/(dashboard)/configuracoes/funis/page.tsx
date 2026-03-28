@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -47,44 +47,31 @@ const typeBadgeVariant: Record<string, string> = {
 const emptyForm = { name: '', type: 'SALES', description: '' }
 
 export default function FunisConfigPage() {
-  const [pipelines, setPipelines] = useState<Pipeline[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Pipeline | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [allowReopenLost, setAllowReopenLost] = useState(true)
-  const [savingToggle, setSavingToggle] = useState(false)
 
-  async function load() {
-    setLoading(true)
-    try {
-      const [pipesData, tenantData] = await Promise.all([
-        api.get<Pipeline[]>('/pipelines'),
-        api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
-      ])
-      setPipelines(pipesData)
-      setAllowReopenLost(tenantData.settings?.allowReopenLost !== false)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: pipelines = [], isLoading: loadingPipelines } = useQuery({
+    queryKey: ['pipelines'],
+    queryFn: () => api.get<Pipeline[]>('/pipelines'),
+  })
 
-  async function handleToggleReopenLost(value: boolean) {
-    setAllowReopenLost(value)
-    setSavingToggle(true)
-    try {
-      await api.patch('/tenants/current/settings', { allowReopenLost: value })
+  const { data: tenantData } = useQuery({
+    queryKey: ['tenant-current'],
+    queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
+  })
+  const allowReopenLost = tenantData?.settings?.allowReopenLost !== false
+
+  const toggleReopenMutation = useMutation({
+    mutationFn: (value: boolean) => api.patch('/tenants/current/settings', { allowReopenLost: value }),
+    onSuccess: (_data, value) => {
+      void queryClient.invalidateQueries({ queryKey: ['tenant-current'] })
       toast.success(value ? 'Reabertura de perdidas ativada' : 'Reabertura de perdidas desativada')
-    } catch {
-      toast.error('Erro ao salvar configuração')
-      setAllowReopenLost(!value)
-    } finally {
-      setSavingToggle(false)
-    }
-  }
-
-  useEffect(() => { void load() }, [])
+    },
+    onError: () => toast.error('Erro ao salvar configuração'),
+  })
 
   function openCreate() {
     setEditing(null)
@@ -111,12 +98,11 @@ export default function FunisConfigPage() {
         description: form.description || undefined,
       }
       if (editing) {
-        const updated = await api.patch<Pipeline>(`/pipelines/${editing.id}`, payload)
-        setPipelines((prev) => prev.map((p) => p.id === editing.id ? { ...p, ...updated } : p))
+        await api.patch<Pipeline>(`/pipelines/${editing.id}`, payload)
       } else {
-        const created = await api.post<Pipeline>('/pipelines', payload)
-        setPipelines((prev) => [...prev, created])
+        await api.post<Pipeline>('/pipelines', payload)
       }
+      void queryClient.invalidateQueries({ queryKey: ['pipelines'] })
       setOpen(false)
     } finally {
       setSaving(false)
@@ -126,10 +112,10 @@ export default function FunisConfigPage() {
   async function handleDelete(id: string) {
     if (!confirm('Excluir este funil? Esta ação não pode ser desfeita.')) return
     await api.delete(`/pipelines/${id}`)
-    setPipelines((prev) => prev.filter((p) => p.id !== id))
+    void queryClient.invalidateQueries({ queryKey: ['pipelines'] })
   }
 
-  if (loading) return <div className="text-muted-foreground text-sm">Carregando...</div>
+  if (loadingPipelines) return <div className="text-muted-foreground text-sm">Carregando...</div>
 
   return (
     <div className="space-y-4">

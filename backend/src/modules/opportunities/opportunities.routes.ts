@@ -308,9 +308,13 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       const opp = await prisma.opportunity.findFirst({ where: { id, tenantId } })
       if (!opp) return reply.status(404).send({ error: 'Oportunidade não encontrada' })
 
-      const updated = await prisma.opportunity.update({
+      await prisma.opportunity.update({
         where: { id },
         data: { status: 'OPEN', closedAt: null, lostReasonId: null },
+      })
+
+      const updated = await prisma.opportunity.findFirst({
+        where: { id },
         include: opportunityIncludes,
       })
       return reply.send(updated)
