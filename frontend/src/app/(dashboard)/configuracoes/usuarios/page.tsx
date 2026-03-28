@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { UserPlus, Loader2 } from 'lucide-react'
+import { UserPlus, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getInitials, formatDate } from '@/lib/utils'
 
@@ -44,8 +44,11 @@ const ROLE_COLORS: Record<string, string> = {
 const emptyForm = { name: '', email: '', password: '', role: 'SDR' }
 
 export default function UsuariosPage() {
-  const [open, setOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [editForm, setEditForm] = useState({ name: '', role: '', password: '', isActive: true })
   const [saving, setSaving] = useState(false)
   const queryClient = useQueryClient()
 
@@ -63,14 +66,51 @@ export default function UsuariosPage() {
     try {
       await api.post('/users', form)
       toast.success('Usuário criado com sucesso!')
-      setOpen(false)
+      setCreateOpen(false)
       setForm(emptyForm)
       void queryClient.invalidateQueries({ queryKey: ['users'] })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar usuário'
-      toast.error(msg)
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar usuário')
     } finally {
       setSaving(false)
+    }
+  }
+
+  function openEdit(user: UserItem) {
+    setEditingUser(user)
+    setEditForm({ name: user.name, role: user.role, password: '', isActive: user.isActive })
+    setEditOpen(true)
+  }
+
+  async function handleEdit() {
+    if (!editingUser || !editForm.name) { toast.error('Nome é obrigatório'); return }
+    setSaving(true)
+    try {
+      const payload: Record<string, unknown> = {
+        name: editForm.name,
+        role: editForm.role,
+        isActive: editForm.isActive,
+      }
+      if (editForm.password) payload.password = editForm.password
+      await api.patch(`/users/${editingUser.id}`, payload)
+      toast.success('Usuário atualizado!')
+      setEditOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao editar usuário')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(user: UserItem) {
+    if (!confirm(`Desativar o usuário "${user.name}"? Ele perderá o acesso ao sistema.`)) return
+    try {
+      await api.delete(`/users/${user.id}`)
+      toast.success('Usuário desativado')
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao desativar usuário')
     }
   }
 
@@ -78,7 +118,7 @@ export default function UsuariosPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{users.length} usuário(s) cadastrado(s)</p>
-        <Button onClick={() => setOpen(true)}>
+        <Button onClick={() => setCreateOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Criar Usuário
         </Button>
@@ -98,18 +138,19 @@ export default function UsuariosPage() {
                 <th className="px-4 py-3 text-left">Perfil</th>
                 <th className="px-4 py-3 text-left">Desde</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left w-20"></th>
               </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
                     Nenhum usuário cadastrado
                   </td>
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.id} className="border-b last:border-0">
+                  <tr key={user.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -130,6 +171,19 @@ export default function UsuariosPage() {
                         {user.isActive ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(user)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => void handleDelete(user)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -138,7 +192,8 @@ export default function UsuariosPage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* Modal Criar */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Criar Usuário</DialogTitle>
@@ -146,49 +201,76 @@ export default function UsuariosPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nome completo</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="João Silva"
-              />
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="João Silva" />
             </div>
             <div className="space-y-1.5">
               <Label>E-mail</Label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="joao@empresa.com"
-              />
+              <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="joao@empresa.com" />
             </div>
             <div className="space-y-1.5">
               <Label>Senha</Label>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="Mínimo 6 caracteres"
-              />
+              <Input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Mínimo 6 caracteres" />
             </div>
             <div className="space-y-1.5">
               <Label>Perfil</Label>
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
+                  {Object.entries(ROLE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
             <Button onClick={() => void handleCreate()} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {saving ? 'Criando...' : 'Criar Usuário'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Editar */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nome completo</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Perfil</Label>
+              <Select value={editForm.role} onValueChange={(v) => setEditForm((f) => ({ ...f, role: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ROLE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nova senha <span className="text-muted-foreground text-xs">(deixe em branco para não alterar)</span></Label>
+              <Input type="password" value={editForm.password} onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))} placeholder="Nova senha..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={editForm.isActive ? 'active' : 'inactive'} onValueChange={(v) => setEditForm((f) => ({ ...f, isActive: v === 'active' }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Ativo</SelectItem>
+                  <SelectItem value="inactive">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={() => void handleEdit()} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {saving ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
         </DialogContent>
