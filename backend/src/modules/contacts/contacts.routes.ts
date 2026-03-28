@@ -69,7 +69,6 @@ export default async function contactsRoutes(app: FastifyInstance) {
           origin: { select: { id: true, name: true } },
           subOrigin: { select: { id: true, name: true } },
           company: { select: { id: true, name: true } },
-          assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         },
       }),
       prisma.contact.count({ where }),
