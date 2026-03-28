@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Lead, Contact, Pipeline } from '@/types'
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, X, Loader2, Filter, Zap, Pencil, Settings2 } from 'lucide-react'
+import { Plus, Search, X, Loader2, Filter, Zap, Pencil, Settings2, GitBranch } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -21,6 +21,61 @@ import {
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
+
+// ── Origin search ──
+
+interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
+
+function OriginSearch({ value, label, onChange }: { value: string; label: string; onChange: (id: string, path: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data: origins = [] } = useQuery({
+    queryKey: ['origins-flat'],
+    queryFn: () => api.get<FlatOrigin[]>('/origins/flat'),
+  })
+
+  const filtered = origins.filter((o) => !q || o.path.toLowerCase().includes(q.toLowerCase()))
+
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (value) return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
+      <GitBranch className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="flex-1 font-medium truncate">{label}</span>
+      <button type="button" onClick={() => onChange('', '')}><X className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        placeholder="Buscar origem (ex: Mídia Paga > Meta Ads)..."
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-52 overflow-y-auto">
+          {filtered.map((o) => (
+            <button key={o.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              style={{ paddingLeft: `${12 + o.depth * 16}px` }}
+              onMouseDown={() => { onChange(o.id, o.path); setQ(''); setOpen(false) }}>
+              <span className="text-muted-foreground text-xs">{o.depth > 0 ? '↳ ' : ''}</span>{o.name}
+              {o.depth > 0 && <span className="text-xs text-muted-foreground ml-2 truncate">{o.path}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Status config ──
 
@@ -63,7 +118,8 @@ interface LeadForm {
   phone: string
   companyId: string
   companyLabel: string
-  source: string
+  originId: string
+  originLabel: string
   status: string
   score: string
 }
@@ -74,7 +130,8 @@ const defaultLeadForm: LeadForm = {
   phone: '',
   companyId: '',
   companyLabel: '',
-  source: '',
+  originId: '',
+  originLabel: '',
   status: 'NEW',
   score: '0',
 }
@@ -91,9 +148,10 @@ interface EditLeadForm {
   phone: string
   companyId: string
   companyLabel: string
+  originId: string
+  originLabel: string
   status: string
   score: string
-  source: string
 }
 
 export default function LeadsPage() {
@@ -112,7 +170,7 @@ export default function LeadsPage() {
 
   const [editLead, setEditLead] = useState<Lead | null>(null)
   const [editForm, setEditForm] = useState<EditLeadForm>({
-    contactId: '', contactLabel: '', name: '', phone: '', companyId: '', companyLabel: '', status: 'NEW', score: '0', source: '',
+    contactId: '', contactLabel: '', name: '', phone: '', companyId: '', companyLabel: '', originId: '', originLabel: '', status: 'NEW', score: '0',
   })
   const [editContactSearch, setEditContactSearch] = useState('')
   const [companySearch, setCompanySearch] = useState('')
@@ -176,17 +234,21 @@ export default function LeadsPage() {
 
   // Create lead
   const createMutation = useMutation({
-    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; source?: string; status: string; score: number }) => {
+    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; originId?: string; status: string; score: number }) => {
       let contactId = body.contactId
       if (!contactId && body.name?.trim()) {
         const contact = await api.post<Contact>('/contacts', {
           name: body.name.trim(),
           ...(body.phone?.trim() ? { phone: body.phone.trim() } : {}),
           ...(body.companyId ? { companyId: body.companyId } : {}),
+          ...(body.originId ? { originId: body.originId } : {}),
         })
         contactId = contact.id
-      } else if (contactId && body.companyId) {
-        await api.patch(`/contacts/${contactId}`, { companyId: body.companyId })
+      } else if (contactId && (body.companyId || body.originId)) {
+        await api.patch(`/contacts/${contactId}`, {
+          ...(body.companyId ? { companyId: body.companyId } : {}),
+          ...(body.originId ? { originId: body.originId } : {}),
+        })
       }
       const lead = await api.post<Lead>('/leads', {
         contactId,
@@ -235,13 +297,14 @@ export default function LeadsPage() {
 
   // Edit lead
   const editMutation = useMutation({
-    mutationFn: async ({ id, contactId, name, phone, companyId, body }: { id: string; contactId?: string; name?: string; phone?: string; companyId?: string; body: Record<string, unknown> }) => {
+    mutationFn: async ({ id, contactId, name, phone, companyId, originId, body }: { id: string; contactId?: string; name?: string; phone?: string; companyId?: string; originId?: string; body: Record<string, unknown> }) => {
       const lead = await api.patch<Lead>(`/leads/${id}`, body)
-      if (contactId && (name?.trim() || phone?.trim() || companyId !== undefined)) {
+      if (contactId) {
         await api.patch(`/contacts/${contactId}`, {
           ...(name?.trim() ? { name: name.trim() } : {}),
           ...(phone?.trim() ? { phone: phone.trim() } : {}),
           ...(companyId !== undefined ? { companyId: companyId || null } : {}),
+          ...(originId !== undefined ? { originId: originId || null } : {}),
         })
       }
       return lead
@@ -268,7 +331,7 @@ export default function LeadsPage() {
       name: form.contactId ? undefined : form.name,
       phone: form.contactId ? undefined : form.phone,
       companyId: form.companyId || undefined,
-      ...(form.source && { source: form.source }),
+      originId: form.originId || undefined,
       status: form.status,
       score: parseInt(form.score, 10) || 0,
     })
@@ -288,16 +351,18 @@ export default function LeadsPage() {
 
   function openEditLead(lead: Lead) {
     setEditLead(lead)
+    const contact = lead.contact as Contact & { phone?: string; originId?: string; origin?: { id: string; name: string } }
     setEditForm({
       contactId: lead.contactId ?? '',
-      contactLabel: lead.contact?.name ?? '',
-      name: lead.contact?.name ?? '',
-      phone: (lead.contact as Contact & { phone?: string })?.phone ?? '',
-      companyId: lead.contact?.company?.id ?? '',
-      companyLabel: lead.contact?.company?.name ?? '',
+      contactLabel: contact?.name ?? '',
+      name: contact?.name ?? '',
+      phone: contact?.phone ?? '',
+      companyId: contact?.company?.id ?? '',
+      companyLabel: contact?.company?.name ?? '',
+      originId: contact?.originId ?? '',
+      originLabel: contact?.origin?.name ?? '',
       status: lead.status,
       score: String(lead.score),
-      source: lead.source ?? '',
     })
     setEditContactSearch('')
   }
@@ -311,10 +376,10 @@ export default function LeadsPage() {
       name: editForm.name,
       phone: editForm.phone,
       companyId: editForm.companyId,
+      originId: editForm.originId,
       body: {
         status: editForm.status as 'NEW' | 'NURTURING' | 'QUALIFIED' | 'DISQUALIFIED',
         score: parseInt(editForm.score, 10) || 0,
-        ...(editForm.source && { source: editForm.source }),
       },
     })
   }
@@ -630,8 +695,12 @@ export default function LeadsPage() {
               </div>
             </div>
 
-            <FieldWrapper entityType="lead" slug="source" label="Origem" placeholder="Ex: Google Ads, Indicação..." adminMode={adminModeCreate}>
-              <Input value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
+            <FieldWrapper entityType="lead" slug="origin" label="Origem / Canal" adminMode={adminModeCreate}>
+              <OriginSearch
+                value={form.originId}
+                label={form.originLabel}
+                onChange={(id, path) => setForm((f) => ({ ...f, originId: id, originLabel: path }))}
+              />
             </FieldWrapper>
 
             {/* Campos personalizados */}
@@ -775,8 +844,12 @@ export default function LeadsPage() {
                 </div>
               </div>
 
-              <FieldWrapper entityType="lead" slug="source" label="Origem" placeholder="Ex: Google Ads, Indicação..." adminMode={adminModeEdit}>
-                <Input value={editForm.source} onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))} />
+              <FieldWrapper entityType="lead" slug="origin" label="Origem / Canal" adminMode={adminModeEdit}>
+                <OriginSearch
+                  value={editForm.originId}
+                  label={editForm.originLabel}
+                  onChange={(id, path) => setEditForm((f) => ({ ...f, originId: id, originLabel: path }))}
+                />
               </FieldWrapper>
 
               {/* Campos personalizados */}
