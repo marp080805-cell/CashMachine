@@ -9,7 +9,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
     const { entityType } = request.query as { entityType?: string }
 
     const tags = await prisma.tag.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(entityType ? { entityType } : {}) },
       orderBy: { name: 'asc' },
     })
 
@@ -25,6 +25,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
         name: z.string().min(1),
         color: z.string().default('#6366f1'),
         category: z.enum(['QUALIFICATION', 'TEMPERATURE', 'STATUS', 'AI_CONTROL', 'CUSTOM']).default('CUSTOM'),
+        entityType: z.string().default('opportunity'),
         isLocked: z.boolean().default(false),
       }).parse(request.body)
 
@@ -45,6 +46,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
         name: z.string().optional(),
         color: z.string().optional(),
         category: z.enum(['QUALIFICATION', 'TEMPERATURE', 'STATUS', 'AI_CONTROL', 'CUSTOM']).optional(),
+        entityType: z.string().optional(),
         isLocked: z.boolean().optional(),
       }).parse(request.body)
 

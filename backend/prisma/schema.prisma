@@ -514,6 +514,7 @@ model Tag {
   name        String
   color       String      @default("#6366f1")
   category    TagCategory @default(CUSTOM)
+  entityType  String      @default("opportunity")
   createdById String
   createdBy   User        @relation(fields: [createdById], references: [id])
   isLocked    Boolean     @default(false)
@@ -521,7 +522,7 @@ model Tag {
 
   assignments TagAssignment[]
 
-  @@unique([tenantId, name])
+  @@unique([tenantId, name, entityType])
   @@index([tenantId])
   @@map("tags")
 }

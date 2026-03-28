@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -16,15 +15,24 @@ interface Tag {
   name: string
   color: string
   category: string
+  entityType: string
   isLocked: boolean
 }
 
+const ENTITY_TYPES = [
+  { value: 'opportunity', label: 'Oportunidade' },
+  { value: 'contact',     label: 'Contato' },
+  { value: 'company',     label: 'Empresa' },
+  { value: 'lead',        label: 'Lead' },
+  { value: 'task',        label: 'Tarefa' },
+] as const
+
 const CATEGORIES = [
   { value: 'QUALIFICATION', label: 'Qualificação' },
-  { value: 'TEMPERATURE', label: 'Temperatura' },
-  { value: 'STATUS', label: 'Status' },
-  { value: 'AI_CONTROL', label: 'Controle IA' },
-  { value: 'CUSTOM', label: 'Personalizada' },
+  { value: 'TEMPERATURE',   label: 'Temperatura' },
+  { value: 'STATUS',        label: 'Status' },
+  { value: 'AI_CONTROL',    label: 'Controle IA' },
+  { value: 'CUSTOM',        label: 'Personalizada' },
 ] as const
 
 const categoryColors: Record<string, string> = {
@@ -35,11 +43,12 @@ const categoryColors: Record<string, string> = {
   CUSTOM:        'bg-gray-100 text-gray-700',
 }
 
-const emptyForm = { name: '', color: '#6366f1', category: 'CUSTOM', isLocked: false }
+const emptyForm = { name: '', color: '#6366f1', category: 'CUSTOM', entityType: 'opportunity', isLocked: false }
 
 export default function TagsPage() {
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeEntity, setActiveEntity] = useState<string>('opportunity')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Tag | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -58,13 +67,13 @@ export default function TagsPage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(emptyForm)
+    setForm({ ...emptyForm, entityType: activeEntity })
     setOpen(true)
   }
 
   function openEdit(tag: Tag) {
     setEditing(tag)
-    setForm({ name: tag.name, color: tag.color, category: tag.category, isLocked: tag.isLocked })
+    setForm({ name: tag.name, color: tag.color, category: tag.category, entityType: tag.entityType, isLocked: tag.isLocked })
     setOpen(true)
   }
 
@@ -93,6 +102,8 @@ export default function TagsPage() {
     setTags((prev) => prev.filter((t) => t.id !== id))
   }
 
+  const filteredTags = tags.filter((t) => t.entityType === activeEntity)
+
   if (loading) return <div className="text-muted-foreground text-sm">Carregando...</div>
 
   return (
@@ -100,18 +111,43 @@ export default function TagsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Tags</h2>
-          <p className="text-sm text-muted-foreground">Gerencie as tags para categorizar oportunidades e contatos</p>
+          <p className="text-sm text-muted-foreground">Gerencie as tags para categorizar registros do CRM</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Nova Tag
         </Button>
       </div>
 
+      {/* Entity tabs */}
+      <div className="flex gap-1 border-b">
+        {ENTITY_TYPES.map((et) => {
+          const count = tags.filter((t) => t.entityType === et.value).length
+          return (
+            <button
+              key={et.value}
+              onClick={() => setActiveEntity(et.value)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeEntity === et.value
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {et.label}
+              {count > 0 && (
+                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">{count}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="border rounded-lg divide-y">
-        {tags.length === 0 && (
-          <div className="py-8 text-center text-sm text-muted-foreground">Nenhuma tag cadastrada</div>
+        {filteredTags.length === 0 && (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            Nenhuma tag cadastrada para {ENTITY_TYPES.find((e) => e.value === activeEntity)?.label}
+          </div>
         )}
-        {tags.map((tag) => (
+        {filteredTags.map((tag) => (
           <div key={tag.id} className="flex items-center gap-3 px-4 py-3">
             <span
               className="h-4 w-4 rounded-full flex-shrink-0 border border-black/10"
@@ -150,6 +186,19 @@ export default function TagsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
+              <Label>Entidade</Label>
+              <Select value={form.entityType} onValueChange={(v) => setForm((f) => ({ ...f, entityType: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENTITY_TYPES.map((e) => (
+                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Nome</Label>
               <Input
                 value={form.name}
@@ -182,10 +231,7 @@ export default function TagsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Categoria</Label>
-              <Select
-                value={form.category}
-                onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
-              >
+              <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
