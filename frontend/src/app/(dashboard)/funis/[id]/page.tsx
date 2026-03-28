@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -111,6 +112,12 @@ export default function PipelineKanbanPage() {
     queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
   })
   const allowReopenLost = tenantData?.settings?.allowReopenLost !== false
+
+  const toggleReopenMutation = useMutation({
+    mutationFn: (value: boolean) => api.patch('/tenants/current/settings', { allowReopenLost: value }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tenant-current'] }),
+    onError: () => toast.error('Erro ao salvar configuração'),
+  })
 
   const addStageMutation = useMutation({
     mutationFn: ({ name, color }: { name: string; color: string }) =>
@@ -409,6 +416,16 @@ export default function PipelineKanbanPage() {
                   {wonCount > 0 && <Badge variant="secondary" className="text-xs h-4 px-1">{wonCount}</Badge>}
                 </button>
               </div>
+              {isAdmin && (
+                <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Reabrir perdidas</span>
+                  <Switch
+                    checked={allowReopenLost}
+                    onCheckedChange={(v) => toggleReopenMutation.mutate(v)}
+                    disabled={toggleReopenMutation.isPending}
+                  />
+                </div>
+              )}
             </div>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-6">

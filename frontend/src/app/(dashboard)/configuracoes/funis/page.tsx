@@ -144,19 +144,9 @@ export default function FunisConfigPage() {
       </div>
 
       {/* Configurações gerais */}
-      <div className="border rounded-lg p-4 bg-card space-y-1">
-        <h3 className="text-sm font-semibold mb-3">Configurações de Oportunidades</h3>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Permitir reabrir oportunidades perdidas</p>
-            <p className="text-xs text-muted-foreground">Quando ativado, administradores podem mover oportunidades de volta para aberto</p>
-          </div>
-          <Switch
-            checked={allowReopenLost}
-            onCheckedChange={(v) => void handleToggleReopenLost(v)}
-            disabled={savingToggle}
-          />
-        </div>
+      <div className="border rounded-lg px-4 py-2.5 bg-card flex items-center justify-between gap-4">
+        <span className="text-sm text-muted-foreground">Permitir que admins reabram oportunidades perdidas</span>
+        <Switch checked={allowReopenLost} onCheckedChange={(v) => void handleToggleReopenLost(v)} disabled={savingToggle} />
       </div>
 
       {pipelines.length === 0 ? (
