@@ -85,7 +85,7 @@ async function bootstrap() {
     }
 
     app.log.error(error)
-    return reply.status(500).send({ error: 'Internal server error' })
+    return reply.status(500).send({ error: error.message ?? 'Internal server error' })
   })
 
   // Routes

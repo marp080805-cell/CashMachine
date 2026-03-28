@@ -297,26 +297,23 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
 
   // Reabrir oportunidade
   app.post('/opportunities/:id/reopen', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const { tenantId, role } = request.user as { tenantId: string; role: string }
-
-    if (!['ADMIN', 'MANAGER'].includes(role)) {
-      return reply.status(403).send({ error: 'Sem permissão para reabrir oportunidades' })
-    }
-
+    let id = ''
     try {
+      id = (request.params as { id: string }).id
+      const { tenantId, role } = request.user as { tenantId: string; role: string }
+
+      if (!['ADMIN', 'MANAGER'].includes(role)) {
+        return reply.status(403).send({ error: 'Sem permissão para reabrir oportunidades' })
+      }
+
       const opp = await prisma.opportunity.findFirst({ where: { id, tenantId } })
       if (!opp) return reply.status(404).send({ error: 'Oportunidade não encontrada' })
 
       // Use raw SQL to avoid Prisma's multi-statement issue (PostgreSQL error 42601)
-      await prisma.$executeRaw`
-        UPDATE opportunities
-        SET status = 'OPEN'::"OpportunityStatus",
-            "closedAt" = NULL,
-            "lostReasonId" = NULL,
-            "updatedAt" = NOW()
-        WHERE id = ${id}
-      `
+      await prisma.$executeRawUnsafe(
+        `UPDATE opportunities SET status = 'OPEN'::"OpportunityStatus", "closedAt" = NULL, "lostReasonId" = NULL, "updatedAt" = NOW() WHERE id = $1`,
+        id
+      )
 
       const updated = await prisma.opportunity.findFirst({
         where: { id },
@@ -325,7 +322,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       return reply.send(updated)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      app.log.error({ err, id, msg }, 'reopen opportunity error')
+      app.log.error({ err, id, msg }, '[reopen] error')
       return reply.status(500).send({ error: msg })
     }
   })
