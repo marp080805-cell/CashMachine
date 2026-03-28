@@ -155,7 +155,7 @@ export default function OrigensPage() {
     setName('')
     setOpen(true)
     // Auto-expand parent
-    setExpanded((prev) => new Set([...prev, pid]))
+    setExpanded((prev) => new Set(Array.from(prev).concat(pid)))
   }
 
   function openEdit(node: OriginNode) {
