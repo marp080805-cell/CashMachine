@@ -476,22 +476,6 @@ export default function EmpresasPage() {
                   <Label>Telefone</Label>
                   <Input placeholder="(11) 3333-3333" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>WhatsApp</Label>
-                  <Input placeholder="(11) 99999-9999" value={form.whatsapp} onChange={(e) => setForm((f) => ({ ...f, whatsapp: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Celular</Label>
-                  <Input placeholder="(11) 99999-9999" value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Fax</Label>
-                  <Input placeholder="(11) 3333-3333" value={form.fax} onChange={(e) => setForm((f) => ({ ...f, fax: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Ramal</Label>
-                  <Input placeholder="Ex: 100" value={form.extension} onChange={(e) => setForm((f) => ({ ...f, extension: e.target.value }))} />
-                </div>
               </div>
             </div>
 
