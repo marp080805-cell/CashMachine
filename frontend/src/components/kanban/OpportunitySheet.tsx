@@ -34,7 +34,6 @@ import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { ChatWindow } from '@/components/whatsapp/ChatWindow'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
-import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { useAuthStore } from '@/stores/authStore'
 
 
@@ -231,7 +230,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
-  const fieldConfig = useFieldConfig()
 
   const queryClient = useQueryClient()
 
@@ -708,24 +706,24 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   {lostMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                   <span className="ml-1">Perdido</span>
                 </Button>
-                {isAdmin && (
-                  <Button type="button" variant={adminMode ? 'default' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5"
-                    onClick={() => setAdminMode(v => !v)}>
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {adminMode ? 'Sair' : 'Personalizar'}
-                  </Button>
-                )}
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-1">
                   {isEditing ? (
-                    <div className="flex gap-1">
+                    <>
+                      {isAdmin && (
+                        <Button type="button" variant={adminMode ? 'default' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5"
+                          onClick={() => setAdminMode(v => !v)}>
+                          <Settings2 className="h-3.5 w-3.5" />
+                          {adminMode ? 'Sair' : 'Personalizar'}
+                        </Button>
+                      )}
                       <Button size="sm" onClick={handleSaveEdit} disabled={editMutation.isPending} className="h-8 px-3">
                         {editMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         <span className="ml-1">Salvar</span>
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="h-8 px-2">
+                      <Button size="sm" variant="ghost" onClick={() => { setIsEditing(false); setAdminMode(false) }} className="h-8 px-2">
                         <X className="h-3.5 w-3.5" />
                       </Button>
-                    </div>
+                    </>
                   ) : (
                     <Button size="sm" variant="ghost" onClick={openEdit} className="h-8 px-2">
                       <Pencil className="h-3.5 w-3.5" />
@@ -736,9 +734,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                <TabsList className="w-full rounded-none border-b grid grid-cols-7 h-auto px-0">
+                <TabsList className="w-full rounded-none border-b grid grid-cols-6 h-auto px-0">
                   <TabsTrigger value="details" className="text-xs py-2">Detalhes</TabsTrigger>
-                  <TabsTrigger value="custom-fields" className="text-xs py-2">Campos</TabsTrigger>
                   <TabsTrigger value="tasks" className="text-xs py-2">
                     Tarefas {tasks.length > 0 ? `(${tasks.length})` : ''}
                   </TabsTrigger>
@@ -752,108 +749,81 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 <TabsContent value="details" className="flex-1 overflow-y-auto p-4 space-y-4 mt-0">
                   {isEditing ? (
                     <div className="space-y-3">
-                      <FieldWrapper entityType="opportunity" slug="title" label="Título" defaultRequired={true} adminMode={adminMode}>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</p>
-                          <Input
-                            required={fieldConfig.isRequired('opportunity', 'title', true)}
-                            value={editData.title}
-                            onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
-                            placeholder="Título da oportunidade"
-                          />
-                        </div>
+                      <FieldWrapper entityType="opportunity" slug="title" label="Título" placeholder="Título da oportunidade" defaultRequired={true} adminMode={adminMode}>
+                        <Input
+                          value={editData.title}
+                          onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
+                        />
                       </FieldWrapper>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <FieldWrapper entityType="opportunity" slug="value" label="Valor" defaultRequired={false} adminMode={adminMode}>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground">Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                required={fieldConfig.isRequired('opportunity', 'value', false)}
-                                value={editData.value}
-                                onChange={(e) => setEditData((d) => ({ ...d, value: e.target.value }))}
-                                placeholder="0,00"
-                              />
-                            </div>
-                          </FieldWrapper>
-                        </div>
-                        <div>
-                          <FieldWrapper entityType="opportunity" slug="closeDate" label="Fechamento previsto" defaultRequired={false} adminMode={adminMode}>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground">Fechamento previsto {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
-                              <Input
-                                type="date"
-                                required={fieldConfig.isRequired('opportunity', 'closeDate', false)}
-                                value={editData.expectedCloseDate}
-                                onChange={(e) => setEditData((d) => ({ ...d, expectedCloseDate: e.target.value }))}
-                              />
-                            </div>
-                          </FieldWrapper>
-                        </div>
-                        <div>
-                          <FieldWrapper entityType="opportunity" slug="stage" label="Etapa" defaultRequired={true} adminMode={adminMode}>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground">Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500 ml-0.5">*</span>}</p>
-                              {stages.length > 0 ? (
-                                <Select value={editData.stageId} onValueChange={(v) => setEditData((d) => ({ ...d, stageId: v }))}>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {stages.map((s) => (
-                                      <SelectItem key={s.id} value={s.id}>
-                                        <div className="flex items-center gap-2">
-                                          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                                          {s.name}
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Input value={opportunity.stage?.name ?? '—'} disabled />
-                              )}
-                            </div>
-                          </FieldWrapper>
-                        </div>
-                        <div>
-                          <FieldWrapper entityType="opportunity" slug="responsible" label="Responsável" defaultRequired={false} adminMode={adminMode}>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground">Responsável {fieldConfig.isRequired('opportunity', 'responsible', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
-                              {(usersData?.users ?? []).length > 0 ? (
-                                <Select value={editData.assignedToId} onValueChange={(v) => setEditData((d) => ({ ...d, assignedToId: v }))}>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {(usersData?.users ?? []).map((u) => (
-                                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Input value={opportunity.assignedTo.name} disabled />
-                              )}
-                            </div>
-                          </FieldWrapper>
-                        </div>
-                      </div>
-                      <FieldWrapper entityType="opportunity" slug="description" label="Descrição" defaultRequired={false} adminMode={adminMode}>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
-                          <Textarea
-                            rows={3}
-                            required={fieldConfig.isRequired('opportunity', 'description', false)}
-                            value={editData.notes}
-                            onChange={(e) => setEditData((d) => ({ ...d, notes: e.target.value }))}
-                            placeholder="Observações..."
-                            className="resize-none"
+                        <FieldWrapper entityType="opportunity" slug="value" label="Valor (R$)" placeholder="0,00" adminMode={adminMode}>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editData.value}
+                            onChange={(e) => setEditData((d) => ({ ...d, value: e.target.value }))}
                           />
-                        </div>
+                        </FieldWrapper>
+                        <FieldWrapper entityType="opportunity" slug="closeDate" label="Fechamento previsto" adminMode={adminMode}>
+                          <Input
+                            type="date"
+                            value={editData.expectedCloseDate}
+                            onChange={(e) => setEditData((d) => ({ ...d, expectedCloseDate: e.target.value }))}
+                          />
+                        </FieldWrapper>
+                        <FieldWrapper entityType="opportunity" slug="stage" label="Etapa" defaultRequired={true} adminMode={adminMode}>
+                          {stages.length > 0 ? (
+                            <Select value={editData.stageId} onValueChange={(v) => setEditData((d) => ({ ...d, stageId: v }))}>
+                              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {stages.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                                      {s.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={opportunity.stage?.name ?? '—'} disabled />
+                          )}
+                        </FieldWrapper>
+                        <FieldWrapper entityType="opportunity" slug="responsible" label="Responsável" adminMode={adminMode}>
+                          {(usersData?.users ?? []).length > 0 ? (
+                            <Select value={editData.assignedToId} onValueChange={(v) => setEditData((d) => ({ ...d, assignedToId: v }))}>
+                              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {(usersData?.users ?? []).map((u) => (
+                                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={opportunity.assignedTo.name} disabled />
+                          )}
+                        </FieldWrapper>
+                      </div>
+                      <FieldWrapper entityType="opportunity" slug="description" label="Notas" placeholder="Observações..." adminMode={adminMode}>
+                        <Textarea
+                          rows={3}
+                          value={editData.notes}
+                          onChange={(e) => setEditData((d) => ({ ...d, notes: e.target.value }))}
+                          className="resize-none"
+                        />
                       </FieldWrapper>
+                      {/* Campos personalizados no modo edição */}
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Campos Personalizados</p>
+                        <CustomFieldsPanel
+                          entityType="opportunity"
+                          entityId={opportunity?.id}
+                          adminMode={adminMode}
+                          onAdminModeChange={setAdminMode}
+                        />
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -955,6 +925,14 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         )}
                       </div>
 
+                      {/* Campos personalizados (view) */}
+                      <CustomFieldsPanel
+                        entityType="opportunity"
+                        entityId={opportunity?.id}
+                        adminMode={false}
+                        onAdminModeChange={() => {}}
+                      />
+
                       {/* Registrar atividade */}
                       <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
                         <p className="text-xs font-medium text-muted-foreground">Registrar atividade</p>
@@ -992,16 +970,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                       )}
                     </div>
                   )}
-                </TabsContent>
-
-                {/* ── Tab: Campos Personalizados ── */}
-                <TabsContent value="custom-fields" className="flex-1 overflow-y-auto p-4 mt-0">
-                  <CustomFieldsPanel
-                    entityType="opportunity"
-                    entityId={opportunity?.id}
-                    adminMode={adminMode}
-                    onAdminModeChange={setAdminMode}
-                  />
                 </TabsContent>
 
                 {/* ── Tab: Tarefas ── */}
