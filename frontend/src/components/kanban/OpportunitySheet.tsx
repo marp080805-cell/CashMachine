@@ -33,6 +33,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { ChatWindow } from '@/components/whatsapp/ChatWindow'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useAuthStore } from '@/stores/authStore'
 
 interface OpportunitySheetProps {
   opportunity: Opportunity | null
@@ -220,6 +221,11 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   // Tags state
   const [showTagPicker, setShowTagPicker] = useState(false)
+  const [showNewTagForm, setShowNewTagForm] = useState(false)
+  const [newTagData, setNewTagData] = useState({ name: '', color: '#6366f1' })
+
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const queryClient = useQueryClient()
 
@@ -279,7 +285,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const { data: tagsListData } = useQuery({
     queryKey: ['tags-list'],
     queryFn: () => api.get<Tag[]>('/tags'),
-    enabled: activeTab === 'tags' && showTagPicker,
+    enabled: activeTab === 'tags',
   })
 
   // Closer users for handoff
@@ -476,6 +482,21 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
       void queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity!.id] })
     },
     onError: () => toast.error('Erro ao remover tag'),
+  })
+
+  // Create tag mutation (admin/manager only)
+  const createTagMutation = useMutation({
+    mutationFn: (data: { name: string; color: string }) =>
+      api.post<Tag>('/tags', { name: data.name, color: data.color, category: 'CUSTOM' }),
+    onSuccess: (createdTag) => {
+      toast.success('Tag criada!')
+      setShowNewTagForm(false)
+      setNewTagData({ name: '', color: '#6366f1' })
+      void queryClient.invalidateQueries({ queryKey: ['tags-list'] })
+      // Also add it to the opportunity
+      addTagMutation.mutate(createdTag.id)
+    },
+    onError: () => toast.error('Erro ao criar tag'),
   })
 
   const startConversationMutation = useMutation({
@@ -1153,16 +1174,73 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                     <p className="text-xs font-medium text-muted-foreground">
                       {(oppDetail?.tagAssignments ?? []).length} tag(s) vinculada(s)
                     </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => setShowTagPicker((v) => !v)}
-                    >
-                      <TagIcon className="h-3 w-3 mr-1" />
-                      {showTagPicker ? 'Fechar' : '+ Tag'}
-                    </Button>
+                    <div className="flex gap-1.5">
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          variant={showNewTagForm ? 'default' : 'outline'}
+                          className="h-7 text-xs gap-1"
+                          onClick={() => { setShowNewTagForm((v) => !v); setShowTagPicker(false) }}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Nova tag
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant={showTagPicker ? 'default' : 'outline'}
+                        className="h-7 text-xs"
+                        onClick={() => { setShowTagPicker((v) => !v); setShowNewTagForm(false) }}
+                      >
+                        <TagIcon className="h-3 w-3 mr-1" />
+                        {showTagPicker ? 'Fechar' : '+ Tag'}
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Inline new tag form (admin only) */}
+                  {showNewTagForm && (
+                    <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                      <p className="text-xs font-medium text-muted-foreground">Nova tag</p>
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-xs">Nome</Label>
+                          <Input
+                            value={newTagData.name}
+                            onChange={(e) => setNewTagData((d) => ({ ...d, name: e.target.value }))}
+                            placeholder="Ex: Quente, VIP..."
+                            className="h-8 text-sm"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Cor</Label>
+                          <input
+                            type="color"
+                            value={newTagData.color}
+                            onChange={(e) => setNewTagData((d) => ({ ...d, color: e.target.value }))}
+                            className="h-8 w-12 rounded border cursor-pointer p-0.5"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost" size="sm" className="h-7 text-xs"
+                          onClick={() => { setShowNewTagForm(false); setNewTagData({ name: '', color: '#6366f1' }) }}
+                        >
+                          <X className="h-3 w-3 mr-1" /> Cancelar
+                        </Button>
+                        <Button
+                          size="sm" className="h-7 text-xs"
+                          disabled={!newTagData.name || createTagMutation.isPending}
+                          onClick={() => createTagMutation.mutate(newTagData)}
+                        >
+                          {createTagMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                          Criar e adicionar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Tag picker */}
                   {showTagPicker && (
@@ -1186,8 +1264,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                               {tag.name}
                             </button>
                           ))}
-                        {(tagsListData ?? []).length === 0 && (
-                          <p className="text-xs text-muted-foreground">Nenhuma tag disponível</p>
+                        {(tagsListData ?? []).filter((t) => !(oppDetail?.tagAssignments ?? []).some((ta) => ta.tagId === t.id)).length === 0 && (
+                          <p className="text-xs text-muted-foreground">Todas as tags já foram adicionadas</p>
                         )}
                       </div>
                     </div>
