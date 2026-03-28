@@ -35,7 +35,7 @@ export function DealModal({ deal, onClose, funnelId }: DealModalProps) {
   })
 
   const wonMutation = useMutation({
-    mutationFn: () => api.post(`/deals/${deal!.id}/won`),
+    mutationFn: () => api.post(`/deals/${deal!.id}/won`, {}),
     onSuccess: () => {
       toast.success('Deal marcado como GANHO!')
       void queryClient.invalidateQueries({ queryKey: ['funnel', funnelId] })

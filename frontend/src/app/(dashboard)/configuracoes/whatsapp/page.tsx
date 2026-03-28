@@ -86,7 +86,7 @@ export default function WhatsappConfigPage() {
   })
 
   const verifyMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/whatsapp/numbers/${id}/verify`),
+    mutationFn: (id: string) => api.post(`/whatsapp/numbers/${id}/verify`, {}),
     onSuccess: () => {
       toast.success('Status atualizado')
       void queryClient.invalidateQueries({ queryKey: ['whatsapp-numbers'] })

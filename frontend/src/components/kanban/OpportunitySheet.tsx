@@ -395,7 +395,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   // — Mutations —
 
   const wonMutation = useMutation({
-    mutationFn: () => api.post<Opportunity>(`/opportunities/${opportunity!.id}/won`),
+    mutationFn: () => api.post<Opportunity>(`/opportunities/${opportunity!.id}/won`, {}),
     onSuccess: () => {
       toast.success('Oportunidade marcada como GANHA!')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
