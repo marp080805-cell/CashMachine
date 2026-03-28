@@ -213,6 +213,7 @@ interface TaskFormData {
   title: string
   type: string
   priority: string
+  status: string
   dueDate: string
   assignedToId: string
   opportunityId: string
@@ -230,6 +231,7 @@ const defaultTaskForm: TaskFormData = {
   title: '',
   type: 'CALL',
   priority: 'MEDIUM',
+  status: 'PENDING',
   dueDate: '',
   assignedToId: '',
   opportunityId: '',
@@ -263,10 +265,15 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
 
   useEffect(() => {
     if (open) {
-      setForm({ ...defaultTaskForm, ...initialData })
+      const base = { ...defaultTaskForm, ...initialData }
+      // Auto-assign to current user when creating
+      if (!taskId && !base.assignedToId && user?.id) {
+        base.assignedToId = user.id
+      }
+      setForm(base)
       if (!taskId) { setCfValues({}) }
     }
-  }, [open, initialData, taskId])
+  }, [open, initialData, taskId, user])
 
   const isEdit = !!taskId
 
@@ -315,6 +322,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
       dueDate: new Date(form.dueDate).toISOString(),
       assignedToId: assignId,
       description: form.description || undefined,
+      ...(isEdit && form.status && { status: form.status }),
       ...(form.opportunityId && { opportunityId: form.opportunityId }),
       ...(form.contactId && { contactId: form.contactId }),
       ...(form.companyId && { companyId: form.companyId }),
@@ -385,8 +393,9 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           <FieldWrapper entityType="task" slug="dueDate" label="Vencimento" adminMode={adminMode}>
             <Input type="datetime-local" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} />
           </FieldWrapper>
-          <FieldWrapper entityType="task" slug="assignedTo" label="Responsável" adminMode={adminMode}>
-            <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
+          <div className="space-y-1.5">
+            <Label>Responsável</Label>
+            <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
               <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
               <SelectContent>
                 {users.map((u) => (
@@ -394,7 +403,20 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
                 ))}
               </SelectContent>
             </Select>
-          </FieldWrapper>
+          </div>
+          {isEdit && (
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={form.status || undefined} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecionar status..." /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusLabels).map(([val, lbl]) => (
+                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>Vincular a oportunidade</Label>
             <Autocomplete
@@ -529,9 +551,9 @@ function CompleteModal({ taskId, onClose, onSuccess }: CompleteModalProps) {
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>Adicione uma nota sobre a conclusão <span className="text-red-500">*</span></Label>
+            <Label>Nota de conclusão <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Textarea
-              rows={4}
+              rows={3}
               placeholder="Descreva o que foi realizado..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -542,7 +564,7 @@ function CompleteModal({ taskId, onClose, onSuccess }: CompleteModalProps) {
             <Button variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
             <Button
               className="flex-1"
-              disabled={!notes.trim() || mutation.isPending}
+              disabled={mutation.isPending}
               onClick={() => { if (taskId) mutation.mutate({ id: taskId, completionNotes: notes }) }}
             >
               {mutation.isPending
@@ -913,22 +935,18 @@ function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onComplete, onEd
       draggable={!isCompleted}
       onDragStart={(e) => { e.dataTransfer.setData('taskId', task.id); onDragStart(task.id) }}
       onDragEnd={onDragEnd}
+      onClick={() => !isDragging && onOpenDetail(task)}
       className={cn(
-        'rounded-lg border bg-card p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-l-4',
+        'rounded-lg border bg-card p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4',
         priorityBorderColors[task.priority] ?? 'border-l-gray-300',
         isDragging && 'opacity-40 scale-95',
       )}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <button
-          className="text-sm font-medium text-left hover:text-primary transition-colors flex-1 min-w-0"
-          onClick={() => onOpenDetail(task)}
-        >
-          <span className={cn('leading-tight', isCompleted && 'line-through text-muted-foreground')}>
-            {task.title}
-          </span>
-        </button>
+        <span className={cn('text-sm font-medium leading-tight flex-1 min-w-0', isCompleted && 'line-through text-muted-foreground')}>
+          {task.title}
+        </span>
         <div className="shrink-0 flex items-center gap-1">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted">
             <Icon className="h-3 w-3 text-muted-foreground" />
@@ -948,7 +966,7 @@ function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onComplete, onEd
 
       {/* Opportunity link */}
       {task.opportunity && (
-        <Link href={`/oportunidades/${task.opportunity.id}`} className="flex items-center gap-1 text-xs text-primary hover:underline mb-1.5">
+        <Link href={`/oportunidades/${task.opportunity.id}`} className="flex items-center gap-1 text-xs text-primary hover:underline mb-1.5" onClick={(e) => e.stopPropagation()}>
           <CheckSquare className="h-3 w-3 shrink-0" />
           <span className="truncate">{task.opportunity.title}</span>
         </Link>
@@ -967,16 +985,16 @@ function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onComplete, onEd
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-60 hover:opacity-100">
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-60 hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                 <MoreVertical className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => onEdit(task)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(task) }}>
                 <Pencil className="h-3.5 w-3.5 mr-2" />Editar
               </DropdownMenuItem>
               {!isCompleted && (
-                <DropdownMenuItem onClick={() => onComplete(task.id)}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onComplete(task.id) }}>
                   <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-green-500" />Concluir
                 </DropdownMenuItem>
               )}
@@ -1037,9 +1055,7 @@ function KanbanView({ tasks, onStatusChange, onComplete, onEdit, onOpenDetail }:
                   'rounded-md border-2 border-dashed py-6 text-center transition-colors',
                   isOver ? 'border-primary/40 bg-primary/5' : 'border-transparent',
                 )}>
-                  <p className="text-xs text-muted-foreground">
-                    {isOver ? 'Soltar aqui' : 'Nenhuma tarefa'}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Nenhuma tarefa</p>
                 </div>
               )}
               {colTasks.map((task) => (
@@ -1191,6 +1207,16 @@ export default function TarefasPage() {
     onError: () => toast.error('Erro ao atualizar status'),
   })
 
+  // Direct complete (kanban drop to Completed — no modal)
+  const directCompleteMutation = useMutation({
+    mutationFn: (id: string) => api.post<Task>(`/tasks/${id}/complete`, { completionNotes: '' }),
+    onSuccess: () => {
+      toast.success('Tarefa concluída!')
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: () => toast.error('Erro ao concluir tarefa'),
+  })
+
   // Duplicate mutation
   const duplicateMutation = useMutation({
     mutationFn: (task: Task) => api.post<Task>('/tasks', {
@@ -1227,6 +1253,7 @@ export default function TarefasPage() {
       title: task.title,
       type: task.type,
       priority: task.priority,
+      status: task.status,
       dueDate: dueDateLocal,
       assignedToId: task.assignedToId,
       opportunityId: task.opportunityId ?? '',
@@ -1470,7 +1497,7 @@ export default function TarefasPage() {
             <KanbanView
               tasks={displayTasks}
               onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
-              onComplete={(id) => setCompleteId(id)}
+              onComplete={(id) => directCompleteMutation.mutate(id)}
               onEdit={(t) => setEditTask(t)}
               onOpenDetail={(t) => setDetailTask(t)}
             />

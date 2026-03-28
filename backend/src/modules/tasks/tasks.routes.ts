@@ -12,6 +12,7 @@ const createTaskSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   type: taskTypeEnum.default('FOLLOW_UP'),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'OVERDUE', 'SKIPPED']).optional(),
   dueDate: z.string().datetime().optional(),
   opportunityId: z.string().uuid().optional(),
   contactId: z.string().uuid().optional(),
