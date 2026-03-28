@@ -132,7 +132,7 @@ export default function FunisConfigPage() {
       {/* Configurações gerais */}
       <div className="border rounded-lg px-4 py-2.5 bg-card flex items-center justify-between gap-4">
         <span className="text-sm text-muted-foreground">Permitir que admins reabram oportunidades perdidas</span>
-        <Switch checked={allowReopenLost} onCheckedChange={(v) => void handleToggleReopenLost(v)} disabled={savingToggle} />
+        <Switch checked={allowReopenLost} onCheckedChange={(v) => toggleReopenMutation.mutate(v)} disabled={toggleReopenMutation.isPending} />
       </div>
 
       {pipelines.length === 0 ? (
