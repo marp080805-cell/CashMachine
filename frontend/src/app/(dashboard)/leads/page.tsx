@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, X, Loader2, Filter, Zap, Pencil, Settings2 } from 'lucide-react'
+import { Plus, Search, X, Loader2, Filter, Zap, Pencil } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -19,7 +19,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
-import { useAuthStore } from '@/stores/authStore'
 
 // ── Status config ──
 
@@ -105,12 +104,8 @@ export default function LeadsPage() {
   const [editContactSearch, setEditContactSearch] = useState('')
 
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
-  const [cfCreateAdminMode, setCfCreateAdminMode] = useState(false)
-  const [cfEditAdminMode, setCfEditAdminMode] = useState(false)
 
   const queryClient = useQueryClient()
-  const authUser = useAuthStore((s) => s.user)
-  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   // Leads query
   const { data, isLoading } = useQuery({
@@ -169,7 +164,6 @@ export default function LeadsPage() {
       setForm(defaultLeadForm)
       setContactSearch('')
       setCfCreateValues({})
-      setCfCreateAdminMode(false)
       void queryClient.invalidateQueries({ queryKey: ['leads'] })
     },
     onError: (err: unknown) => {
@@ -443,7 +437,7 @@ export default function LeadsPage() {
       />
 
       {/* Create Lead Modal */}
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setForm(defaultLeadForm); setContactSearch(''); setCfCreateValues({}); setCfCreateAdminMode(false) } }}>
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setForm(defaultLeadForm); setContactSearch(''); setCfCreateValues({}) } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Lead</DialogTitle>
@@ -527,27 +521,11 @@ export default function LeadsPage() {
 
             {/* Campos personalizados */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
-                {isAdmin && (
-                  <Button
-                    type="button"
-                    variant={cfCreateAdminMode ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={() => setCfCreateAdminMode((v) => !v)}
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {cfCreateAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-                  </Button>
-                )}
-              </div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
               <CustomFieldsPanel
                 entityType="lead"
                 values={cfCreateValues}
                 onChange={(id, v) => setCfCreateValues((p) => ({ ...p, [id]: v }))}
-                adminMode={cfCreateAdminMode}
-                onAdminModeChange={setCfCreateAdminMode}
               />
             </div>
 
@@ -567,7 +545,7 @@ export default function LeadsPage() {
       </Dialog>
 
       {/* Edit Lead Modal */}
-      <Dialog open={!!editLead} onOpenChange={(open) => { if (!open) { setEditLead(null); setEditContactSearch(''); setCfEditAdminMode(false) } }}>
+      <Dialog open={!!editLead} onOpenChange={(open) => { if (!open) { setEditLead(null); setEditContactSearch('') } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Lead</DialogTitle>
@@ -652,26 +630,10 @@ export default function LeadsPage() {
 
               {/* Campos personalizados */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
-                  {isAdmin && (
-                    <Button
-                      type="button"
-                      variant={cfEditAdminMode ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-7 text-xs gap-1.5"
-                      onClick={() => setCfEditAdminMode((v) => !v)}
-                    >
-                      <Settings2 className="h-3.5 w-3.5" />
-                      {cfEditAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-                    </Button>
-                  )}
-                </div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
                 <CustomFieldsPanel
                   entityType="lead"
                   entityId={editLead.id}
-                  adminMode={cfEditAdminMode}
-                  onAdminModeChange={setCfEditAdminMode}
                 />
               </div>
 

@@ -23,7 +23,7 @@ import {
   Trophy, X, Loader2, MessageSquare, Phone, ExternalLink,
   Pencil, Check, Trash2, CheckCircle2, Circle, Plus,
   Calendar, Mail, FileText, Users, Clock, Activity,
-  Video, Handshake, Tag as TagIcon, AlertTriangle, Settings2,
+  Video, Handshake, Tag as TagIcon, AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Opportunity, WhatsappNumber, User, Task, Activity as ActivityType, Tag } from '@/types'
@@ -35,33 +35,6 @@ import { ChatWindow } from '@/components/whatsapp/ChatWindow'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { useAuthStore } from '@/stores/authStore'
 
-// Helper: Campos tab with admin toggle
-function CfPanelWithAdmin({ entityType, entityId }: { entityType: 'opportunity'; entityId?: string }) {
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
-  const [cfAdminMode, setCfAdminMode] = useState(false)
-
-  return (
-    <div className="space-y-3">
-      {isAdmin && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</span>
-          <Button
-            type="button"
-            variant={cfAdminMode ? 'default' : 'outline'}
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => setCfAdminMode((v) => !v)}
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            {cfAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-          </Button>
-        </div>
-      )}
-      <CustomFieldsPanel entityType={entityType} entityId={entityId} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
-    </div>
-  )
-}
 
 interface OpportunitySheetProps {
   opportunity: Opportunity | null
@@ -986,7 +959,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
                 {/* ── Tab: Campos Personalizados ── */}
                 <TabsContent value="custom-fields" className="flex-1 overflow-y-auto p-4 mt-0">
-                  <CfPanelWithAdmin entityType="opportunity" entityId={opportunity?.id} />
+                  <CustomFieldsPanel entityType="opportunity" entityId={opportunity?.id} />
                 </TabsContent>
 
                 {/* ── Tab: Tarefas ── */}

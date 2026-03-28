@@ -31,13 +31,12 @@ import {
   CheckSquare, Phone, Mail, Users, Calendar, FileText,
   Plus, Loader2, CheckCircle2, Circle, Filter, List, Columns,
   MoreVertical, Pencil, Clock, Copy, Trash2, X, ExternalLink,
-  AlertCircle, RefreshCw, Settings2,
+  AlertCircle, RefreshCw,
 } from 'lucide-react'
 import { cn, formatDateTime, formatDate, getInitials } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
-import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
 // ── Task type maps ──
@@ -254,16 +253,13 @@ interface TaskFormModalProps {
 function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultTaskForm, ...initialData })
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
-  const [cfAdminMode, setCfAdminMode] = useState(false)
   const { user } = useAuth()
-  const authUser = useAuthStore((s) => s.user)
-  const isTaskAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const queryClient = useQueryClient()
 
   useEffect(() => {
     if (open) {
       setForm({ ...defaultTaskForm, ...initialData })
-      if (!taskId) { setCfValues({}); setCfAdminMode(false) }
+      if (!taskId) { setCfValues({}) }
     }
   }, [open, initialData, taskId])
 
@@ -473,28 +469,12 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           </div>
           {/* Campos personalizados */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
-              {isTaskAdmin && (
-                <Button
-                  type="button"
-                  variant={cfAdminMode ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={() => setCfAdminMode((v) => !v)}
-                >
-                  <Settings2 className="h-3.5 w-3.5" />
-                  {cfAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-                </Button>
-              )}
-            </div>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
             <CustomFieldsPanel
               entityType="task"
               entityId={isEdit ? taskId : undefined}
               values={isEdit ? undefined : cfValues}
               onChange={isEdit ? undefined : (id, v) => setCfValues((p) => ({ ...p, [id]: v }))}
-              adminMode={cfAdminMode}
-              onAdminModeChange={setCfAdminMode}
             />
           </div>
 
@@ -592,9 +572,6 @@ interface TaskDetailSheetProps {
 
 function TaskDetailSheet({ task, onClose, onEdit, onComplete, onDelete }: TaskDetailSheetProps) {
   const Icon = task ? (taskTypeIcons[task.type] ?? FileText) : FileText
-  const [cfAdminMode, setCfAdminMode] = useState(false)
-  const authUser = useAuthStore((s) => s.user)
-  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const { data: activities } = useQuery({
     queryKey: ['activities', 'task', task?.id],
     queryFn: () => api.get<{ data: Array<{ id: string; type: string; description: string; createdAt: string; user: { name: string } }> }>(`/activities?taskId=${task!.id}&limit=10`),
@@ -708,21 +685,8 @@ function TaskDetailSheet({ task, onClose, onEdit, onComplete, onDelete }: TaskDe
 
           {/* Custom fields */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-muted-foreground font-medium">Campos Personalizados</p>
-              {isAdmin && (
-                <Button
-                  variant={cfAdminMode ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-6 text-xs gap-1"
-                  onClick={() => setCfAdminMode((v) => !v)}
-                >
-                  <Settings2 className="h-3 w-3" />
-                  {cfAdminMode ? 'Sair da edição' : 'Personalizar'}
-                </Button>
-              )}
-            </div>
-            <CustomFieldsPanel entityType="task" entityId={task.id} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
+            <p className="text-xs text-muted-foreground font-medium mb-2">Campos Personalizados</p>
+            <CustomFieldsPanel entityType="task" entityId={task.id} />
           </div>
 
           {/* Recent activities */}

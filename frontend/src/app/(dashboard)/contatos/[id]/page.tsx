@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
-import { useAuthStore } from '@/stores/authStore'
 import type { Contact, Task, Activity as ActivityType } from '@/types'
 import { formatDate, formatDateTime, formatCurrency, getInitials, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -28,7 +27,7 @@ import {
 import {
   Mail, Phone, Building2, ArrowLeft, Pencil, Plus, MoreVertical,
   Loader2, CheckCircle2, Circle, FileText, Calendar, Clock,
-  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search, GitBranch, Settings2,
+  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search, GitBranch,
 } from 'lucide-react'
 import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
 import type { Opportunity } from '@/types'
@@ -372,13 +371,9 @@ export default function ContactProfilePage() {
   const router = useRouter()
   const contactId = params['id'] as string
   const queryClient = useQueryClient()
-  const authUser = useAuthStore((s) => s.user)
-  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
-
   // State
   const [activeTab, setActiveTab] = useState('opportunities')
   const [editOpen, setEditOpen] = useState(false)
-  const [cfAdminMode, setCfAdminMode] = useState(false)
   const [editForm, setEditForm] = useState<EditContactForm>({
     name: '', email: '', phone: '', whatsapp: '', mobile: '', fax: '', extension: '',
     role: '', cpf: '', nationality: '', category: '', website: '', birthday: '', notes: '',
@@ -1150,22 +1145,8 @@ export default function ContactProfilePage() {
 
             {/* Campos Personalizados */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
-                {isAdmin && (
-                  <Button
-                    type="button"
-                    variant={cfAdminMode ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={() => setCfAdminMode((v) => !v)}
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {cfAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-                  </Button>
-                )}
-              </div>
-              <CustomFieldsPanel entityType="contact" entityId={contactId} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
+              <CustomFieldsPanel entityType="contact" entityId={contactId} />
             </div>
 
             <div className="flex gap-2 pt-1 border-t">

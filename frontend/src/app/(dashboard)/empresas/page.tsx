@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch, Settings2 } from 'lucide-react'
+import { Plus, Search, Loader2, Building2, Users, TrendingUp, ExternalLink, X, User, Trophy, GitBranch } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -19,7 +19,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
-import { useAuthStore } from '@/stores/authStore'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
 
@@ -224,12 +223,8 @@ export default function EmpresasPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<CompanyForm>(defaultForm)
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
-  const [cfCreateAdminMode, setCfCreateAdminMode] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
-  const [cfAdminMode, setCfAdminMode] = useState(false)
   const queryClient = useQueryClient()
-  const authUser = useAuthStore((s) => s.user)
-  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   const { data: companyContacts } = useQuery({
     queryKey: ['company-contacts', selectedCompany?.id],
@@ -277,7 +272,6 @@ export default function EmpresasPage() {
       setModalOpen(false)
       setForm(defaultForm)
       setCfCreateValues({})
-      setCfCreateAdminMode(false)
       void queryClient.invalidateQueries({ queryKey: ['companies'] })
       void queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
@@ -432,28 +426,15 @@ export default function EmpresasPage() {
               {selectedCompany?.notes && <div><p className="text-xs text-muted-foreground">Notas</p><p className="text-sm">{selectedCompany.notes}</p></div>}
               <div><p className="text-xs text-muted-foreground">Criado em</p><p className="text-sm">{formatDate(selectedCompany?.createdAt ?? '')}</p></div>
               <div className="pt-2 border-t space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</p>
-                  {isAdmin && (
-                    <Button
-                      variant={cfAdminMode ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-6 text-xs gap-1"
-                      onClick={() => setCfAdminMode((v) => !v)}
-                    >
-                      <Settings2 className="h-3 w-3" />
-                      {cfAdminMode ? 'Sair da edição' : 'Personalizar'}
-                    </Button>
-                  )}
-                </div>
-                <CustomFieldsPanel entityType="company" entityId={selectedCompany?.id} adminMode={cfAdminMode} onAdminModeChange={setCfAdminMode} />
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</p>
+                <CustomFieldsPanel entityType="company" entityId={selectedCompany?.id} />
               </div>
             </TabsContent>
           </Tabs>
         </SheetContent>
       </Sheet>
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfCreateValues({}); setCfCreateAdminMode(false) } }}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfCreateValues({}) } }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Empresa</DialogTitle>
@@ -593,27 +574,11 @@ export default function EmpresasPage() {
 
             {/* Campos personalizados */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
-                {isAdmin && (
-                  <Button
-                    type="button"
-                    variant={cfCreateAdminMode ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={() => setCfCreateAdminMode((v) => !v)}
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {cfCreateAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-                  </Button>
-                )}
-              </div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
               <CustomFieldsPanel
                 entityType="company"
                 values={cfCreateValues}
                 onChange={(id, v) => setCfCreateValues((p) => ({ ...p, [id]: v }))}
-                adminMode={cfCreateAdminMode}
-                onAdminModeChange={setCfCreateAdminMode}
               />
             </div>
 

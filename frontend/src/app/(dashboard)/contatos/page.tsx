@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink, GitBranch, Settings2 } from 'lucide-react'
+import { Plus, Search, X, Building2, Loader2, TrendingUp, ExternalLink, GitBranch } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -16,7 +16,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
-import { useAuthStore } from '@/stores/authStore'
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
 
@@ -217,10 +216,7 @@ export default function ContatosPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<ContactForm>(defaultForm)
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
-  const [cfAdminMode, setCfAdminMode] = useState(false)
   const queryClient = useQueryClient()
-  const authUser = useAuthStore((s) => s.user)
-  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', page, search],
@@ -255,7 +251,6 @@ export default function ContatosPage() {
       setModalOpen(false)
       setForm(defaultForm)
       setCfValues({})
-      setCfAdminMode(false)
       void queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
     onError: (err: unknown) => {
@@ -360,7 +355,7 @@ export default function ContatosPage() {
         emptyMessage="Nenhum contato encontrado"
       />
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfValues({}); setCfAdminMode(false) } }}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfValues({}) } }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Contato</DialogTitle>
@@ -504,27 +499,11 @@ export default function ContatosPage() {
 
             {/* Campos personalizados */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Campos Personalizados</h3>
-                {isAdmin && (
-                  <Button
-                    type="button"
-                    variant={cfAdminMode ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={() => setCfAdminMode((v) => !v)}
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {cfAdminMode ? 'Sair da edição' : 'Personalizar campos'}
-                  </Button>
-                )}
-              </div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
               <CustomFieldsPanel
                 entityType="contact"
                 values={cfValues}
                 onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))}
-                adminMode={cfAdminMode}
-                onAdminModeChange={setCfAdminMode}
               />
             </div>
 

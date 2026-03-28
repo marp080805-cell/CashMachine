@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Loader2, Check, X } from 'lucide-react'
+import { Plus, Loader2, Check, X, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 type EntityType = 'opportunity' | 'contact' | 'company' | 'lead' | 'task'
@@ -208,6 +208,22 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
 
   return (
     <>
+      {/* Admin toggle — shown when there are fields or groups to manage */}
+      {isAdmin && (groups.length > 0 || allFields.length > 0) && (
+        <div className="col-span-full flex justify-end mb-1">
+          <Button
+            type="button"
+            variant={adminMode ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={() => setAdminMode((v) => !v)}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            {adminMode ? 'Sair da personalização' : 'Personalizar campos'}
+          </Button>
+        </div>
+      )}
+
       {groups.map((group) => (
         <div key={group.id}>
           {((group.customFields ?? []).length > 0 || adminMode) && (
