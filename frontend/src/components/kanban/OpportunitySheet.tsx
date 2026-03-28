@@ -235,6 +235,7 @@ function getSlaColor(task: Task): string {
 
 export function OpportunitySheet({ opportunity, onClose, pipelineId }: OpportunitySheetProps) {
   const [lostDialogOpen, setLostDialogOpen] = useState(false)
+  const [lostReasonId, setLostReasonId] = useState('')
   const [wonDialogOpen, setWonDialogOpen] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>()
   const [startMessage, setStartMessage] = useState('')
@@ -347,6 +348,14 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     enabled: activeTab === 'tags',
   })
 
+  // Lost reasons
+  const { data: lostReasonsData } = useQuery({
+    queryKey: ['lost-reasons'],
+    queryFn: () => api.get<{ id: string; name: string }[]>('/lost-reasons'),
+    enabled: lostDialogOpen,
+  })
+  const lostReasons = lostReasonsData ?? []
+
   // Closer users for handoff
   const { data: closersData } = useQuery({
     queryKey: ['users-closers'],
@@ -396,7 +405,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   })
 
   const lostMutation = useMutation({
-    mutationFn: () => api.post<Opportunity>(`/opportunities/${opportunity!.id}/lost`, { lostReasonId: null }),
+    mutationFn: (reasonId: string) => api.post<Opportunity>(`/opportunities/${opportunity!.id}/lost`, { lostReasonId: reasonId }),
     onSuccess: () => {
       toast.success('Oportunidade marcada como PERDIDA')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] })
@@ -1485,15 +1494,49 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
         variant="default"
         onConfirm={() => { setWonDialogOpen(false); wonMutation.mutate() }}
       />
-      <ConfirmDialog
-        open={lostDialogOpen}
-        onOpenChange={setLostDialogOpen}
-        title="Marcar como Perdida"
-        description={`Confirma que a oportunidade "${opportunity.title}" foi perdida?`}
-        confirmLabel="Sim, marcar como perdida"
-        variant="destructive"
-        onConfirm={() => { setLostDialogOpen(false); lostMutation.mutate() }}
-      />
+      <Dialog open={lostDialogOpen} onOpenChange={(v) => { setLostDialogOpen(v); if (!v) setLostReasonId('') }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Marcar como Perdida</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Selecione o motivo da perda para continuar.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Motivo da perda <span className="text-destructive">*</span></Label>
+              <Select value={lostReasonId} onValueChange={setLostReasonId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar motivo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {lostReasons.length === 0 && (
+                    <SelectItem value="_none" disabled>Nenhum motivo cadastrado</SelectItem>
+                  )}
+                  {lostReasons.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {lostReasons.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Cadastre motivos em Configurações → Motivos Perda
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setLostDialogOpen(false); setLostReasonId('') }}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={!lostReasonId || lostMutation.isPending}
+              onClick={() => { setLostDialogOpen(false); lostMutation.mutate(lostReasonId); setLostReasonId('') }}
+            >
+              {lostMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar perda'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={!!deletingTaskId}
         onOpenChange={(open) => !open && setDeletingTaskId(null)}

@@ -260,7 +260,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string }
     const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
     const { lostReasonId, notes } = z.object({
-      lostReasonId: z.string().uuid().nullable().optional(),
+      lostReasonId: z.string().uuid(),
       notes: z.string().optional(),
     }).parse(request.body)
 
@@ -275,7 +275,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       data: {
         status: 'LOST',
         closedAt: new Date(),
-        lostReasonId: lostReasonId ?? null,
+        lostReasonId,
         ...(notes && { notes }),
         ...(lostStage && { stageId: lostStage.id }),
       },
