@@ -24,7 +24,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
       const input = z.object({
         name: z.string().min(1),
         color: z.string().default('#6366f1'),
-        category: z.enum(['QUALIFICATION', 'TEMPERATURE', 'STATUS', 'CUSTOM']).default('CUSTOM'),
+        category: z.enum(['QUALIFICATION', 'TEMPERATURE', 'STATUS', 'AI_CONTROL', 'CUSTOM']).default('CUSTOM'),
         isLocked: z.boolean().default(false),
       }).parse(request.body)
 
@@ -44,7 +44,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
       const input = z.object({
         name: z.string().optional(),
         color: z.string().optional(),
-        category: z.enum(['QUALIFICATION', 'TEMPERATURE', 'STATUS', 'CUSTOM']).optional(),
+        category: z.enum(['QUALIFICATION', 'TEMPERATURE', 'STATUS', 'AI_CONTROL', 'CUSTOM']).optional(),
         isLocked: z.boolean().optional(),
       }).parse(request.body)
 

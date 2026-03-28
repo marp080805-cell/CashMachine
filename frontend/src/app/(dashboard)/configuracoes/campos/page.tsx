@@ -17,8 +17,8 @@ interface CustomField {
   id: string
   name: string
   slug: string
-  type: string
-  isRequired: boolean
+  fieldType: string
+  isRequiredGlobal: boolean
   placeholder?: string
   options?: string[]
 }
@@ -27,7 +27,7 @@ interface CFGroup {
   id: string
   name: string
   entityType: string
-  fields: CustomField[]
+  customFields: CustomField[]
 }
 
 const FIELD_TYPES = [
@@ -81,7 +81,7 @@ export default function CamposPage() {
   async function load(entityType: string) {
     setLoading(true)
     try {
-      const data = await api.get<CFGroup[]>(`/custom-field-groups?entityType=${entityType}`)
+      const data = await api.get<CFGroup[]>(`/custom-fields/groups?entityType=${entityType}`)
       setGroups(data)
     } finally {
       setLoading(false)
@@ -114,11 +114,11 @@ export default function CamposPage() {
     setSavingGroup(true)
     try {
       if (editingGroup) {
-        const updated = await api.patch<CFGroup>(`/custom-field-groups/${editingGroup.id}`, { name: groupForm.name })
+        const updated = await api.patch<CFGroup>(`/custom-fields/groups/${editingGroup.id}`, { name: groupForm.name })
         setGroups((prev) => prev.map((g) => g.id === editingGroup.id ? { ...g, ...updated } : g))
       } else {
-        const created = await api.post<CFGroup>('/custom-field-groups', groupForm)
-        setGroups((prev) => [...prev, { ...created, fields: [] }])
+        const created = await api.post<CFGroup>('/custom-fields/groups', groupForm)
+        setGroups((prev) => [...prev, { ...created, customFields: [] }])
       }
       setGroupOpen(false)
     } finally {
@@ -128,7 +128,7 @@ export default function CamposPage() {
 
   async function handleDeleteGroup(id: string) {
     if (!confirm('Excluir este grupo e todos seus campos?')) return
-    await api.delete(`/custom-field-groups/${id}`)
+    await api.delete(`/custom-fields/groups/${id}`)
     setGroups((prev) => prev.filter((g) => g.id !== id))
   }
 
@@ -145,8 +145,8 @@ export default function CamposPage() {
     setFieldForm({
       name: field.name,
       slug: field.slug,
-      type: field.type,
-      isRequired: field.isRequired,
+      type: field.fieldType,
+      isRequired: field.isRequiredGlobal,
       placeholder: field.placeholder ?? '',
       options: field.options ? field.options.join(', ') : '',
     })
@@ -158,27 +158,38 @@ export default function CamposPage() {
     setSavingField(true)
     try {
       const hasOptions = fieldForm.type === 'SELECT' || fieldForm.type === 'MULTISELECT'
-      const payload = {
-        name: fieldForm.name,
-        slug: fieldForm.slug || fieldForm.name.toLowerCase().replace(/\s+/g, '_'),
-        type: fieldForm.type,
-        isRequired: fieldForm.isRequired,
-        placeholder: fieldForm.placeholder || undefined,
-        options: hasOptions && fieldForm.options
-          ? fieldForm.options.split(',').map((s) => s.trim()).filter(Boolean)
-          : undefined,
-      }
+      const slug = fieldForm.slug || fieldForm.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+      const options = hasOptions && fieldForm.options
+        ? fieldForm.options.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined
       if (editingField) {
+        const payload = {
+          name: fieldForm.name,
+          fieldType: fieldForm.type,
+          isRequiredGlobal: fieldForm.isRequired,
+          placeholder: fieldForm.placeholder || undefined,
+          options,
+        }
         const updated = await api.patch<CustomField>(`/custom-fields/${editingField.id}`, payload)
         setGroups((prev) => prev.map((g) =>
           g.id === fieldGroupId
-            ? { ...g, fields: g.fields.map((f) => f.id === editingField.id ? updated : f) }
+            ? { ...g, customFields: g.customFields.map((f) => f.id === editingField.id ? updated : f) }
             : g
         ))
       } else {
-        const created = await api.post<CustomField>(`/custom-field-groups/${fieldGroupId}/fields`, payload)
+        const payload = {
+          groupId: fieldGroupId,
+          entityType: activeTab,
+          name: fieldForm.name,
+          slug,
+          fieldType: fieldForm.type,
+          isRequiredGlobal: fieldForm.isRequired,
+          placeholder: fieldForm.placeholder || undefined,
+          options,
+        }
+        const created = await api.post<CustomField>('/custom-fields', payload)
         setGroups((prev) => prev.map((g) =>
-          g.id === fieldGroupId ? { ...g, fields: [...g.fields, created] } : g
+          g.id === fieldGroupId ? { ...g, customFields: [...g.customFields, created] } : g
         ))
       }
       setFieldOpen(false)
@@ -191,7 +202,7 @@ export default function CamposPage() {
     if (!confirm('Excluir este campo?')) return
     await api.delete(`/custom-fields/${fieldId}`)
     setGroups((prev) => prev.map((g) =>
-      g.id === groupId ? { ...g, fields: g.fields.filter((f) => f.id !== fieldId) } : g
+      g.id === groupId ? { ...g, customFields: g.customFields.filter((f) => f.id !== fieldId) } : g
     ))
   }
 
@@ -252,7 +263,7 @@ export default function CamposPage() {
                       </button>
                       <span className="flex-1 font-medium text-sm">{group.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {group.fields?.length ?? 0} campos
+                        {group.customFields?.length ?? 0} campos
                       </span>
                       <Button
                         variant="ghost" size="sm" className="h-7 text-xs"
@@ -276,19 +287,19 @@ export default function CamposPage() {
 
                     {expanded.has(group.id) && (
                       <div className="divide-y border-t">
-                        {(group.fields ?? []).length === 0 ? (
+                        {(group.customFields ?? []).length === 0 ? (
                           <div className="px-4 py-3 pl-12 text-sm text-muted-foreground italic">
                             Nenhum campo neste grupo
                           </div>
                         ) : (
-                          group.fields.map((field) => (
+                          group.customFields.map((field) => (
                             <div key={field.id} className="flex items-center gap-3 px-4 py-2.5 pl-12 bg-muted/30">
                               <span className="flex-1 text-sm font-medium">{field.name}</span>
                               <span className="text-xs text-muted-foreground font-mono">{field.slug}</span>
-                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${typeBadgeColor[field.type] ?? 'bg-gray-100 text-gray-700'}`}>
-                                {FIELD_TYPES.find((t) => t.value === field.type)?.label ?? field.type}
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${typeBadgeColor[field.fieldType] ?? 'bg-gray-100 text-gray-700'}`}>
+                                {FIELD_TYPES.find((t) => t.value === field.fieldType)?.label ?? field.fieldType}
                               </span>
-                              {field.isRequired && (
+                              {field.isRequiredGlobal && (
                                 <Badge variant="secondary" className="text-xs">Obrigatório</Badge>
                               )}
                               <Button

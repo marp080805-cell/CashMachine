@@ -23,6 +23,7 @@ import pipelinesRoutes from './modules/pipelines/pipelines.routes'
 import originsRoutes from './modules/origins/origins.routes'
 import tagsRoutes from './modules/tags/tags.routes'
 import customFieldsRoutes from './modules/custom-fields/custom-fields.routes'
+import lostReasonsRoutes from './modules/lost-reasons/lost-reasons.routes'
 
 // Supporting
 import activitiesRoutes from './modules/activities/activities.routes'
@@ -98,6 +99,7 @@ async function bootstrap() {
   await app.register(originsRoutes)
   await app.register(tagsRoutes)
   await app.register(customFieldsRoutes)
+  await app.register(lostReasonsRoutes)
   await app.register(activitiesRoutes)
   await app.register(tasksRoutes)
   await app.register(taskTemplatesRoutes)
