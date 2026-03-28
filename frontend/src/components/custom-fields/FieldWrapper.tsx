@@ -10,7 +10,7 @@ import { useFieldConfig } from '@/hooks/useFieldConfig'
 interface Props {
   entityType: string
   slug: string
-  label?: string               // default label (used if no custom label saved); if omitted, no label header is rendered
+  label?: string                // label padrão exibido no modo de edição do nome
   defaultRequired?: boolean
   adminMode: boolean
   children: React.ReactNode
@@ -21,73 +21,66 @@ export function FieldWrapper({ entityType, slug, label: defaultLabel = '', defau
   const req = isRequired(entityType, slug, defaultRequired)
   const displayLabel = getLabel(entityType, slug, defaultLabel)
 
-  const [editing, setEditing] = useState(false)
+  const [editingLabel, setEditingLabel] = useState(false)
   const [labelDraft, setLabelDraft] = useState('')
 
-  function startEdit() {
+  function startEditLabel() {
     setLabelDraft(displayLabel)
-    setEditing(true)
+    setEditingLabel(true)
   }
 
   function saveLabel() {
-    if (labelDraft.trim() && labelDraft !== displayLabel) {
-      setLabel(entityType, slug, labelDraft.trim())
-    }
-    setEditing(false)
+    if (labelDraft.trim()) setLabel(entityType, slug, labelDraft.trim())
+    setEditingLabel(false)
   }
-
-  // Only render the label header row when a label prop was explicitly provided
-  const showLabelHeader = defaultLabel !== ''
 
   return (
     <div className="space-y-1">
-      {showLabelHeader && (
-        <div className="flex items-center gap-1 min-h-5">
-          {editing ? (
-            <div className="flex items-center gap-1 flex-1">
+      {/* Barra de admin — aparece acima do campo em modo personalizar */}
+      {adminMode && (
+        <div className="flex items-center gap-1.5 rounded bg-muted/40 px-2 py-1 border border-dashed border-muted-foreground/20">
+          {editingLabel ? (
+            <>
               <Input
                 value={labelDraft}
                 onChange={(e) => setLabelDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') saveLabel(); if (e.key === 'Escape') setEditing(false) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveLabel(); if (e.key === 'Escape') setEditingLabel(false) }}
                 className="h-6 text-xs px-1.5 py-0 flex-1"
                 autoFocus
               />
-              <Button type="button" size="icon" variant="ghost" className="h-5 w-5" onClick={saveLabel} disabled={isUpdating}>
+              <Button type="button" size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={saveLabel} disabled={isUpdating}>
                 <Check className="h-3 w-3 text-green-600" />
               </Button>
-              <Button type="button" size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditing(false)}>
+              <Button type="button" size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={() => setEditingLabel(false)}>
                 <X className="h-3 w-3" />
               </Button>
-            </div>
+            </>
           ) : (
             <>
-              <span className="text-sm font-medium leading-none">
-                {displayLabel}
-                {req && <span className="text-red-500 ml-0.5">*</span>}
+              <span className="text-[10px] text-muted-foreground flex-1 truncate">{displayLabel}</span>
+              <Button
+                type="button" size="icon" variant="ghost"
+                className="h-5 w-5 shrink-0 opacity-60 hover:opacity-100"
+                onClick={startEditLabel}
+                title="Renomear campo"
+              >
+                <Pencil className="h-2.5 w-2.5" />
+              </Button>
+              <Switch
+                checked={req}
+                onCheckedChange={(v) => setRequired(entityType, slug, v)}
+                disabled={isUpdating}
+                className="scale-[0.65] h-4 w-7 origin-right shrink-0"
+              />
+              <span className="text-[10px] shrink-0" style={{ color: req ? 'rgb(239 68 68)' : undefined }}>
+                {req ? 'Obrigatório' : 'Opcional'}
               </span>
-              {adminMode && (
-                <Button type="button" size="icon" variant="ghost" className="h-4 w-4 ml-0.5 opacity-50 hover:opacity-100" onClick={startEdit}>
-                  <Pencil className="h-2.5 w-2.5" />
-                </Button>
-              )}
             </>
           )}
         </div>
       )}
+      {/* Campo em si (Label + Input já renderizados pelo pai) */}
       {children}
-      {adminMode && !editing && (
-        <div className="flex items-center gap-1.5 pt-0.5">
-          <Switch
-            checked={req}
-            onCheckedChange={(v) => setRequired(entityType, slug, v)}
-            disabled={isUpdating}
-            className="scale-[0.65] h-4 w-7 origin-left"
-          />
-          <span className="text-[10px] text-muted-foreground">
-            {req ? 'Obrigatório' : 'Opcional'}
-          </span>
-        </div>
-      )}
     </div>
   )
 }
