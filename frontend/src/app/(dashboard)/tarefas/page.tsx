@@ -104,7 +104,6 @@ const statusLabels: Record<string, string> = {
   PENDING: 'A Fazer',
   IN_PROGRESS: 'Em Andamento',
   COMPLETED: 'Concluída',
-  OVERDUE: 'Atrasada',
   SKIPPED: 'Ignorada',
 }
 
@@ -912,7 +911,6 @@ const kanbanColumns: { key: string; label: string; statuses: string[]; color: st
   { key: 'todo', label: 'A Fazer', statuses: ['PENDING'], color: 'bg-gray-50 border-gray-200' },
   { key: 'inprogress', label: 'Em Andamento', statuses: ['IN_PROGRESS'], color: 'bg-blue-50 border-blue-200' },
   { key: 'completed', label: 'Concluídas', statuses: ['COMPLETED'], color: 'bg-green-50 border-green-200' },
-  { key: 'overdue', label: 'Atrasadas', statuses: ['OVERDUE'], color: 'bg-red-50 border-red-200' },
 ]
 
 interface KanbanCardProps {
