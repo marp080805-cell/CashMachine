@@ -37,6 +37,7 @@ import { cn, formatDateTime, formatDate, getInitials } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
 
 // ── Task type maps ──
@@ -255,6 +256,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const fieldConfig = useFieldConfig()
 
   useEffect(() => {
     if (open) {
@@ -346,16 +348,17 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>Título <span className="text-red-500">*</span></Label>
+            <Label>Título {fieldConfig.isRequired('task', 'title', true) && <span className="text-red-500">*</span>}</Label>
             <Input
               placeholder="Ex: Ligar para o cliente"
+              required={fieldConfig.isRequired('task', 'title', true)}
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo</Label>
+              <Label>Tipo {fieldConfig.isRequired('task', 'type', true) && <span className="text-red-500">*</span>}</Label>
               <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -366,7 +369,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Prioridade</Label>
+              <Label>Prioridade {fieldConfig.isRequired('task', 'priority', false) && <span className="text-red-500">*</span>}</Label>
               <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -378,16 +381,17 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Vencimento <span className="text-red-500">*</span></Label>
+            <Label>Vencimento {fieldConfig.isRequired('task', 'dueDate', false) && <span className="text-red-500">*</span>}</Label>
             <Input
               type="datetime-local"
+              required={fieldConfig.isRequired('task', 'dueDate', false)}
               value={form.dueDate}
               onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
             />
           </div>
           {users.length > 0 && (
             <div className="space-y-1.5">
-              <Label>Responsável</Label>
+              <Label>Responsável {fieldConfig.isRequired('task', 'assignedTo', false) && <span className="text-red-500">*</span>}</Label>
               <Select value={form.assignedToId} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
                 <SelectContent>
@@ -458,10 +462,11 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Descrição</Label>
+            <Label>Descrição {fieldConfig.isRequired('task', 'description', false) && <span className="text-red-500">*</span>}</Label>
             <Textarea
               rows={3}
               placeholder="Descrição opcional..."
+              required={fieldConfig.isRequired('task', 'description', false)}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               className="resize-none"

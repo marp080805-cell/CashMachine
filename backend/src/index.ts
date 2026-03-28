@@ -44,6 +44,7 @@ import salebotsRoutes from './modules/salesbots/salesbots.routes'
 import recordingsRoutes from './modules/recordings/recordings.routes'
 import formsRoutes from './modules/forms/forms.routes'
 import accountTemplatesRoutes from './modules/account-templates/account-templates.routes'
+import fieldConfigRoutes from './modules/settings/field-config.routes'
 
 // WhatsApp + AI (maintained)
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes'
@@ -116,6 +117,7 @@ async function bootstrap() {
   await app.register(recordingsRoutes)
   await app.register(formsRoutes)
   await app.register(accountTemplatesRoutes)
+  await app.register(fieldConfigRoutes)
   await app.register(whatsappRoutes)
   await app.register(aiRoutes)
 

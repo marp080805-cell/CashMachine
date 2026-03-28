@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
 
@@ -225,6 +226,7 @@ export default function EmpresasPage() {
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const queryClient = useQueryClient()
+  const fieldConfig = useFieldConfig()
 
   const { data: companyContacts } = useQuery({
     queryKey: ['company-contacts', selectedCompany?.id],
@@ -446,28 +448,28 @@ export default function EmpresasPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 col-span-2">
-                  <Label>Nome *</Label>
-                  <Input placeholder="Nome da empresa" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                  <Label>Nome {fieldConfig.isRequired('company', 'name', true) && <span className="text-red-500">*</span>}</Label>
+                  <Input placeholder="Nome da empresa" required={fieldConfig.isRequired('company', 'name', true)} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label>Razão Social</Label>
                   <Input placeholder="Razão social" value={form.legalName} onChange={(e) => setForm((f) => ({ ...f, legalName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>CNPJ</Label>
-                  <Input placeholder="00.000.000/0001-00" value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
+                  <Label>CNPJ {fieldConfig.isRequired('company', 'cnpj', false) && <span className="text-red-500">*</span>}</Label>
+                  <Input placeholder="00.000.000/0001-00" required={fieldConfig.isRequired('company', 'cnpj', false)} value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Categoria</Label>
                   <Input placeholder="Ex: Cliente, Parceiro..." value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Setor</Label>
-                  <Input placeholder="Ex: Tecnologia, Saúde..." value={form.segment} onChange={(e) => setForm((f) => ({ ...f, segment: e.target.value }))} />
+                  <Label>Setor {fieldConfig.isRequired('company', 'segment', false) && <span className="text-red-500">*</span>}</Label>
+                  <Input placeholder="Ex: Tecnologia, Saúde..." required={fieldConfig.isRequired('company', 'segment', false)} value={form.segment} onChange={(e) => setForm((f) => ({ ...f, segment: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Website</Label>
-                  <Input placeholder="https://empresa.com.br" value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+                  <Label>Website {fieldConfig.isRequired('company', 'website', false) && <span className="text-red-500">*</span>}</Label>
+                  <Input placeholder="https://empresa.com.br" required={fieldConfig.isRequired('company', 'website', false)} value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label>Origem / Canal</Label>
@@ -489,8 +491,8 @@ export default function EmpresasPage() {
                   <Input type="email" placeholder="contato@empresa.com.br" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Telefone</Label>
-                  <Input placeholder="(11) 3333-3333" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                  <Label>Telefone {fieldConfig.isRequired('company', 'phone', false) && <span className="text-red-500">*</span>}</Label>
+                  <Input placeholder="(11) 3333-3333" required={fieldConfig.isRequired('company', 'phone', false)} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                 </div>
               </div>
             </div>

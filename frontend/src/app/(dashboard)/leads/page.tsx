@@ -19,6 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 
 // ── Status config ──
 
@@ -106,6 +107,7 @@ export default function LeadsPage() {
   const [cfCreateValues, setCfCreateValues] = useState<Record<string, unknown>>({})
 
   const queryClient = useQueryClient()
+  const fieldConfig = useFieldConfig()
 
   // Leads query
   const { data, isLoading } = useQuery({
@@ -444,7 +446,7 @@ export default function LeadsPage() {
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Contato <span className="text-red-500">*</span></Label>
+              <Label>Contato {fieldConfig.isRequired('lead', 'contact', false) && <span className="text-red-500">*</span>}</Label>
               <div className="space-y-2">
                 <Input
                   placeholder="Buscar contato por nome ou telefone..."
@@ -488,7 +490,7 @@ export default function LeadsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Status</Label>
+                <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500">*</span>}</Label>
                 <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -499,11 +501,12 @@ export default function LeadsPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Score (0–100)</Label>
+                <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500">*</span>}</Label>
                 <Input
                   type="number"
                   min="0"
                   max="100"
+                  required={fieldConfig.isRequired('lead', 'score', false)}
                   value={form.score}
                   onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))}
                 />
@@ -511,9 +514,10 @@ export default function LeadsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Origem</Label>
+              <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500">*</span>}</Label>
               <Input
                 placeholder="Ex: Google Ads, Indicação..."
+                required={fieldConfig.isRequired('lead', 'source', false)}
                 value={form.source}
                 onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
               />
@@ -597,7 +601,7 @@ export default function LeadsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Status</Label>
+                  <Label>Status {fieldConfig.isRequired('lead', 'status', true) && <span className="text-red-500">*</span>}</Label>
                   <Select value={editForm.status} onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -608,11 +612,12 @@ export default function LeadsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Score (0–100)</Label>
+                  <Label>Score (0–100) {fieldConfig.isRequired('lead', 'score', false) && <span className="text-red-500">*</span>}</Label>
                   <Input
                     type="number"
                     min="0"
                     max="100"
+                    required={fieldConfig.isRequired('lead', 'score', false)}
                     value={editForm.score}
                     onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))}
                   />
@@ -620,9 +625,10 @@ export default function LeadsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Origem</Label>
+                <Label>Origem {fieldConfig.isRequired('lead', 'source', false) && <span className="text-red-500">*</span>}</Label>
                 <Input
                   placeholder="Ex: Google Ads, Indicação..."
+                  required={fieldConfig.isRequired('lead', 'source', false)}
                   value={editForm.source}
                   onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
                 />

@@ -18,6 +18,7 @@ import {
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -57,6 +58,7 @@ export default function PipelineKanbanPage() {
   })
   const [cfOppValues, setCfOppValues] = useState<Record<string, unknown>>({})
   const [contactSearch, setContactSearch] = useState('')
+  const fieldConfig = useFieldConfig()
   const [companySearch, setCompanySearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
@@ -455,15 +457,16 @@ export default function PipelineKanbanPage() {
           <DialogHeader><DialogTitle>Nova Oportunidade</DialogTitle></DialogHeader>
           <form onSubmit={handleOppSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Título *</Label>
+              <Label>Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500">*</span>}</Label>
               <Input
                 placeholder="Ex: Contrato Empresa XYZ"
+                required={fieldConfig.isRequired('opportunity', 'title', true)}
                 value={oppForm.title}
                 onChange={(e) => setOppForm((f) => ({ ...f, title: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Etapa</Label>
+              <Label>Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500">*</span>}</Label>
               <Select value={oppForm.stageId} onValueChange={(v) => setOppForm((f) => ({ ...f, stageId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecionar etapa..." /></SelectTrigger>
                 <SelectContent>
@@ -479,7 +482,7 @@ export default function PipelineKanbanPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Contato *</Label>
+              <Label>Contato {fieldConfig.isRequired('opportunity', 'contact', false) && <span className="text-red-500">*</span>}</Label>
               <div className="space-y-2">
                 <Input
                   placeholder="Buscar contato por nome ou telefone..."
@@ -514,7 +517,7 @@ export default function PipelineKanbanPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Empresa</Label>
+              <Label>Empresa {fieldConfig.isRequired('opportunity', 'company', false) && <span className="text-red-500">*</span>}</Label>
               {oppForm.companyId ? (
                 <div className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm bg-background">
                   <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -544,21 +547,24 @@ export default function PipelineKanbanPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Valor (R$)</Label>
+                <Label>Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500">*</span>}</Label>
                 <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  required={fieldConfig.isRequired('opportunity', 'value', false)}
                   value={oppForm.value}
                   onChange={(e) => setOppForm((f) => ({ ...f, value: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Previsão de fechamento</Label>
-                <Input type="date" value={oppForm.expectedCloseDate}
+                <Label>Previsão de fechamento {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500">*</span>}</Label>
+                <Input type="date"
+                  required={fieldConfig.isRequired('opportunity', 'closeDate', false)}
+                  value={oppForm.expectedCloseDate}
                   onChange={(e) => setOppForm((f) => ({ ...f, expectedCloseDate: e.target.value }))}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Notas</Label>
+              <Label>Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500">*</span>}</Label>
               <textarea rows={2} placeholder="Observações..." value={oppForm.notes}
                 onChange={(e) => setOppForm((f) => ({ ...f, notes: e.target.value }))}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"

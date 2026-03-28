@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Plus, Loader2, Check, X, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { NATIVE_FIELDS } from '@/constants/native-fields'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 
 type EntityType = 'opportunity' | 'contact' | 'company' | 'lead' | 'task'
 
@@ -62,6 +64,7 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
   const qc = useQueryClient()
+  const fieldConfig = useFieldConfig()
 
   const [adminModeInternal, setAdminModeInternal] = useState(false)
   const adminMode = adminModeProp !== undefined ? adminModeProp : adminModeInternal
@@ -221,6 +224,36 @@ export function CustomFieldsPanel({ entityType, entityId, values, onChange, admi
             <Settings2 className="h-3.5 w-3.5" />
             {adminMode ? 'Sair da personalização' : 'Personalizar campos'}
           </Button>
+        </div>
+      )}
+
+      {/* Native fields config — admin mode only */}
+      {adminMode && (NATIVE_FIELDS[entityType] ?? []).length > 0 && (
+        <div className="col-span-full space-y-3 mb-4">
+          <div className="border-b pb-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Campos do formulário
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Defina quais campos são obrigatórios</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(NATIVE_FIELDS[entityType] ?? []).map((field) => (
+              <div key={field.slug} className="flex items-center justify-between rounded-md border px-3 py-2 bg-muted/30">
+                <span className="text-sm font-medium">{field.label}</span>
+                <div className="flex items-center gap-2">
+                  {fieldConfig.isRequired(entityType, field.slug, field.defaultRequired)
+                    ? <span className="text-xs text-red-500 font-medium">Obrigatório</span>
+                    : <span className="text-xs text-muted-foreground">Opcional</span>
+                  }
+                  <Switch
+                    checked={fieldConfig.isRequired(entityType, field.slug, field.defaultRequired)}
+                    onCheckedChange={(v) => fieldConfig.setRequired(entityType, field.slug, v)}
+                    disabled={fieldConfig.isUpdating}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
