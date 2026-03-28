@@ -180,7 +180,7 @@ export default function FunisConfigPage() {
                     )}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${typeBadgeVariant[pipeline.type] ?? 'bg-gray-100 text-gray-700'}`}>
-                    {getTypeLabel(pipeline.type, pipeline.typeName)}
+                    {getPipelineTypeLabel(pipeline.type, pipeline.typeName)}
                   </span>
                 </div>
               </CardHeader>
