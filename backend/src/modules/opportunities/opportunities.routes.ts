@@ -308,10 +308,15 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       const opp = await prisma.opportunity.findFirst({ where: { id, tenantId } })
       if (!opp) return reply.status(404).send({ error: 'Oportunidade não encontrada' })
 
-      await prisma.opportunity.update({
-        where: { id },
-        data: { status: 'OPEN', closedAt: null, lostReasonId: null },
-      })
+      // Use raw SQL to avoid Prisma's multi-statement issue (PostgreSQL error 42601)
+      await prisma.$executeRaw`
+        UPDATE opportunities
+        SET status = 'OPEN'::"OpportunityStatus",
+            "closedAt" = NULL,
+            "lostReasonId" = NULL,
+            "updatedAt" = NOW()
+        WHERE id = ${id}
+      `
 
       const updated = await prisma.opportunity.findFirst({
         where: { id },
@@ -320,7 +325,7 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
       return reply.send(updated)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      app.log.error({ err, id }, 'reopen opportunity error')
+      app.log.error({ err, id, msg }, 'reopen opportunity error')
       return reply.status(500).send({ error: msg })
     }
   })
