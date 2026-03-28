@@ -423,7 +423,7 @@ export default function ContactProfilePage() {
 
   const { data: pipelinesData } = useQuery({
     queryKey: ['pipelines-list'],
-    queryFn: () => api.get<{ pipelines: Pipeline[] }>('/pipelines'),
+    queryFn: () => api.get<Pipeline[]>('/pipelines'),
     enabled: newOppOpen,
   })
 
@@ -625,7 +625,7 @@ export default function ContactProfilePage() {
   const tasks = tasksData ?? []
   const convs = convsData ?? []
   const activities = activitiesData ?? []
-  const pipelines = pipelinesData?.pipelines ?? []
+  const pipelines = pipelinesData ?? []
   const avatarColor = getNameColor(contact.name)
 
   return (
