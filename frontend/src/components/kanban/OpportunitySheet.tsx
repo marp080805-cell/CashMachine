@@ -33,6 +33,8 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { ChatWindow } from '@/components/whatsapp/ChatWindow'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { useAuthStore } from '@/stores/authStore'
 
 
@@ -229,6 +231,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+  const fieldConfig = useFieldConfig()
 
   const queryClient = useQueryClient()
 
@@ -749,84 +752,108 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 <TabsContent value="details" className="flex-1 overflow-y-auto p-4 space-y-4 mt-0">
                   {isEditing ? (
                     <div className="space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Título</p>
-                        <Input
-                          value={editData.title}
-                          onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
-                          placeholder="Título da oportunidade"
-                        />
-                      </div>
+                      <FieldWrapper entityType="opportunity" slug="title" defaultRequired={true} adminMode={adminMode}>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Título {fieldConfig.isRequired('opportunity', 'title', true) && <span className="text-red-500 ml-0.5">*</span>}</p>
+                          <Input
+                            required={fieldConfig.isRequired('opportunity', 'title', true)}
+                            value={editData.title}
+                            onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
+                            placeholder="Título da oportunidade"
+                          />
+                        </div>
+                      </FieldWrapper>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Valor (R$)</p>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={editData.value}
-                            onChange={(e) => setEditData((d) => ({ ...d, value: e.target.value }))}
-                            placeholder="0,00"
-                          />
+                        <div>
+                          <FieldWrapper entityType="opportunity" slug="value" defaultRequired={false} adminMode={adminMode}>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Valor (R$) {fieldConfig.isRequired('opportunity', 'value', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                required={fieldConfig.isRequired('opportunity', 'value', false)}
+                                value={editData.value}
+                                onChange={(e) => setEditData((d) => ({ ...d, value: e.target.value }))}
+                                placeholder="0,00"
+                              />
+                            </div>
+                          </FieldWrapper>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Fechamento previsto</p>
-                          <Input
-                            type="date"
-                            value={editData.expectedCloseDate}
-                            onChange={(e) => setEditData((d) => ({ ...d, expectedCloseDate: e.target.value }))}
-                          />
+                        <div>
+                          <FieldWrapper entityType="opportunity" slug="closeDate" defaultRequired={false} adminMode={adminMode}>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Fechamento previsto {fieldConfig.isRequired('opportunity', 'closeDate', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
+                              <Input
+                                type="date"
+                                required={fieldConfig.isRequired('opportunity', 'closeDate', false)}
+                                value={editData.expectedCloseDate}
+                                onChange={(e) => setEditData((d) => ({ ...d, expectedCloseDate: e.target.value }))}
+                              />
+                            </div>
+                          </FieldWrapper>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Etapa</p>
-                          {stages.length > 0 ? (
-                            <Select value={editData.stageId} onValueChange={(v) => setEditData((d) => ({ ...d, stageId: v }))}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {stages.map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                                      {s.name}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input value={opportunity.stage?.name ?? '—'} disabled />
-                          )}
+                        <div>
+                          <FieldWrapper entityType="opportunity" slug="stage" defaultRequired={true} adminMode={adminMode}>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Etapa {fieldConfig.isRequired('opportunity', 'stage', true) && <span className="text-red-500 ml-0.5">*</span>}</p>
+                              {stages.length > 0 ? (
+                                <Select value={editData.stageId} onValueChange={(v) => setEditData((d) => ({ ...d, stageId: v }))}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {stages.map((s) => (
+                                      <SelectItem key={s.id} value={s.id}>
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                                          {s.name}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input value={opportunity.stage?.name ?? '—'} disabled />
+                              )}
+                            </div>
+                          </FieldWrapper>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Responsável</p>
-                          {(usersData?.users ?? []).length > 0 ? (
-                            <Select value={editData.assignedToId} onValueChange={(v) => setEditData((d) => ({ ...d, assignedToId: v }))}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(usersData?.users ?? []).map((u) => (
-                                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input value={opportunity.assignedTo.name} disabled />
-                          )}
+                        <div>
+                          <FieldWrapper entityType="opportunity" slug="responsible" defaultRequired={false} adminMode={adminMode}>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Responsável {fieldConfig.isRequired('opportunity', 'responsible', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
+                              {(usersData?.users ?? []).length > 0 ? (
+                                <Select value={editData.assignedToId} onValueChange={(v) => setEditData((d) => ({ ...d, assignedToId: v }))}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(usersData?.users ?? []).map((u) => (
+                                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input value={opportunity.assignedTo.name} disabled />
+                              )}
+                            </div>
+                          </FieldWrapper>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Notas</p>
-                        <Textarea
-                          rows={3}
-                          value={editData.notes}
-                          onChange={(e) => setEditData((d) => ({ ...d, notes: e.target.value }))}
-                          placeholder="Observações..."
-                          className="resize-none"
-                        />
-                      </div>
+                      <FieldWrapper entityType="opportunity" slug="description" defaultRequired={false} adminMode={adminMode}>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Notas {fieldConfig.isRequired('opportunity', 'description', false) && <span className="text-red-500 ml-0.5">*</span>}</p>
+                          <Textarea
+                            rows={3}
+                            required={fieldConfig.isRequired('opportunity', 'description', false)}
+                            value={editData.notes}
+                            onChange={(e) => setEditData((d) => ({ ...d, notes: e.target.value }))}
+                            placeholder="Observações..."
+                            className="resize-none"
+                          />
+                        </div>
+                      </FieldWrapper>
                     </div>
                   ) : (
                     <div className="space-y-4">

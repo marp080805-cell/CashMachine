@@ -27,8 +27,11 @@ import {
 import {
   Mail, Phone, Building2, ArrowLeft, Pencil, Plus, MoreVertical,
   Loader2, CheckCircle2, Circle, FileText, Calendar, Clock,
-  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search, GitBranch,
+  MessageSquare, Activity, Trophy, X, Check, AlertTriangle, Search, GitBranch, Settings2,
 } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
+import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
 import type { Opportunity } from '@/types'
 
@@ -390,6 +393,11 @@ export default function ContactProfilePage() {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
   const [completionNotes, setCompletionNotes] = useState('')
   const [selectedOpp, setSelectedOpp] = useState<ContactOpportunity | null>(null)
+  const [adminModeEdit, setAdminModeEdit] = useState(false)
+
+  const authUser = useAuthStore((s) => s.user)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
+  const fieldConfig = useFieldConfig()
 
   // Queries
   const { data: contact, isLoading } = useQuery({
@@ -1012,10 +1020,17 @@ export default function ContactProfilePage() {
       </Tabs>
 
       {/* ── Modal: Editar Contato ── */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) setAdminModeEdit(false) }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Editar Contato</DialogTitle>
+            {isAdmin && (
+              <Button type="button" variant={adminModeEdit ? 'default' : 'ghost'} size="sm" className="h-7 text-xs gap-1.5"
+                onClick={() => setAdminModeEdit(v => !v)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                {adminModeEdit ? 'Sair' : 'Personalizar'}
+              </Button>
+            )}
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-6 py-2">
 
@@ -1023,33 +1038,53 @@ export default function ContactProfilePage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Nome *</Label>
-                  <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nome completo" />
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="name" defaultRequired={true} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Nome {fieldConfig.isRequired('contact', 'name', true) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input required={fieldConfig.isRequired('contact', 'name', true)} value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nome completo" />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>CPF</Label>
-                  <Input value={editForm.cpf} onChange={(e) => setEditForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
+                <div>
+                  <FieldWrapper entityType="contact" slug="cpf" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>CPF {fieldConfig.isRequired('contact', 'cpf', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input required={fieldConfig.isRequired('contact', 'cpf', false)} value={editForm.cpf} onChange={(e) => setEditForm((f) => ({ ...f, cpf: e.target.value }))} placeholder="000.000.000-00" />
+                    </div>
+                  </FieldWrapper>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Nacionalidade</Label>
                   <Input value={editForm.nationality} onChange={(e) => setEditForm((f) => ({ ...f, nationality: e.target.value }))} placeholder="Ex: Brasileira" />
                 </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Empresa</Label>
-                  <CompanySearchEdit value={editForm.companyId} label={editForm.companyLabel} onChange={(id, name) => setEditForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                <div className="col-span-2">
+                  <FieldWrapper entityType="contact" slug="company" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Empresa {fieldConfig.isRequired('contact', 'company', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <CompanySearchEdit value={editForm.companyId} label={editForm.companyLabel} onChange={(id, name) => setEditForm((f) => ({ ...f, companyId: id, companyLabel: name }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Cargo</Label>
-                  <Input value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))} placeholder="Ex: Diretor Comercial" />
+                <div>
+                  <FieldWrapper entityType="contact" slug="jobTitle" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Cargo {fieldConfig.isRequired('contact', 'jobTitle', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input required={fieldConfig.isRequired('contact', 'jobTitle', false)} value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))} placeholder="Ex: Diretor Comercial" />
+                    </div>
+                  </FieldWrapper>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Categoria</Label>
                   <Input value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} placeholder="Ex: Cliente, Parceiro..." />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Aniversário</Label>
-                  <Input type="date" value={editForm.birthday} onChange={(e) => setEditForm((f) => ({ ...f, birthday: e.target.value }))} />
+                <div>
+                  <FieldWrapper entityType="contact" slug="dateOfBirth" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Aniversário {fieldConfig.isRequired('contact', 'dateOfBirth', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input type="date" required={fieldConfig.isRequired('contact', 'dateOfBirth', false)} value={editForm.birthday} onChange={(e) => setEditForm((f) => ({ ...f, birthday: e.target.value }))} />
+                    </div>
+                  </FieldWrapper>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Site</Label>
@@ -1070,13 +1105,21 @@ export default function ContactProfilePage() {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Informações para contato</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
+                <div>
+                  <FieldWrapper entityType="contact" slug="email" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>E-mail {fieldConfig.isRequired('contact', 'email', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input type="email" required={fieldConfig.isRequired('contact', 'email', false)} value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
+                    </div>
+                  </FieldWrapper>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone</Label>
-                  <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(11) 99999-9999" />
+                <div>
+                  <FieldWrapper entityType="contact" slug="phone" defaultRequired={false} adminMode={adminModeEdit}>
+                    <div className="space-y-1.5">
+                      <Label>Telefone {fieldConfig.isRequired('contact', 'phone', false) && <span className="text-red-500 ml-0.5">*</span>}</Label>
+                      <Input required={fieldConfig.isRequired('contact', 'phone', false)} value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(11) 99999-9999" />
+                    </div>
+                  </FieldWrapper>
                 </div>
               </div>
             </div>
@@ -1146,7 +1189,7 @@ export default function ContactProfilePage() {
             {/* Campos Personalizados */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
-              <CustomFieldsPanel entityType="contact" entityId={contactId} />
+              <CustomFieldsPanel entityType="contact" entityId={contactId} adminMode={adminModeEdit} onAdminModeChange={setAdminModeEdit} />
             </div>
 
             <div className="flex gap-2 pt-1 border-t">
