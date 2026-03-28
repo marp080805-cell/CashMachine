@@ -298,7 +298,19 @@ export default async function opportunitiesRoutes(app: FastifyInstance) {
   // Reabrir oportunidade
   app.post('/opportunities/:id/reopen', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
+    const { tenantId, id: userId, role } = request.user as { tenantId: string; id: string; role: string }
+
+    // Only ADMINs/MANAGERs can reopen
+    if (!['ADMIN', 'MANAGER'].includes(role)) {
+      return reply.status(403).send({ error: 'Sem permissão para reabrir oportunidades' })
+    }
+
+    // Check tenant setting
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } })
+    const tenantSettings = (tenant?.settings ?? {}) as Record<string, unknown>
+    if (tenantSettings.allowReopenLost === false) {
+      return reply.status(403).send({ error: 'Reabertura de oportunidades está desativada nas configurações' })
+    }
 
     await prisma.opportunity.findFirstOrThrow({ where: { id, tenantId } })
 

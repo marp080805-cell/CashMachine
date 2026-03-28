@@ -106,4 +106,26 @@ export default async function tenantsRoutes(app: FastifyInstance) {
       return reply.send(tenant)
     }
   )
+
+  // Merge-patch tenant settings
+  app.patch(
+    '/tenants/current/settings',
+    { preHandler: [app.authenticate, requirePermission('admin:tenant')] },
+    async (request, reply) => {
+      const user = request.user as { tenantId: string }
+      const patch = z.record(z.unknown()).parse(request.body)
+
+      const existing = await prisma.tenant.findUniqueOrThrow({
+        where: { id: user.tenantId },
+        select: { settings: true },
+      })
+      const merged = { ...((existing.settings ?? {}) as Record<string, unknown>), ...patch }
+      const tenant = await prisma.tenant.update({
+        where: { id: user.tenantId },
+        data: { settings: merged as Prisma.InputJsonValue },
+        select: { id: true, name: true, slug: true, plan: true, settings: true },
+      })
+      return reply.send(tenant)
+    }
+  )
 }

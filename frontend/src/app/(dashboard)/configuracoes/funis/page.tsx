@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Pencil, Trash2, Plus, Settings } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 interface Stage {
   id: string
@@ -51,14 +53,34 @@ export default function FunisConfigPage() {
   const [editing, setEditing] = useState<Pipeline | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [allowReopenLost, setAllowReopenLost] = useState(true)
+  const [savingToggle, setSavingToggle] = useState(false)
 
   async function load() {
     setLoading(true)
     try {
-      const data = await api.get<Pipeline[]>('/pipelines')
-      setPipelines(data)
+      const [pipesData, tenantData] = await Promise.all([
+        api.get<Pipeline[]>('/pipelines'),
+        api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
+      ])
+      setPipelines(pipesData)
+      setAllowReopenLost(tenantData.settings?.allowReopenLost !== false)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleToggleReopenLost(value: boolean) {
+    setAllowReopenLost(value)
+    setSavingToggle(true)
+    try {
+      await api.patch('/tenants/current/settings', { allowReopenLost: value })
+      toast.success(value ? 'Reabertura de perdidas ativada' : 'Reabertura de perdidas desativada')
+    } catch {
+      toast.error('Erro ao salvar configuração')
+      setAllowReopenLost(!value)
+    } finally {
+      setSavingToggle(false)
     }
   }
 
@@ -119,6 +141,22 @@ export default function FunisConfigPage() {
         <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Novo Funil
         </Button>
+      </div>
+
+      {/* Configurações gerais */}
+      <div className="border rounded-lg p-4 bg-card space-y-1">
+        <h3 className="text-sm font-semibold mb-3">Configurações de Oportunidades</h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Permitir reabrir oportunidades perdidas</p>
+            <p className="text-xs text-muted-foreground">Quando ativado, administradores podem mover oportunidades de volta para aberto</p>
+          </div>
+          <Switch
+            checked={allowReopenLost}
+            onCheckedChange={(v) => void handleToggleReopenLost(v)}
+            disabled={savingToggle}
+          />
+        </div>
       </div>
 
       {pipelines.length === 0 ? (

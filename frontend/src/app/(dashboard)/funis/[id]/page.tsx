@@ -106,6 +106,12 @@ export default function PipelineKanbanPage() {
     enabled: !!id,
   })
 
+  const { data: tenantData } = useQuery({
+    queryKey: ['tenant-current'],
+    queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
+  })
+  const allowReopenLost = tenantData?.settings?.allowReopenLost !== false
+
   const addStageMutation = useMutation({
     mutationFn: ({ name, color }: { name: string; color: string }) =>
       api.post(`/pipelines/${id}/stages`, {
@@ -411,6 +417,7 @@ export default function PipelineKanbanPage() {
               emptyMessage={closedTab === 'lost' ? 'Nenhuma oportunidade perdida' : 'Nenhuma oportunidade ganha'}
               onReopen={(oppId) => reopenOppMutation.mutate(oppId)}
               reopenPending={reopenOppMutation.isPending}
+              canReopen={isAdmin && allowReopenLost}
             />
           </div>
         </SheetContent>
@@ -735,9 +742,10 @@ interface ClosedOppsTableProps {
   emptyMessage: string
   onReopen: (oppId: string) => void
   reopenPending: boolean
+  canReopen: boolean
 }
 
-function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending }: ClosedOppsTableProps) {
+function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending, canReopen }: ClosedOppsTableProps) {
   if (opportunities.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-12 text-center">
@@ -776,10 +784,12 @@ function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending 
               <td className="px-4 py-3 text-muted-foreground">{opp.assignedTo.name}</td>
               <td className="px-4 py-3 text-muted-foreground">{formatDate(opp.updatedAt)}</td>
               <td className="px-4 py-3">
-                <Button size="sm" variant="ghost" className="h-7 text-xs"
-                  disabled={reopenPending} onClick={() => onReopen(opp.id)} title="Reabrir">
-                  <RotateCcw className="h-3.5 w-3.5 mr-1" />Reabrir
-                </Button>
+                {canReopen && (
+                  <Button size="sm" variant="ghost" className="h-7 text-xs"
+                    disabled={reopenPending} onClick={() => onReopen(opp.id)} title="Reabrir">
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />Reabrir
+                  </Button>
+                )}
               </td>
             </tr>
           ))}
