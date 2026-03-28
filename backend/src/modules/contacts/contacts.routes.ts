@@ -27,6 +27,7 @@ const createContactSchema = z.object({
   companyId: z.string().uuid().optional(),
   firstContactDate: z.string().datetime().optional(),
   notes: z.string().optional(),
+  assignedToId: z.string().uuid().optional(),
 })
 
 const updateContactSchema = createContactSchema.partial()
@@ -68,6 +69,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
           origin: { select: { id: true, name: true } },
           subOrigin: { select: { id: true, name: true } },
           company: { select: { id: true, name: true } },
+          assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         },
       }),
       prisma.contact.count({ where }),
@@ -86,6 +88,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
         origin: { select: { id: true, name: true } },
         subOrigin: { select: { id: true, name: true } },
         company: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         opportunities: {
           select: {
             id: true, title: true, status: true, value: true,
@@ -122,6 +125,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
         origin: { select: { id: true, name: true } },
         subOrigin: { select: { id: true, name: true } },
         company: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
       },
     })
 
@@ -157,6 +161,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
         origin: { select: { id: true, name: true } },
         subOrigin: { select: { id: true, name: true } },
         company: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
       },
     })
 

@@ -103,6 +103,9 @@ model User {
   goals                      Goal[]                  @relation("UserGoals")
   formAssignments            Form[]                  @relation("FormAssignees")
   createdTemplates           AccountTemplate[]       @relation("CreatedTemplates")
+  assignedContacts           Contact[]               @relation("AssignedContacts")
+  assignedCompanies          Company[]               @relation("AssignedCompanies")
+  assignedLeads              Lead[]                  @relation("AssignedLeads")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -149,6 +152,8 @@ model Contact {
   firstContactDate DateTime?
   notes            String?
   isBlacklisted    Boolean    @default(false)
+  assignedToId     String?
+  assignedTo       User?      @relation("AssignedContacts", fields: [assignedToId], references: [id])
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -192,6 +197,8 @@ model Company {
   annualRevenue Decimal? @db.Decimal(15, 2)
   originId      String?
   origin        Origin?  @relation(fields: [originId], references: [id])
+  assignedToId  String?
+  assignedTo    User?    @relation("AssignedCompanies", fields: [assignedToId], references: [id])
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -219,6 +226,8 @@ model Lead {
   qualifiedAt                DateTime?
   disqualifiedReason         String?
   convertedToOpportunityId   String?
+  assignedToId               String?
+  assignedTo                 User?      @relation("AssignedLeads", fields: [assignedToId], references: [id])
   createdAt                  DateTime   @default(now())
   updatedAt                  DateTime   @updatedAt
 

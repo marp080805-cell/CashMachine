@@ -122,6 +122,7 @@ interface LeadForm {
   originLabel: string
   status: string
   score: string
+  assignedToId: string
 }
 
 const defaultLeadForm: LeadForm = {
@@ -134,6 +135,7 @@ const defaultLeadForm: LeadForm = {
   originLabel: '',
   status: 'NEW',
   score: '0',
+  assignedToId: '',
 }
 
 interface QualifyForm {
@@ -152,6 +154,7 @@ interface EditLeadForm {
   originLabel: string
   status: string
   score: string
+  assignedToId: string
 }
 
 export default function LeadsPage() {
@@ -170,7 +173,7 @@ export default function LeadsPage() {
 
   const [editLead, setEditLead] = useState<Lead | null>(null)
   const [editForm, setEditForm] = useState<EditLeadForm>({
-    contactId: '', contactLabel: '', name: '', phone: '', companyId: '', companyLabel: '', originId: '', originLabel: '', status: 'NEW', score: '0',
+    contactId: '', contactLabel: '', name: '', phone: '', companyId: '', companyLabel: '', originId: '', originLabel: '', status: 'NEW', score: '0', assignedToId: '',
   })
   const [editContactSearch, setEditContactSearch] = useState('')
   const [companySearch, setCompanySearch] = useState('')
@@ -183,6 +186,12 @@ export default function LeadsPage() {
   const queryClient = useQueryClient()
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<{ users: Array<{ id: string; name: string }> }>('/users'),
+  })
+  const users = usersData?.users ?? []
 
   // Leads query
   const { data, isLoading } = useQuery({
@@ -234,7 +243,7 @@ export default function LeadsPage() {
 
   // Create lead
   const createMutation = useMutation({
-    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; originId?: string; status: string; score: number }) => {
+    mutationFn: async (body: { contactId?: string; name?: string; phone?: string; companyId?: string; originId?: string; status: string; score: number; assignedToId?: string }) => {
       let contactId = body.contactId
       if (!contactId && body.name?.trim()) {
         const contact = await api.post<Contact>('/contacts', {
@@ -254,6 +263,7 @@ export default function LeadsPage() {
         contactId,
         status: body.status,
         score: body.score,
+        assignedToId: body.assignedToId,
       })
       // Save custom field values
       const cfEntries = Object.entries(cfCreateValues).filter(([, v]) => v !== '' && v !== null && v !== undefined)
@@ -333,6 +343,7 @@ export default function LeadsPage() {
       originId: form.originId || undefined,
       status: form.status,
       score: parseInt(form.score, 10) || 0,
+      assignedToId: form.assignedToId || undefined,
     })
   }
 
@@ -362,6 +373,7 @@ export default function LeadsPage() {
       originLabel: contact?.origin?.name ?? '',
       status: lead.status,
       score: String(lead.score),
+      assignedToId: (lead as Lead & { assignedToId?: string })?.assignedToId ?? '',
     })
     setEditContactSearch('')
   }
@@ -379,6 +391,7 @@ export default function LeadsPage() {
       body: {
         status: editForm.status as 'NEW' | 'NURTURING' | 'QUALIFIED' | 'DISQUALIFIED',
         score: parseInt(editForm.score, 10) || 0,
+        assignedToId: editForm.assignedToId || undefined,
       },
     })
   }
@@ -702,6 +715,18 @@ export default function LeadsPage() {
               />
             </FieldWrapper>
 
+            <div className="space-y-1.5">
+              <Label>Responsável</Label>
+              <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Campos personalizados */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
@@ -850,6 +875,18 @@ export default function LeadsPage() {
                   onChange={(id, path) => setEditForm((f) => ({ ...f, originId: id, originLabel: path }))}
                 />
               </FieldWrapper>
+
+              <div className="space-y-1.5">
+                <Label>Responsável</Label>
+                <Select value={editForm.assignedToId || undefined} onValueChange={(v) => setEditForm((f) => ({ ...f, assignedToId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Campos personalizados */}
               <div>

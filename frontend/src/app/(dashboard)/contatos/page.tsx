@@ -18,6 +18,9 @@ import {
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
 
@@ -50,6 +53,7 @@ interface ContactForm {
   socialTwitter: string
   originId: string
   originLabel: string
+  assignedToId: string
 }
 
 const defaultForm: ContactForm = {
@@ -58,6 +62,7 @@ const defaultForm: ContactForm = {
   addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
   socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
   originId: '', originLabel: '',
+  assignedToId: '',
 }
 
 interface Opportunity { id: string; title: string }
@@ -223,6 +228,12 @@ export default function ContatosPage() {
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<{ users: Array<{ id: string; name: string }> }>('/users'),
+  })
+  const users = usersData?.users ?? []
+
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', page, search],
     queryFn: () => {
@@ -283,6 +294,7 @@ export default function ContatosPage() {
       dateOfBirth: form.birthday ? new Date(form.birthday).toISOString() : undefined,
       companyId: form.companyId || undefined,
       originId: form.originId || undefined,
+      assignedToId: form.assignedToId || undefined,
       ...(hasAddress ? { address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -422,6 +434,19 @@ export default function ContatosPage() {
                   <FieldWrapper entityType="contact" slug="origin" label="Origem / Canal" defaultRequired={false} adminMode={adminModeCreate}>
                     <OriginSearch value={form.originId} label={form.originLabel} onChange={(id, path) => setForm((f) => ({ ...f, originId: id, originLabel: path }))} />
                   </FieldWrapper>
+                </div>
+                <div className="col-span-2">
+                  <div className="space-y-1.5">
+                    <Label>Responsável</Label>
+                    <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+                      <SelectContent>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <FieldWrapper entityType="contact" slug="notes" label="Descrição" defaultRequired={false} adminMode={adminModeCreate}>

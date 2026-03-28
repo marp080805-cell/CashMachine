@@ -21,6 +21,9 @@ import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 interface ContactItem { id: string; name: string; email?: string; phone?: string }
 
@@ -108,6 +111,7 @@ interface CompanyForm {
   contactLabel: string
   opportunityId: string
   opportunityLabel: string
+  assignedToId: string
 }
 
 const defaultForm: CompanyForm = {
@@ -117,6 +121,7 @@ const defaultForm: CompanyForm = {
   addrZip: '', addrCountry: '', addrState: '', addrCity: '', addrNeighborhood: '', addrStreet: '', addrNumber: '', addrComplement: '',
   socialLinkedin: '', socialInstagram: '', socialFacebook: '', socialTwitter: '',
   notes: '', contactId: '', contactLabel: '', opportunityId: '', opportunityLabel: '',
+  assignedToId: '',
 }
 
 interface OppOption { id: string; title: string }
@@ -233,6 +238,12 @@ export default function EmpresasPage() {
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<{ users: Array<{ id: string; name: string }> }>('/users'),
+  })
+  const users = usersData?.users ?? []
+
   // Populate editForm when selectedCompany changes
   useEffect(() => {
     if (!selectedCompany) return
@@ -275,6 +286,7 @@ export default function EmpresasPage() {
       contactLabel: '',
       opportunityId: '',
       opportunityLabel: '',
+      assignedToId: (selectedCompany as Company & { assignedToId?: string })?.assignedToId ?? '',
     })
   }, [selectedCompany])
 
@@ -367,6 +379,7 @@ export default function EmpresasPage() {
       website: form.website || undefined,
       originId: form.originId || undefined,
       notes: form.notes || undefined,
+      assignedToId: form.assignedToId || undefined,
       ...(hasAddress ? { addressJson: address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -392,6 +405,7 @@ export default function EmpresasPage() {
       website: editForm.website || undefined,
       originId: editForm.originId || undefined,
       notes: editForm.notes || undefined,
+      assignedToId: editForm.assignedToId || undefined,
       ...(hasAddress ? { addressJson: address } : {}),
       ...(hasSocial ? { socialProfiles } : {}),
     })
@@ -558,6 +572,19 @@ export default function EmpresasPage() {
                       <FieldWrapper entityType="company" slug="origin" label="Origem / Canal" adminMode={adminModeEdit}>
                         <OriginSearchEmpresa value={editForm.originId} label={editForm.originLabel} onChange={(id, path) => setEditForm((f) => ({ ...f, originId: id, originLabel: path }))} />
                       </FieldWrapper>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="space-y-1.5">
+                        <Label>Responsável</Label>
+                        <Select value={editForm.assignedToId || undefined} onValueChange={(v) => setEditForm((f) => ({ ...f, assignedToId: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+                          <SelectContent>
+                            {users.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="col-span-2">
                       <FieldWrapper entityType="company" slug="notes" label="Descrição" placeholder="Observações sobre a empresa..." adminMode={adminModeEdit}>
@@ -742,6 +769,19 @@ export default function EmpresasPage() {
                   <FieldWrapper entityType="company" slug="origin" label="Origem / Canal" adminMode={adminMode}>
                     <OriginSearchEmpresa value={form.originId} label={form.originLabel} onChange={(id, path) => setForm((f) => ({ ...f, originId: id, originLabel: path }))} />
                   </FieldWrapper>
+                </div>
+                <div className="col-span-2">
+                  <div className="space-y-1.5">
+                    <Label>Responsável</Label>
+                    <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
+                      <SelectContent>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <FieldWrapper entityType="company" slug="notes" label="Descrição" placeholder="Observações sobre a empresa..." adminMode={adminMode}>

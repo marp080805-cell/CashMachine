@@ -14,6 +14,7 @@ const createLeadSchema = z.object({
   // Campos do lead
   source: z.string().optional(),
   score: z.number().optional(),
+  assignedToId: z.string().uuid().optional(),
 }).refine(
   (data) => data.contactId || data.name,
   { message: 'Informe contactId ou name do contato' }
@@ -53,6 +54,7 @@ export default async function leadsRoutes(app: FastifyInstance) {
               company: { select: { id: true, name: true } },
             },
           },
+          assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         },
       }),
       prisma.lead.count({ where }),
@@ -80,6 +82,7 @@ export default async function leadsRoutes(app: FastifyInstance) {
             },
           },
         },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
       },
     })
 
@@ -107,7 +110,7 @@ export default async function leadsRoutes(app: FastifyInstance) {
     }
 
     const lead = await prisma.lead.create({
-      data: { tenantId, contactId, source: input.source, score: input.score ?? 0, status: 'NEW' },
+      data: { tenantId, contactId, source: input.source, score: input.score ?? 0, status: 'NEW', assignedToId: input.assignedToId },
       include: {
         contact: {
           include: {
@@ -115,6 +118,7 @@ export default async function leadsRoutes(app: FastifyInstance) {
             subOrigin: { select: { id: true, name: true } },
           },
         },
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
       },
     })
 
@@ -128,10 +132,18 @@ export default async function leadsRoutes(app: FastifyInstance) {
       status: z.enum(['NEW', 'NURTURING', 'QUALIFIED', 'DISQUALIFIED']).optional(),
       source: z.string().optional(),
       score: z.number().optional(),
+      assignedToId: z.string().uuid().optional().nullable(),
     }).parse(request.body)
 
     await prisma.lead.findFirstOrThrow({ where: { id, tenantId } })
-    const lead = await prisma.lead.update({ where: { id }, data: input, include: { contact: true } })
+    const lead = await prisma.lead.update({
+      where: { id },
+      data: input,
+      include: {
+        contact: true,
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    })
     return reply.send(lead)
   })
 

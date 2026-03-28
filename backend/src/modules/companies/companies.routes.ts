@@ -22,6 +22,7 @@ const createCompanySchema = z.object({
   annualRevenue: z.number().optional(),
   originId: z.string().uuid().optional(),
   notes: z.string().optional(),
+  assignedToId: z.string().uuid().optional(),
 })
 
 export default async function companiesRoutes(app: FastifyInstance) {
@@ -42,6 +43,7 @@ export default async function companiesRoutes(app: FastifyInstance) {
         orderBy: { name: 'asc' },
         include: {
           _count: { select: { contacts: true, opportunities: true } },
+          assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         },
       }),
       prisma.company.count({ where }),
@@ -57,6 +59,7 @@ export default async function companiesRoutes(app: FastifyInstance) {
     const company = await prisma.company.findFirstOrThrow({
       where: { id, tenantId },
       include: {
+        assignedTo: { select: { id: true, name: true, avatarUrl: true } },
         contacts: {
           select: { id: true, name: true, email: true, phone: true },
           take: 20,
