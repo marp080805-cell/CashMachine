@@ -35,6 +35,30 @@ export default async function usersRoutes(app: FastifyInstance) {
     return reply.send(user)
   })
 
+  app.post(
+    '/users',
+    { preHandler: [app.authenticate, requirePermission('users:invite')] },
+    async (request, reply) => {
+      const { tenantId } = request.user as { tenantId: string }
+      const input = z.object({
+        name: z.string().min(2),
+        email: z.string().email(),
+        password: z.string().min(6),
+        role: z.enum(['ADMIN', 'MANAGER', 'SDR', 'CLOSER', 'VIEWER']).default('SDR'),
+      }).parse(request.body)
+
+      const existing = await prisma.user.findFirst({ where: { email: input.email, tenantId } })
+      if (existing) return reply.status(409).send({ error: 'E-mail já cadastrado neste tenant' })
+
+      const passwordHash = await bcrypt.hash(input.password, 12)
+      const user = await prisma.user.create({
+        data: { ...input, passwordHash, tenantId },
+        select: { id: true, email: true, name: true, role: true, avatarUrl: true, isActive: true, createdAt: true },
+      })
+      return reply.status(201).send(user)
+    }
+  )
+
   app.patch('/users/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const { tenantId, id: currentUserId, role: currentRole } = request.user as {
