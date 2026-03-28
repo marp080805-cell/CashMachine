@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import type { Pipeline, Opportunity, Stage, Contact } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
+import { OpportunitySheet } from '@/components/kanban/OpportunitySheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -69,6 +70,7 @@ export default function PipelineKanbanPage() {
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
   const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES' })
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
 
   const { data: allPipelines } = useQuery({
     queryKey: ['pipelines'],
@@ -384,6 +386,7 @@ export default function PipelineKanbanPage() {
         <ListViewTable
           opportunities={filteredOpps}
           onReopen={() => {}}
+          onSelect={(opp) => setSelectedOpp(opp)}
         />
       )}
 
@@ -435,6 +438,7 @@ export default function PipelineKanbanPage() {
               onReopen={(oppId) => reopenOppMutation.mutate(oppId)}
               reopenPending={reopenOppMutation.isPending}
               canReopen={isAdmin && allowReopenLost}
+              onSelect={(opp) => setSelectedOpp(opp)}
             />
           </div>
         </SheetContent>
@@ -666,6 +670,13 @@ export default function PipelineKanbanPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── SHEET: OPORTUNIDADE ── */}
+      <OpportunitySheet
+        opportunity={selectedOpp}
+        pipelineId={id}
+        onClose={() => setSelectedOpp(null)}
+      />
+
       {/* ── DIALOG: NOVO PIPELINE ── */}
       <Dialog open={newPipelineOpen} onOpenChange={setNewPipelineOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -707,7 +718,7 @@ export default function PipelineKanbanPage() {
 // ── LISTA DE OPORTUNIDADES ABERTAS ──
 interface ListOpp extends Opportunity { stageName: string; stageColor: string }
 
-function ListViewTable({ opportunities }: { opportunities: ListOpp[]; onReopen: () => void }) {
+function ListViewTable({ opportunities, onSelect }: { opportunities: ListOpp[]; onReopen: () => void; onSelect: (opp: Opportunity) => void }) {
   if (opportunities.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-12 text-center">
@@ -731,7 +742,7 @@ function ListViewTable({ opportunities }: { opportunities: ListOpp[]; onReopen: 
         </thead>
         <tbody className="divide-y">
           {opportunities.map((opp) => (
-            <tr key={opp.id} className="hover:bg-muted/30">
+            <tr key={opp.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => onSelect(opp)}>
               <td className="px-4 py-3 font-medium">{opp.title}</td>
               <td className="px-4 py-3 text-muted-foreground">{opp.value ? formatCurrency(opp.value) : '—'}</td>
               <td className="px-4 py-3 text-muted-foreground">{opp.contact?.name ?? '—'}</td>
@@ -760,9 +771,10 @@ interface ClosedOppsTableProps {
   onReopen: (oppId: string) => void
   reopenPending: boolean
   canReopen: boolean
+  onSelect: (opp: Opportunity) => void
 }
 
-function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending, canReopen }: ClosedOppsTableProps) {
+function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending, canReopen, onSelect }: ClosedOppsTableProps) {
   if (opportunities.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-12 text-center">
@@ -794,13 +806,13 @@ function ClosedOppsTable({ opportunities, emptyMessage, onReopen, reopenPending,
         </thead>
         <tbody className="divide-y">
           {opportunities.map((opp) => (
-            <tr key={opp.id} className="hover:bg-muted/30">
+            <tr key={opp.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => onSelect(opp)}>
               <td className="px-4 py-3 font-medium">{opp.title}</td>
               <td className="px-4 py-3 text-muted-foreground">{opp.value ? formatCurrency(opp.value) : '—'}</td>
               <td className="px-4 py-3 text-muted-foreground">{opp.contact?.name ?? '—'}</td>
               <td className="px-4 py-3 text-muted-foreground">{opp.assignedTo.name}</td>
               <td className="px-4 py-3 text-muted-foreground">{formatDate(opp.updatedAt)}</td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 {canReopen && (
                   <Button size="sm" variant="ghost" className="h-7 text-xs"
                     disabled={reopenPending} onClick={() => onReopen(opp.id)} title="Reabrir">
