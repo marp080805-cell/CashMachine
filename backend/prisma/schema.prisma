@@ -244,6 +244,7 @@ model Pipeline {
   prefix                String?
   description           String?
   type                  PipelineType   @default(SALES)
+  typeName              String?
   isActive              Boolean        @default(true)
   sortOrder             Int            @default(0)
   defaultCloseDays      Int?

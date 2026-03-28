@@ -8,6 +8,7 @@ const createPipelineSchema = z.object({
   prefix: z.string().max(5).optional(),
   description: z.string().optional(),
   type: z.enum(['SALES', 'TREATMENT', 'RESCUE', 'RELATIONSHIP', 'CUSTOM']).default('SALES'),
+  typeName: z.string().optional().nullable(),
   defaultCloseDays: z.number().optional(),
   sdrStages: z.array(z.string()).optional(),
   closerStages: z.array(z.string()).optional(),

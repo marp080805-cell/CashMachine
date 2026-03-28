@@ -37,6 +37,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { PipelineTypeCombobox, PREDEFINED_PIPELINE_TYPES } from '@/components/shared/PipelineTypeCombobox'
 
 type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
   stages: Array<Stage & { opportunities: Opportunity[] }>
@@ -69,7 +70,7 @@ export default function PipelineKanbanPage() {
   const [companySearch, setCompanySearch] = useState('')
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
-  const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES' })
+  const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES', typeName: '' })
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
 
   const { data: allPipelines } = useQuery({
@@ -111,9 +112,10 @@ export default function PipelineKanbanPage() {
 
   const { data: tenantData } = useQuery({
     queryKey: ['tenant-current'],
-    queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
+    queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean; pipelineTypeFreeInput?: boolean } }>('/tenants/current'),
   })
   const allowReopenLost = tenantData?.settings?.allowReopenLost !== false
+  const pipelineTypeFreeInput = tenantData?.settings?.pipelineTypeFreeInput === true
 
   const toggleReopenMutation = useMutation({
     mutationFn: (value: boolean) => api.patch('/tenants/current/settings', { allowReopenLost: value }),
@@ -174,7 +176,10 @@ export default function PipelineKanbanPage() {
 
   const createPipelineMutation = useMutation({
     mutationFn: async (body: { name: string; description: string; type: string }) => {
-      const pl = await api.post<Pipeline>('/pipelines', body)
+      const pl = await api.post<Pipeline>('/pipelines', {
+        ...body,
+        ...(newPipelineForm.typeName ? { typeName: newPipelineForm.typeName } : {}),
+      })
       await api.post(`/pipelines/${pl.id}/stages`, { name: 'Novo', color: '#6366f1', sortOrder: 0 })
       await api.post(`/pipelines/${pl.id}/stages`, { name: 'Em contato', color: '#f59e0b', sortOrder: 1 })
       await api.post(`/pipelines/${pl.id}/stages`, { name: 'Proposta', color: '#10b981', sortOrder: 2 })
@@ -184,7 +189,7 @@ export default function PipelineKanbanPage() {
     onSuccess: (pl) => {
       toast.success('Funil criado!')
       setNewPipelineOpen(false)
-      setNewPipelineForm({ name: '', description: '', type: 'SALES' })
+      setNewPipelineForm({ name: '', description: '', type: 'SALES', typeName: '' })
       void queryClient.invalidateQueries({ queryKey: ['pipelines'] })
       router.push(`/funis/${pl.id}`)
     },
@@ -691,14 +696,23 @@ export default function PipelineKanbanPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Tipo</Label>
-              <Select value={newPipelineForm.type} onValueChange={(v) => setNewPipelineForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[['SALES', 'Vendas'], ['TREATMENT', 'Tratamento'], ['RESCUE', 'Resgate'], ['RELATIONSHIP', 'Relacionamento'], ['CUSTOM', 'Personalizado']].map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {pipelineTypeFreeInput ? (
+                <PipelineTypeCombobox
+                  value={newPipelineForm.type}
+                  typeName={newPipelineForm.typeName}
+                  existingTypeNames={[...new Set((allPipelines ?? []).filter((p) => (p as { typeName?: string }).typeName).map((p) => (p as { typeName?: string }).typeName as string))]}
+                  onChange={(type, typeName) => setNewPipelineForm((f) => ({ ...f, type, typeName }))}
+                />
+              ) : (
+                <Select value={newPipelineForm.type} onValueChange={(v) => setNewPipelineForm((f) => ({ ...f, type: v, typeName: '' }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PREDEFINED_PIPELINE_TYPES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setNewPipelineOpen(false)}>Cancelar</Button>

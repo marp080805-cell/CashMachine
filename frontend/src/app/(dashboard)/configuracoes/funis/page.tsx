@@ -14,6 +14,7 @@ import { Pencil, Trash2, Plus, Settings } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { PipelineTypeCombobox, PREDEFINED_PIPELINE_TYPES, getPipelineTypeLabel } from '@/components/shared/PipelineTypeCombobox'
 
 interface Stage {
   id: string
@@ -26,16 +27,11 @@ interface Pipeline {
   id: string
   name: string
   type: string
+  typeName?: string | null
   description?: string
   stages?: Stage[]
 }
 
-const PIPELINE_TYPES = [
-  { value: 'SALES', label: 'Vendas' },
-  { value: 'TREATMENT', label: 'Atendimento' },
-  { value: 'RESCUE', label: 'Resgate' },
-  { value: 'RELATIONSHIP', label: 'Relacionamento' },
-]
 
 const typeBadgeVariant: Record<string, string> = {
   SALES: 'bg-blue-100 text-blue-700',
@@ -44,7 +40,7 @@ const typeBadgeVariant: Record<string, string> = {
   RELATIONSHIP: 'bg-purple-100 text-purple-700',
 }
 
-const emptyForm = { name: '', type: 'SALES', description: '' }
+const emptyForm = { name: '', type: 'SALES', typeName: '', description: '' }
 
 export default function FunisConfigPage() {
   const queryClient = useQueryClient()
@@ -60,9 +56,10 @@ export default function FunisConfigPage() {
 
   const { data: tenantData } = useQuery({
     queryKey: ['tenant-current'],
-    queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean } }>('/tenants/current'),
+    queryFn: () => api.get<{ settings?: { allowReopenLost?: boolean; pipelineTypeFreeInput?: boolean } }>('/tenants/current'),
   })
   const allowReopenLost = tenantData?.settings?.allowReopenLost !== false
+  const pipelineTypeFreeInput = tenantData?.settings?.pipelineTypeFreeInput === true
 
   const toggleReopenMutation = useMutation({
     mutationFn: (value: boolean) => api.patch('/tenants/current/settings', { allowReopenLost: value }),
@@ -72,6 +69,22 @@ export default function FunisConfigPage() {
     },
     onError: () => toast.error('Erro ao salvar configuração'),
   })
+
+  const toggleTypeModeMutation = useMutation({
+    mutationFn: (value: boolean) => api.patch('/tenants/current/settings', { pipelineTypeFreeInput: value }),
+    onSuccess: (_data, value) => {
+      void queryClient.invalidateQueries({ queryKey: ['tenant-current'] })
+      toast.success(value ? 'Tipo livre ativado' : 'Seletor fixo ativado')
+    },
+    onError: () => toast.error('Erro ao salvar configuração'),
+  })
+
+  // Collect distinct custom typeNames from existing pipelines for suggestions
+  const existingTypeNames = [...new Set(
+    pipelines
+      .filter((p) => p.typeName)
+      .map((p) => p.typeName as string)
+  )]
 
   function openCreate() {
     setEditing(null)
@@ -84,6 +97,7 @@ export default function FunisConfigPage() {
     setForm({
       name: pipeline.name,
       type: pipeline.type,
+      typeName: pipeline.typeName ?? '',
       description: pipeline.description ?? '',
     })
     setOpen(true)
@@ -95,6 +109,7 @@ export default function FunisConfigPage() {
       const payload = {
         name: form.name,
         type: form.type,
+        ...(form.typeName ? { typeName: form.typeName } : { typeName: null }),
         description: form.description || undefined,
       }
       if (editing) {
@@ -130,9 +145,20 @@ export default function FunisConfigPage() {
       </div>
 
       {/* Configurações gerais */}
-      <div className="border rounded-lg px-4 py-2.5 bg-card flex items-center justify-between gap-4">
-        <span className="text-sm text-muted-foreground">Permitir que admins reabram oportunidades perdidas</span>
-        <Switch checked={allowReopenLost} onCheckedChange={(v) => toggleReopenMutation.mutate(v)} disabled={toggleReopenMutation.isPending} />
+      <div className="border rounded-lg bg-card divide-y">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Permitir que admins reabram oportunidades perdidas</p>
+          </div>
+          <Switch checked={allowReopenLost} onCheckedChange={(v) => toggleReopenMutation.mutate(v)} disabled={toggleReopenMutation.isPending} />
+        </div>
+        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Campo "Tipo de funil" livre</p>
+            <p className="text-xs text-muted-foreground">Permite selecionar tipos existentes ou digitar um nome personalizado</p>
+          </div>
+          <Switch checked={pipelineTypeFreeInput} onCheckedChange={(v) => toggleTypeModeMutation.mutate(v)} disabled={toggleTypeModeMutation.isPending} />
+        </div>
       </div>
 
       {pipelines.length === 0 ? (
@@ -154,7 +180,7 @@ export default function FunisConfigPage() {
                     )}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${typeBadgeVariant[pipeline.type] ?? 'bg-gray-100 text-gray-700'}`}>
-                    {PIPELINE_TYPES.find((t) => t.value === pipeline.type)?.label ?? pipeline.type}
+                    {getTypeLabel(pipeline.type, pipeline.typeName)}
                   </span>
                 </div>
               </CardHeader>
@@ -206,19 +232,28 @@ export default function FunisConfigPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Tipo</Label>
-              <Select
-                value={form.type}
-                onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PIPELINE_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {pipelineTypeFreeInput ? (
+                <PipelineTypeCombobox
+                  value={form.type}
+                  typeName={form.typeName}
+                  existingTypeNames={existingTypeNames}
+                  onChange={(type, typeName) => setForm((f) => ({ ...f, type, typeName }))}
+                />
+              ) : (
+                <Select
+                  value={form.type}
+                  onValueChange={(v) => setForm((f) => ({ ...f, type: v, typeName: '' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PREDEFINED_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Descrição (opcional)</Label>
