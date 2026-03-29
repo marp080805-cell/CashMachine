@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { requirePermission } from '../../middleware/rbac'
+import { encryptIfNeeded } from '../../lib/encryption'
 
 const createTenantSchema = z.object({
   name: z.string().min(1),
@@ -73,48 +74,91 @@ export default async function tenantsRoutes(app: FastifyInstance) {
     }
   )
 
-  // Info do tenant atual
-  app.get(
-    '/tenants/current',
-    { preHandler: [app.authenticate] },
-    async (request, reply) => {
-      const user = request.user as { tenantId: string }
-      const tenant = await prisma.tenant.findUniqueOrThrow({
-        where: { id: user.tenantId },
-        select: { id: true, name: true, slug: true, plan: true, settings: true },
+  // Info do tenant atual — GET /tenants/current e alias GET /tenants/me
+  async function getTenantMe(request: { user: { tenantId: string } }, reply: Parameters<Parameters<typeof app.get>[2]>[1]) {
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: request.user.tenantId },
+      select: { id: true, name: true, slug: true, plan: true, settings: true, openaiApiKey: true, openaiModel: true },
+    })
+    const settings = (tenant.settings ?? {}) as Record<string, unknown>
+    return reply.send({
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      plan: tenant.plan,
+      settings: tenant.settings,
+      // Expõe apenas se está configurado (não expõe o valor real)
+      openaiApiKey: tenant.openaiApiKey ? true : null,
+      openaiModel: tenant.openaiModel ?? 'gpt-4o',
+      resendApiKey: settings.resendApiKey ? true : null,
+    })
+  }
+
+  app.get('/tenants/current', { preHandler: [app.authenticate] }, async (req, reply) => {
+    return getTenantMe(req as { user: { tenantId: string } }, reply)
+  })
+  app.get('/tenants/me', { preHandler: [app.authenticate] }, async (req, reply) => {
+    return getTenantMe(req as { user: { tenantId: string } }, reply)
+  })
+
+  // Atualizar tenant — PATCH /tenants/current e alias /tenants/me
+  const patchTenantSchema = z.object({
+    name: z.string().min(1).optional(),
+    openaiApiKey: z.string().min(1).optional(),
+    openaiModel: z.string().optional(),
+    resendApiKey: z.string().min(1).optional(),
+    settings: z.record(z.unknown()).optional(),
+  })
+
+  async function patchTenantMe(request: { user: { tenantId: string }; body: unknown }, reply: Parameters<Parameters<typeof app.patch>[2]>[1]) {
+    const { tenantId } = request.user
+    const { name, openaiApiKey, openaiModel, resendApiKey, settings } = patchTenantSchema.parse(request.body)
+
+    // Build top-level update
+    const data: Record<string, unknown> = {}
+    if (name !== undefined) data.name = name
+    if (openaiApiKey !== undefined) data.openaiApiKey = encryptIfNeeded(openaiApiKey)
+    if (openaiModel !== undefined) data.openaiModel = openaiModel
+
+    // Merge settings
+    if (settings !== undefined || resendApiKey !== undefined) {
+      const existing = await prisma.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        select: { settings: true },
       })
-      return reply.send(tenant)
+      const merged = { ...((existing.settings ?? {}) as Record<string, unknown>), ...settings }
+      if (resendApiKey !== undefined) merged.resendApiKey = resendApiKey
+      data.settings = merged as Prisma.InputJsonValue
     }
-  )
 
-  // Atualizar tenant
-  app.patch(
-    '/tenants/current',
-    { preHandler: [app.authenticate, requirePermission('admin:tenant')] },
-    async (request, reply) => {
-      const user = request.user as { tenantId: string }
-      const { settings, ...rest } = z.object({
-        name: z.string().min(1).optional(),
-        settings: z.record(z.unknown()).optional(),
-      }).parse(request.body)
+    const tenant = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: data as Parameters<typeof prisma.tenant.update>[0]['data'],
+      select: { id: true, name: true, slug: true, plan: true, settings: true, openaiApiKey: true, openaiModel: true },
+    })
+    const updatedSettings = (tenant.settings ?? {}) as Record<string, unknown>
+    return reply.send({
+      id: tenant.id, name: tenant.name, slug: tenant.slug, plan: tenant.plan,
+      openaiApiKey: tenant.openaiApiKey ? true : null,
+      openaiModel: tenant.openaiModel ?? 'gpt-4o',
+      resendApiKey: updatedSettings.resendApiKey ? true : null,
+    })
+  }
 
-      const tenant = await prisma.tenant.update({
-        where: { id: user.tenantId },
-        data: { ...rest, ...(settings !== undefined && { settings: settings as Prisma.InputJsonValue }) },
-        select: { id: true, name: true, slug: true, plan: true, settings: true },
-      })
-      return reply.send(tenant)
-    }
-  )
+  app.patch('/tenants/current', { preHandler: [app.authenticate, requirePermission('admin:tenant')] }, async (req, reply) => {
+    return patchTenantMe(req as { user: { tenantId: string }; body: unknown }, reply)
+  })
+  app.patch('/tenants/me', { preHandler: [app.authenticate, requirePermission('admin:tenant')] }, async (req, reply) => {
+    return patchTenantMe(req as { user: { tenantId: string }; body: unknown }, reply)
+  })
 
-  // Merge-patch tenant settings
+  // Merge-patch tenant settings (mantém compatibilidade)
   app.patch(
     '/tenants/current/settings',
     { preHandler: [app.authenticate, requirePermission('admin:tenant')] },
     async (request, reply) => {
       const user = request.user as { tenantId: string }
       const patch = z.record(z.unknown()).parse(request.body)
-
       const existing = await prisma.tenant.findUniqueOrThrow({
         where: { id: user.tenantId },
         select: { settings: true },
