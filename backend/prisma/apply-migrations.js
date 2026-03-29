@@ -25,6 +25,16 @@ async function main() {
     console.warn('[migration] pipelines.cardFields warning:', e.message)
   }
 
+  // ── pipelines: cardTaskStatuses (JSON array of task status filters) ──
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS "cardTaskStatuses" TEXT DEFAULT '["PENDING","IN_PROGRESS"]'
+    `)
+    console.log('[migration] pipelines.cardTaskStatuses ok')
+  } catch (e) {
+    console.warn('[migration] pipelines.cardTaskStatuses warning:', e.message)
+  }
+
   try {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE whatsapp_numbers

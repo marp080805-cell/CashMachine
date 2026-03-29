@@ -18,6 +18,7 @@ const createPipelineSchema = z.object({
   fixedCloserId: z.string().uuid().optional().nullable(),
   roundRobinUserIds: z.array(z.string()).optional(),
   cardFields: z.string().optional(), // JSON array como string: '["contact","value"]'
+  cardTaskStatuses: z.string().optional(), // JSON array string
 })
 
 const deleteStageBodySchema = z.object({
@@ -288,6 +289,13 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
     const { tenantId } = request.user as { tenantId: string }
     const now = new Date()
 
+    // Buscar o pipeline para obter configurações do card
+    const pipelineConfig = await prisma.pipeline.findUnique({
+      where: { id, tenantId },
+      select: { cardTaskStatuses: true }
+    })
+    const taskStatuses: string[] = JSON.parse(pipelineConfig?.cardTaskStatuses ?? '["PENDING","IN_PROGRESS"]')
+
     const pipeline = await prisma.pipeline.findFirstOrThrow({
       where: { id, tenantId },
       include: {
@@ -306,9 +314,39 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
                 subOrigin: { select: { id: true, name: true } },
                 tagAssignments: { include: { tag: { select: { id: true, name: true, color: true } } } },
                 tasks: {
-                  where: { status: { in: ['PENDING', 'IN_PROGRESS'] } },
+                  where: {
+                    status: { in: taskStatuses as any },
+                  },
                   orderBy: { dueDate: 'asc' },
+                  take: 5,
+                  select: {
+                    id: true,
+                    title: true,
+                    status: true,
+                    dueDate: true,
+                    priority: true,
+                    type: true,
+                  }
+                },
+                conversations: {
+                  where: { status: { not: 'CLOSED' } },
+                  orderBy: { lastMessageAt: 'desc' },
                   take: 1,
+                  select: {
+                    id: true,
+                    status: true,
+                    lastMessageAt: true,
+                    messages: {
+                      orderBy: { createdAt: 'desc' },
+                      take: 1,
+                      select: {
+                        id: true,
+                        direction: true,
+                        content: true,
+                        createdAt: true,
+                      }
+                    }
+                  }
                 },
               },
             },

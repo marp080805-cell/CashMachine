@@ -256,6 +256,7 @@ model Pipeline {
   fixedCloserId         String?
   roundRobinUserIds     Json?          // array de user_ids
   cardFields            String?        @default("[]")
+  cardTaskStatuses      String?        @default("[\"PENDING\",\"IN_PROGRESS\"]")
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
