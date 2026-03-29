@@ -5,11 +5,11 @@ const ALGORITHM = 'aes-256-gcm'
 function getKey(): Buffer {
   const keyHex = process.env.ENCRYPTION_KEY || ''
   if (!keyHex || keyHex.length !== 64) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('ENCRYPTION_KEY must be a 32-byte hex string (64 chars)')
-    }
-    // Dev fallback — NOT for production
-    return Buffer.alloc(32, 0)
+    // Use a deterministic fallback derived from JWT_SECRET when ENCRYPTION_KEY is not set.
+    // Strongly recommended to set ENCRYPTION_KEY=<openssl rand -hex 32> in production .env.
+    const fallback = process.env.JWT_SECRET ?? 'cashmind-default-fallback-key-set-ENCRYPTION_KEY'
+    const crypto = require('crypto') as typeof import('crypto')
+    return crypto.createHash('sha256').update(fallback).digest()
   }
   return Buffer.from(keyHex, 'hex')
 }
