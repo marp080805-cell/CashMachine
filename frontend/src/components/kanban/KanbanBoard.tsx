@@ -25,9 +25,10 @@ type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
 interface KanbanBoardProps {
   pipeline: PipelineWithOpportunities
   onNewOpportunity?: (stageId: string) => void
+  cardFields?: string[]
 }
 
-export function KanbanBoard({ pipeline, onNewOpportunity }: KanbanBoardProps) {
+export function KanbanBoard({ pipeline, onNewOpportunity, cardFields }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const queryClient = useQueryClient()
@@ -84,13 +85,14 @@ export function KanbanBoard({ pipeline, onNewOpportunity }: KanbanBoardProps) {
                 opportunities={stage.opportunities}
                 onOpportunityClick={setSelectedOpportunity}
                 onNewOpportunity={onNewOpportunity ? () => onNewOpportunity(stage.id) : undefined}
+                cardFields={cardFields}
               />
             ))}
         </div>
 
         <DragOverlay>
           {activeCard && (
-            <KanbanCard opportunity={activeCard} onClick={() => {}} />
+            <KanbanCard opportunity={activeCard} onClick={() => {}} cardFields={cardFields} />
           )}
         </DragOverlay>
       </DndContext>

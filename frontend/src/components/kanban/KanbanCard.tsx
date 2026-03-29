@@ -21,6 +21,7 @@ function formatRelativeDate(dateStr: string | null): string {
 interface KanbanCardProps {
   opportunity: Opportunity
   onClick: (opportunity: Opportunity) => void
+  cardFields?: string[]
 }
 
 function isOverdue(dateStr: string | null): boolean {
@@ -34,7 +35,8 @@ function isNearDeadline(dateStr: string | null): boolean {
   return diff > 0 && diff < 7 * 86400000
 }
 
-export function KanbanCard({ opportunity, onClick }: KanbanCardProps) {
+export function KanbanCard({ opportunity, onClick, cardFields }: KanbanCardProps) {
+  const fields = cardFields ?? ['contact', 'company', 'assignedTo', 'value', 'expectedCloseDate']
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: opportunity.id,
   })
@@ -68,29 +70,31 @@ export function KanbanCard({ opportunity, onClick }: KanbanCardProps) {
         <p className="text-sm font-medium text-foreground line-clamp-2 flex-1">{opportunity.title}</p>
       </div>
 
-      {opportunity.contact && (
+      {fields.includes('contact') && opportunity.contact && (
         <p className="text-xs text-muted-foreground mb-1 truncate">{opportunity.contact.name}</p>
       )}
 
-      {opportunity.company && (
+      {fields.includes('company') && opportunity.company && (
         <p className="text-xs text-muted-foreground mb-2 truncate">{opportunity.company.name}</p>
       )}
 
       <div className="flex items-center justify-between mt-3">
-        <div className="flex items-center gap-1">
-          <Avatar className="h-5 w-5">
-            <AvatarImage src={opportunity.assignedTo.avatarUrl ?? undefined} />
-            <AvatarFallback className="text-[8px]">{getInitials(opportunity.assignedTo.name)}</AvatarFallback>
-          </Avatar>
-          <span className="text-xs text-muted-foreground truncate max-w-[80px]">{opportunity.assignedTo.name}</span>
-        </div>
+        {fields.includes('assignedTo') && opportunity.assignedTo && (
+          <div className="flex items-center gap-1">
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={opportunity.assignedTo.avatarUrl ?? undefined} />
+              <AvatarFallback className="text-[8px]">{getInitials(opportunity.assignedTo.name)}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-muted-foreground truncate max-w-[80px]">{opportunity.assignedTo.name}</span>
+          </div>
+        )}
 
-        {opportunity.value !== null && opportunity.value !== undefined && (
+        {fields.includes('value') && opportunity.value !== null && opportunity.value !== undefined && (
           <span className="text-xs font-semibold text-primary">{formatCurrency(opportunity.value)}</span>
         )}
       </div>
 
-      {closeDate && (
+      {fields.includes('expectedCloseDate') && closeDate && (
         <div className={cn(
           'flex items-center gap-1 mt-2 text-xs',
           isOverdue(closeDate) ? 'text-red-500' : 'text-muted-foreground'

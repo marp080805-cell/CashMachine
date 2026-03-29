@@ -12,9 +12,10 @@ interface KanbanColumnProps {
   opportunities: Opportunity[]
   onOpportunityClick: (opportunity: Opportunity) => void
   onNewOpportunity?: () => void
+  cardFields?: string[]
 }
 
-export function KanbanColumn({ stage, opportunities, onOpportunityClick, onNewOpportunity }: KanbanColumnProps) {
+export function KanbanColumn({ stage, opportunities, onOpportunityClick, onNewOpportunity, cardFields }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
 
   const totalValue = opportunities.reduce((sum, o) => sum + (o.value ?? 0), 0)
@@ -56,7 +57,7 @@ export function KanbanColumn({ stage, opportunities, onOpportunityClick, onNewOp
       >
         <SortableContext items={opportunities.map((o) => o.id)} strategy={verticalListSortingStrategy}>
           {opportunities.map((opportunity) => (
-            <KanbanCard key={opportunity.id} opportunity={opportunity} onClick={onOpportunityClick} />
+            <KanbanCard key={opportunity.id} opportunity={opportunity} onClick={onOpportunityClick} cardFields={cardFields} />
           ))}
         </SortableContext>
       </div>

@@ -127,6 +127,7 @@ export interface Pipeline {
   isActive: boolean
   sortOrder: number
   defaultCloseDays: number | null
+  cardFields?: string | null
   stages: Stage[]
   createdAt: string
   updatedAt: string

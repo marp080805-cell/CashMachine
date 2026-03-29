@@ -69,6 +69,10 @@ export default function PipelineKanbanPage() {
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const [newStageName, setNewStageName] = useState('')
   const [newStageColor, setNewStageColor] = useState('#6366f1')
+  const [editingStageId, setEditingStageId] = useState<string | null>(null)
+  const [editingStageName, setEditingStageName] = useState('')
+  const [deleteStageTarget, setDeleteStageTarget] = useState<{ id: string; name: string; count: number } | null>(null)
+  const [transferToStageId, setTransferToStageId] = useState('')
   const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES', typeName: '' })
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
 
@@ -123,12 +127,45 @@ export default function PipelineKanbanPage() {
   })
 
   const deleteStageMutation = useMutation({
-    mutationFn: (stageId: string) => api.delete(`/pipelines/${id}/stages/${stageId}`),
+    mutationFn: ({ stageId, transferToStageId: transferId }: { stageId: string; transferToStageId?: string }) => {
+      const token = useAuthStore.getState().token
+      const apiUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3011'
+      return fetch(`${apiUrl}/pipelines/${id}/stages/${stageId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ transferToStageId: transferId }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({})) as { error?: string }
+          throw new Error(data?.error ?? 'Erro ao remover etapa')
+        }
+      })
+    },
     onSuccess: () => {
       toast.success('Etapa removida!')
+      setDeleteStageTarget(null)
+      setTransferToStageId('')
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
     onError: () => toast.error('Erro ao remover etapa'),
+  })
+
+  const renameStageMutation = useMutation({
+    mutationFn: ({ stageId, name }: { stageId: string; name: string }) =>
+      api.patch(`/pipelines/${id}/stages/${stageId}`, { name }),
+    onSuccess: () => {
+      toast.success('Etapa renomeada!')
+      setEditingStageId(null)
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
+    },
+    onError: () => toast.error('Erro ao renomear etapa'),
+  })
+
+  const updateCardFieldsMutation = useMutation({
+    mutationFn: (fields: string[]) =>
+      api.patch(`/pipelines/${id}`, { cardFields: JSON.stringify(fields) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['pipeline', id] }),
+    onError: () => toast.error('Erro ao salvar configuração'),
   })
 
   const createOppMutation = useMutation({
@@ -368,7 +405,11 @@ export default function PipelineKanbanPage() {
 
       {/* ── CONTEÚDO ── */}
       {viewMode === 'kanban' ? (
-        <KanbanBoard pipeline={pipeline} onNewOpportunity={openNewOpp} />
+        <KanbanBoard
+          pipeline={pipeline}
+          onNewOpportunity={openNewOpp}
+          cardFields={JSON.parse(pipeline.cardFields ?? '["contact","company","assignedTo","value","expectedCloseDate"]')}
+        />
       ) : (
         <ListViewTable
           opportunities={filteredOpps}
@@ -444,20 +485,88 @@ export default function PipelineKanbanPage() {
                 .map((stage) => (
                   <div key={stage.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                     <div className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
-                    <span className="flex-1 text-sm font-medium">{stage.name}</span>
+                    {editingStageId === stage.id ? (
+                      <Input
+                        className="flex-1 h-7 text-sm"
+                        value={editingStageName}
+                        autoFocus
+                        onChange={(e) => setEditingStageName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && editingStageName.trim()) {
+                            renameStageMutation.mutate({ stageId: stage.id, name: editingStageName.trim() })
+                          }
+                          if (e.key === 'Escape') setEditingStageId(null)
+                        }}
+                        onBlur={() => {
+                          if (editingStageName.trim() && editingStageName !== stage.name) {
+                            renameStageMutation.mutate({ stageId: stage.id, name: editingStageName.trim() })
+                          } else {
+                            setEditingStageId(null)
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="flex-1 text-sm font-medium cursor-pointer hover:underline"
+                        onClick={() => { setEditingStageId(stage.id); setEditingStageName(stage.name) }}
+                        title="Clique para editar"
+                      >
+                        {stage.name}
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground">{stage.opportunities.length} oport.</span>
                     <Button
                       size="sm" variant="ghost"
                       className="text-red-500 hover:text-red-600 h-7 w-7 p-0"
-                      onClick={() => deleteStageMutation.mutate(stage.id)}
-                      disabled={deleteStageMutation.isPending || stage.opportunities.length > 0}
-                      title={stage.opportunities.length > 0 ? 'Mova as oportunidades antes de remover' : 'Remover'}
+                      onClick={() => {
+                        if (stage.opportunities.length > 0) {
+                          setDeleteStageTarget({ id: stage.id, name: stage.name, count: stage.opportunities.length })
+                          setTransferToStageId('')
+                        } else {
+                          deleteStageMutation.mutate({ stageId: stage.id })
+                        }
+                      }}
+                      disabled={deleteStageMutation.isPending}
+                      title="Remover"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))}
             </div>
+
+            {/* Configuração de campos do card */}
+            <div className="border-t pt-4 space-y-3">
+              <Label className="text-sm font-semibold">Campos exibidos no card</Label>
+              <div className="space-y-2">
+                {[
+                  { key: 'contact', label: 'Contato' },
+                  { key: 'company', label: 'Empresa' },
+                  { key: 'assignedTo', label: 'Responsável' },
+                  { key: 'value', label: 'Valor' },
+                  { key: 'expectedCloseDate', label: 'Data de fechamento' },
+                ].map(({ key, label }) => {
+                  const cardFields: string[] = JSON.parse(pipeline.cardFields ?? '["contact","company","assignedTo","value","expectedCloseDate"]')
+                  const checked = cardFields.includes(key)
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`card-field-${key}`}
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked ? cardFields.filter((f) => f !== key) : [...cardFields, key]
+                          updateCardFieldsMutation.mutate(next)
+                        }}
+                        className="h-4 w-4 rounded"
+                      />
+                      <label htmlFor={`card-field-${key}`} className="text-sm cursor-pointer">{label}</label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             <div className="border-t pt-4 space-y-3">
               <Label className="text-sm font-semibold">Adicionar etapa</Label>
               <div className="flex gap-2 items-center">
@@ -640,6 +749,47 @@ export default function PipelineKanbanPage() {
         pipelineId={id}
         onClose={() => setSelectedOpp(null)}
       />
+
+      {/* ── DIALOG: REMOVER ETAPA COM TRANSFERÊNCIA ── */}
+      <Dialog open={!!deleteStageTarget} onOpenChange={(o) => !o && setDeleteStageTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover etapa &quot;{deleteStageTarget?.name}&quot;</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Esta etapa tem <strong>{deleteStageTarget?.count} oportunidade(s)</strong>. Selecione para qual etapa transferi-las:
+          </p>
+          <Select value={transferToStageId} onValueChange={setTransferToStageId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecionar etapa de destino..." />
+            </SelectTrigger>
+            <SelectContent>
+              {pipeline.stages
+                .filter((s) => s.id !== deleteStageTarget?.id)
+                .sort((a, b) => a.sortOrder - b.sortOrder)
+                .map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: s.color }} />
+                      {s.name}
+                    </span>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setDeleteStageTarget(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={!transferToStageId || deleteStageMutation.isPending}
+              onClick={() => deleteStageMutation.mutate({ stageId: deleteStageTarget!.id, transferToStageId })}
+            >
+              {deleteStageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Transferir e Remover
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── DIALOG: NOVO PIPELINE ── */}
       <Dialog open={newPipelineOpen} onOpenChange={setNewPipelineOpen}>
