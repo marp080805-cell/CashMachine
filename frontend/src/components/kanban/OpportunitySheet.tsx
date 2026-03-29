@@ -948,7 +948,16 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           label={editData.companyLabel}
                           allowCreate
                           placeholder="Buscar empresa..."
-                          onChange={(id, lbl) => setEditData((d) => ({ ...d, companyId: id, companyLabel: lbl }))}
+                          onChange={async (id, lbl) => {
+                            setEditData((d) => ({ ...d, companyId: id, companyLabel: lbl }))
+                            if (id) {
+                              try {
+                                const res = await api.get<{ data: { id: string; name: string }[] }>(`/contacts?companyId=${id}&limit=1`)
+                                const first = res.data?.[0]
+                                if (first) setEditData((d) => d.contactId ? d : { ...d, contactId: first.id, contactLabel: first.name })
+                              } catch {}
+                            }
+                          }}
                         />
                       </FieldWrapper>
                       <FieldWrapper entityType="opportunity" slug="description" label="Notas" placeholder="Observações..." adminMode={adminMode}>

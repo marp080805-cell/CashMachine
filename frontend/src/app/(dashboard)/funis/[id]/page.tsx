@@ -564,7 +564,16 @@ export default function PipelineKanbanPage() {
                   label={oppForm.companyLabel}
                   allowCreate
                   placeholder="Buscar empresa..."
-                  onChange={(id, lbl) => setOppForm((f) => ({ ...f, companyId: id, companyLabel: lbl }))}
+                  onChange={async (id, lbl) => {
+                    setOppForm((f) => ({ ...f, companyId: id, companyLabel: lbl }))
+                    if (id) {
+                      try {
+                        const res = await api.get<{ data: { id: string; name: string }[] }>(`/contacts?companyId=${id}&limit=1`)
+                        const first = res.data?.[0]
+                        if (first) setOppForm((f) => f.contactId ? f : { ...f, contactId: first.id, contactLabel: first.name })
+                      } catch {}
+                    }
+                  }}
                 />
               </div>
             </FieldWrapper>
