@@ -978,11 +978,12 @@ function TaskRow({ task, onComplete, onEdit, onDelete, onDuplicate, onOpenDetail
 
 // ── Kanban Column ──
 
-const kanbanColumns: { key: string; label: string; statuses: string[]; color: string }[] = [
-  { key: 'todo', label: 'A Fazer', statuses: ['PENDING'], color: 'bg-gray-50 border-gray-200' },
-  { key: 'inprogress', label: 'Em Andamento', statuses: ['IN_PROGRESS'], color: 'bg-blue-50 border-blue-200' },
-  { key: 'completed', label: 'Concluídas', statuses: ['COMPLETED'], color: 'bg-green-50 border-green-200' },
-]
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-gray-50 border-gray-200',
+  IN_PROGRESS: 'bg-blue-50 border-blue-200',
+  COMPLETED: 'bg-green-50 border-green-200',
+  SKIPPED: 'bg-yellow-50 border-yellow-200',
+}
 
 interface KanbanCardProps {
   task: Task
@@ -1086,12 +1087,23 @@ interface KanbanViewProps {
 function KanbanView({ tasks, onStatusChange, onComplete, onEdit, onOpenDetail }: KanbanViewProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
+  const { getOptionDefs } = useFieldConfig()
+  const columns = getOptionDefs('task', 'status', DEFAULT_STATUS_DEFS)
+
+  // Tasks with unrecognized status get their own column automatically
+  const knownKeys = new Set(columns.map((c) => c.key))
+  const extraStatuses = Array.from(new Set(tasks.map((t) => t.status).filter((s) => !knownKeys.has(s))))
+  const allColumns = [
+    ...columns,
+    ...extraStatuses.map((s) => ({ key: s, label: s })),
+  ]
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4 pt-1">
-      {kanbanColumns.map((col) => {
-        const colTasks = tasks.filter((t) => col.statuses.includes(t.status))
+      {allColumns.map((col) => {
+        const colTasks = tasks.filter((t) => t.status === col.key)
         const isOver = overCol === col.key
+        const colColor = STATUS_COLORS[col.key] ?? 'bg-muted/30 border-border'
         return (
           <div
             key={col.key}
@@ -1101,16 +1113,15 @@ function KanbanView({ tasks, onStatusChange, onComplete, onEdit, onOpenDetail }:
               e.preventDefault()
               const taskId = e.dataTransfer.getData('taskId')
               if (taskId) {
-                const targetStatus = col.statuses[0]
-                if (targetStatus === 'COMPLETED') { onComplete(taskId) }
-                else { onStatusChange(taskId, targetStatus) }
+                if (col.key === 'COMPLETED') { onComplete(taskId) }
+                else { onStatusChange(taskId, col.key) }
               }
               setOverCol(null)
               setDraggingId(null)
             }}
             className={cn(
               'w-72 shrink-0 rounded-lg border p-3 transition-colors',
-              col.color,
+              colColor,
               isOver && 'ring-2 ring-primary/40 bg-primary/5',
             )}
           >
