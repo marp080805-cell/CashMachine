@@ -17,6 +17,7 @@ const patchTenantSchema = z.object({
   name: z.string().min(1).optional(),
   openaiApiKey: z.string().min(1).optional(),
   openaiModel: z.string().optional(),
+  anthropicApiKey: z.string().min(1).optional(),
   resendApiKey: z.string().min(1).optional(),
   settings: z.record(z.unknown()).optional(),
 })
@@ -35,6 +36,7 @@ async function buildTenantResponse(tenantId: string) {
     settings: tenant.settings,
     openaiApiKey: tenant.openaiApiKey ? true : null,
     openaiModel: tenant.openaiModel ?? 'gpt-4o',
+    anthropicApiKey: settings.anthropicApiKey ? true : null,
     resendApiKey: settings.resendApiKey ? true : null,
   }
 }
@@ -91,17 +93,18 @@ export default async function tenantsRoutes(app: FastifyInstance) {
   // PATCH tenant — /tenants/current e /tenants/me
   async function handlePatch(request: FastifyRequest, reply: FastifyReply) {
     const { tenantId } = request.user as { tenantId: string }
-    const { name, openaiApiKey, openaiModel, resendApiKey, settings } = patchTenantSchema.parse(request.body)
+    const { name, openaiApiKey, openaiModel, anthropicApiKey, resendApiKey, settings } = patchTenantSchema.parse(request.body)
 
     const data: Record<string, unknown> = {}
     if (name !== undefined) data.name = name
     if (openaiApiKey !== undefined) data.openaiApiKey = encryptIfNeeded(openaiApiKey)
     if (openaiModel !== undefined) data.openaiModel = openaiModel
 
-    if (settings !== undefined || resendApiKey !== undefined) {
+    if (settings !== undefined || resendApiKey !== undefined || anthropicApiKey !== undefined) {
       const existing = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { settings: true } })
       const merged = { ...((existing.settings ?? {}) as Record<string, unknown>), ...(settings ?? {}) }
       if (resendApiKey !== undefined) merged.resendApiKey = resendApiKey
+      if (anthropicApiKey !== undefined) merged.anthropicApiKey = encryptIfNeeded(anthropicApiKey)
       data.settings = merged as Prisma.InputJsonValue
     }
 

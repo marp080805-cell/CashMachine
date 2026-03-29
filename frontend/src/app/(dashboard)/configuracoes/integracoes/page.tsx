@@ -25,9 +25,10 @@ import type { WhatsappNumber } from '@/types'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface TenantConfig {
-  openaiApiKey?: string
+  openaiApiKey?: boolean | null
   openaiModel?: string
-  resendApiKey?: string
+  anthropicApiKey?: boolean | null
+  resendApiKey?: boolean | null
 }
 
 interface ConnectForm {
@@ -66,22 +67,23 @@ function CopyButton({ text }: { text: string }) {
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function IntegracoesPage() {
-  // ── Tenant config (OpenAI / Resend) ─────────────────────────────────────────
+  // ── Tenant config (API keys) ─────────────────────────────────────────────────
   const [tenantConfig, setTenantConfig] = useState<TenantConfig>({})
   const [loadingConfig, setLoadingConfig] = useState(true)
 
-  const [openaiKey, setOpenaiKey]     = useState('')
-  const [openaiModel, setOpenaiModel] = useState('gpt-4o')
+  const [openaiKey, setOpenaiKey]       = useState('')
   const [savingOpenai, setSavingOpenai] = useState(false)
   const [savedOpenai, setSavedOpenai]   = useState(false)
 
-  const [resendKey, setResendKey]     = useState('')
+  const [anthropicKey, setAnthropicKey]     = useState('')
+  const [savingAnthropic, setSavingAnthropic] = useState(false)
+  const [savedAnthropic, setSavedAnthropic]   = useState(false)
+
+  const [resendKey, setResendKey]       = useState('')
   const [savingResend, setSavingResend] = useState(false)
   const [savedResend, setSavedResend]   = useState(false)
 
-  useEffect(() => {
-    void loadConfig()
-  }, [])
+  useEffect(() => { void loadConfig() }, [])
 
   async function loadConfig() {
     setLoadingConfig(true)
@@ -89,31 +91,28 @@ export default function IntegracoesPage() {
       const config = await api.get<TenantConfig>('/tenants/me')
       setTenantConfig(config)
       setOpenaiKey(config.openaiApiKey ? '••••••••••••••••' : '')
-      setOpenaiModel(config.openaiModel ?? 'gpt-4o')
+      setAnthropicKey(config.anthropicApiKey ? '••••••••••••••••' : '')
       setResendKey(config.resendApiKey ? '••••••••••••••••' : '')
     } finally {
       setLoadingConfig(false)
     }
   }
 
-  async function saveOpenai() {
-    setSavingOpenai(true); setSavedOpenai(false)
+  async function saveKey(
+    field: 'openaiApiKey' | 'anthropicApiKey' | 'resendApiKey',
+    value: string,
+    setSaving: (v: boolean) => void,
+    setSaved: (v: boolean) => void,
+  ) {
+    if (!value || value.startsWith('•')) { toast.error('Digite a chave antes de salvar'); return }
+    setSaving(true); setSaved(false)
     try {
-      const payload: Partial<TenantConfig> = { openaiModel }
-      if (openaiKey && !openaiKey.startsWith('•')) payload.openaiApiKey = openaiKey
-      await api.patch<TenantConfig>('/tenants/me', payload)
-      setSavedOpenai(true); setTimeout(() => setSavedOpenai(false), 2000)
-    } finally { setSavingOpenai(false) }
-  }
-
-  async function saveResend() {
-    setSavingResend(true); setSavedResend(false)
-    try {
-      if (resendKey && !resendKey.startsWith('•')) {
-        await api.patch<TenantConfig>('/tenants/me', { resendApiKey: resendKey })
-      }
-      setSavedResend(true); setTimeout(() => setSavedResend(false), 2000)
-    } finally { setSavingResend(false) }
+      await api.patch('/tenants/me', { [field]: value })
+      setTenantConfig((c) => ({ ...c, [field]: true }))
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } catch {
+      toast.error('Erro ao salvar chave')
+    } finally { setSaving(false) }
   }
 
   // ── WhatsApp ─────────────────────────────────────────────────────────────────
@@ -270,8 +269,9 @@ export default function IntegracoesPage() {
         </CardContent>
       </Card>
 
-      {/* ── Other integrations (2-col grid) ─────────────────────────────────── */}
+      {/* ── API Key cards (2-col grid) ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
         {/* OpenAI */}
         <Card>
           <CardHeader className="pb-3">
@@ -281,7 +281,7 @@ export default function IntegracoesPage() {
               </div>
               <div>
                 <CardTitle className="text-sm">OpenAI</CardTitle>
-                <p className="text-xs text-muted-foreground">IA e sugestões</p>
+                <p className="text-xs text-muted-foreground">GPT-5, GPT-4.1, o3…</p>
               </div>
               {tenantConfig.openaiApiKey && (
                 <Badge className="ml-auto bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
@@ -291,7 +291,7 @@ export default function IntegracoesPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {loadingConfig ? <Skeleton className="h-20" /> : (
+            {loadingConfig ? <Skeleton className="h-14" /> : (
               <>
                 <div className="space-y-1.5">
                   <Label className="text-xs">API Key</Label>
@@ -300,37 +300,51 @@ export default function IntegracoesPage() {
                     onFocus={() => { if (openaiKey.startsWith('•')) setOpenaiKey('') }}
                     placeholder="sk-..." className="font-mono text-sm" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Modelo padrão</Label>
-                  <Select value={openaiModel} onValueChange={setOpenaiModel}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="separator-openai" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide py-1">── OpenAI ──</SelectItem>
-                      <SelectItem value="gpt-5.4-pro">GPT-5.4 Pro</SelectItem>
-                      <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
-                      <SelectItem value="gpt-5">GPT-5</SelectItem>
-                      <SelectItem value="gpt-5-mini">GPT-5 mini</SelectItem>
-                      <SelectItem value="gpt-5-nano">GPT-5 nano</SelectItem>
-                      <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
-                      <SelectItem value="gpt-4.1-mini">GPT-4.1 mini</SelectItem>
-                      <SelectItem value="gpt-4.1-nano">GPT-4.1 nano</SelectItem>
-                      <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                      <SelectItem value="gpt-4o-mini">GPT-4o mini</SelectItem>
-                      <SelectItem value="separator-anthropic" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide py-1">── Anthropic ──</SelectItem>
-                      <SelectItem value="claude-opus-4-6">Claude Opus 4.6</SelectItem>
-                      <SelectItem value="claude-sonnet-4-6">Claude Sonnet 4.6</SelectItem>
-                      <SelectItem value="claude-haiku-4-5-20251001">Claude Haiku 4.5</SelectItem>
-                      <SelectItem value="claude-opus-4-5-20251101">Claude Opus 4.5</SelectItem>
-                      <SelectItem value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</SelectItem>
-                      <SelectItem value="claude-opus-4-1-20250805">Claude Opus 4.1</SelectItem>
-                      <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
-                      <SelectItem value="claude-opus-4-20250514">Claude Opus 4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button size="sm" className="w-full" onClick={() => void saveOpenai()} disabled={savingOpenai}>
+                <Button size="sm" className="w-full"
+                  onClick={() => void saveKey('openaiApiKey', openaiKey, setSavingOpenai, setSavedOpenai)}
+                  disabled={savingOpenai}>
                   {savingOpenai ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Salvando...</>
                     : savedOpenai ? <><CheckCircle className="h-3.5 w-3.5 mr-1" />Salvo!</>
+                    : 'Salvar'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Anthropic */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
+                <Brain className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm">Anthropic</CardTitle>
+                <p className="text-xs text-muted-foreground">Claude Opus, Sonnet, Haiku</p>
+              </div>
+              {tenantConfig.anthropicApiKey && (
+                <Badge className="ml-auto bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
+                  <CheckCircle className="h-3 w-3" /> Configurado
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loadingConfig ? <Skeleton className="h-14" /> : (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">API Key</Label>
+                  <Input type="password" value={anthropicKey}
+                    onChange={(e) => setAnthropicKey(e.target.value)}
+                    onFocus={() => { if (anthropicKey.startsWith('•')) setAnthropicKey('') }}
+                    placeholder="sk-ant-..." className="font-mono text-sm" />
+                </div>
+                <Button size="sm" className="w-full"
+                  onClick={() => void saveKey('anthropicApiKey', anthropicKey, setSavingAnthropic, setSavedAnthropic)}
+                  disabled={savingAnthropic}>
+                  {savingAnthropic ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Salvando...</>
+                    : savedAnthropic ? <><CheckCircle className="h-3.5 w-3.5 mr-1" />Salvo!</>
                     : 'Salvar'}
                 </Button>
               </>
@@ -357,7 +371,7 @@ export default function IntegracoesPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {loadingConfig ? <Skeleton className="h-16" /> : (
+            {loadingConfig ? <Skeleton className="h-14" /> : (
               <>
                 <div className="space-y-1.5">
                   <Label className="text-xs">API Key</Label>
@@ -366,7 +380,9 @@ export default function IntegracoesPage() {
                     onFocus={() => { if (resendKey.startsWith('•')) setResendKey('') }}
                     placeholder="re_..." className="font-mono text-sm" />
                 </div>
-                <Button size="sm" className="w-full" onClick={() => void saveResend()} disabled={savingResend}>
+                <Button size="sm" className="w-full"
+                  onClick={() => void saveKey('resendApiKey', resendKey, setSavingResend, setSavedResend)}
+                  disabled={savingResend}>
                   {savingResend ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Salvando...</>
                     : savedResend ? <><CheckCircle className="h-3.5 w-3.5 mr-1" />Salvo!</>
                     : 'Salvar'}
