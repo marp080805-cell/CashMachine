@@ -35,14 +35,14 @@ async function main() {
     console.warn('[migration] pipelines.cardTaskStatuses warning:', e.message)
   }
 
-  // ── Task.status: convert from enum to TEXT to support custom status values ──
+  // ── tasks.status: convert from enum to TEXT to support custom status values ──
   try {
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE "Task" ALTER COLUMN "status" TYPE TEXT USING "status"::text
+      ALTER TABLE tasks ALTER COLUMN status TYPE TEXT USING status::text
     `)
-    console.log('[migration] Task.status → TEXT ok')
+    console.log('[migration] tasks.status → TEXT ok')
   } catch (e) {
-    console.warn('[migration] Task.status TEXT warning:', e.message)
+    console.warn('[migration] tasks.status TEXT warning:', e.message)
   }
 
   try {
