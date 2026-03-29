@@ -46,11 +46,42 @@ const agentTypes = [
   { value: 'CUSTOM', label: 'Personalizado' },
 ]
 
-const agentModels = [
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+const agentProviders = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
 ]
+
+const agentModelsByProvider: Record<string, { value: string; label: string }[]> = {
+  openai: [
+    { value: 'gpt-5', label: 'GPT-5' },
+    { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4.5-preview', label: 'GPT-4.5 Preview' },
+    { value: 'o4-mini', label: 'o4-mini' },
+    { value: 'o3', label: 'o3' },
+    { value: 'o3-mini', label: 'o3-mini' },
+    { value: 'o1', label: 'o1' },
+    { value: 'o1-mini', label: 'o1-mini' },
+  ],
+  anthropic: [
+    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+  ],
+}
+
+const allAgentModels = [...agentModelsByProvider.openai, ...agentModelsByProvider.anthropic]
+
+function inferProvider(model: string): string {
+  if (model.startsWith('claude')) return 'anthropic'
+  return 'openai'
+}
 
 const typeBadgeColors: Record<string, string> = {
   CONVERSATION_ASSISTANT: 'bg-blue-100 text-blue-700',
@@ -72,7 +103,8 @@ interface AgentCardProps {
 
 function AgentCard({ agent, onEdit, onDelete, onTest, onToggle, isToggling }: AgentCardProps) {
   const typeLabel = agentTypes.find((t) => t.value === agent.type)?.label ?? agent.type
-  const modelLabel = agentModels.find((m) => m.value === agent.model)?.label ?? agent.model
+  const modelLabel = allAgentModels.find((m) => m.value === agent.model)?.label ?? agent.model
+  const provider = inferProvider(agent.model)
 
   return (
     <div className={cn(
@@ -86,7 +118,12 @@ function AgentCard({ agent, onEdit, onDelete, onTest, onToggle, isToggling }: Ag
           </div>
           <div className="min-w-0">
             <p className="font-medium text-sm truncate">{agent.name}</p>
-            <p className="text-xs text-muted-foreground">{modelLabel}</p>
+            <p className="text-xs text-muted-foreground">
+            {modelLabel}
+            <span className={cn('ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium', provider === 'anthropic' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700')}>
+              {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
+            </span>
+          </p>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -142,6 +179,7 @@ function AgentCard({ agent, onEdit, onDelete, onTest, onToggle, isToggling }: Ag
 interface AgentForm {
   name: string
   type: string
+  provider: string
   model: string
   systemPrompt: string
   temperature: string
@@ -151,6 +189,7 @@ interface AgentForm {
 const defaultForm: AgentForm = {
   name: '',
   type: 'CONVERSATION_ASSISTANT',
+  provider: 'openai',
   model: 'gpt-4o-mini',
   systemPrompt: '',
   temperature: '0.7',
@@ -171,6 +210,7 @@ function AgentFormModal({ open, editing, onClose, onSave, isPending }: AgentForm
       ? {
           name: editing.name,
           type: editing.type,
+          provider: inferProvider(editing.model),
           model: editing.model,
           systemPrompt: editing.systemPrompt,
           temperature: String(editing.temperature),
@@ -179,12 +219,15 @@ function AgentFormModal({ open, editing, onClose, onSave, isPending }: AgentForm
       : defaultForm
   )
 
+  const availableModels = agentModelsByProvider[form.provider] ?? agentModelsByProvider.openai
+
   // Sync form when editing changes
   useEffect(() => {
     if (editing) {
       setForm({
         name: editing.name,
         type: editing.type,
+        provider: inferProvider(editing.model),
         model: editing.model,
         systemPrompt: editing.systemPrompt,
         temperature: String(editing.temperature),
@@ -225,14 +268,32 @@ function AgentFormModal({ open, editing, onClose, onSave, isPending }: AgentForm
             />
           </div>
 
+          <div className="space-y-1.5">
+            <Label>Tipo</Label>
+            <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {agentTypes.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
+              <Label>Provedor</Label>
+              <Select
+                value={form.provider}
+                onValueChange={(v) => {
+                  const firstModel = agentModelsByProvider[v]?.[0]?.value ?? ''
+                  setForm((f) => ({ ...f, provider: v, model: firstModel }))
+                }}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {agentTypes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  {agentProviders.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -242,7 +303,7 @@ function AgentFormModal({ open, editing, onClose, onSave, isPending }: AgentForm
               <Select value={form.model} onValueChange={(v) => setForm((f) => ({ ...f, model: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {agentModels.map((m) => (
+                  {availableModels.map((m) => (
                     <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
