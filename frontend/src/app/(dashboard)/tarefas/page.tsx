@@ -321,7 +321,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
       dueDate: new Date(form.dueDate).toISOString(),
       assignedToId: assignId,
       description: form.description || undefined,
-      ...(isEdit && form.status && { status: form.status }),
+      ...(form.status && { status: form.status }),
       ...(form.opportunityId && { opportunityId: form.opportunityId }),
       ...(form.contactId && { contactId: form.contactId }),
       ...(form.companyId && { companyId: form.companyId }),
@@ -389,19 +389,17 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               </SelectContent>
             </Select>
           </div>
-          {isEdit && (
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={form.status || undefined} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecionar status..." /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(statusLabels).map(([val, lbl]) => (
-                    <SelectItem key={val} value={val}>{lbl}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select value={form.status || undefined} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+              <SelectTrigger><SelectValue placeholder="Selecionar status..." /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(statusLabels).map(([val, lbl]) => (
+                  <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-1.5">
             <Label>Vincular a oportunidade</Label>
             <EntityCombobox
