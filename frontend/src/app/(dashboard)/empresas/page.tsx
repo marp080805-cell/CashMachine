@@ -156,6 +156,7 @@ export default function EmpresasPage() {
       legalName?: string; cnpj?: string; category?: string; segment?: string
       email?: string; phone?: string; whatsapp?: string; mobile?: string; fax?: string; extension?: string
       website?: string; originId?: string; notes?: string
+      origin?: { id: string; name: string } | null
       addressJson?: { zip?: string; country?: string; state?: string; city?: string; neighborhood?: string; street?: string; number?: string; complement?: string }
       socialProfiles?: { linkedin?: string; instagram?: string; facebook?: string; twitter?: string }
     }
@@ -173,7 +174,7 @@ export default function EmpresasPage() {
       extension: c.extension ?? '',
       website: c.website ?? '',
       originId: c.originId ?? '',
-      originLabel: '',
+      originLabel: c.origin?.name ?? '',
       notes: c.notes ?? '',
       addrZip: c.addressJson?.zip ?? '',
       addrCountry: c.addressJson?.country ?? '',

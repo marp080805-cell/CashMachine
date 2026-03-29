@@ -389,6 +389,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     setHandoffBriefing('')
     setShowTagPicker(false)
     setAdminMode(false)
+    setEditData({ title: '', value: '', expectedCloseDate: '', notes: '', stageId: '', assignedToId: '', originId: '', originLabel: '', contactId: '', contactLabel: '', companyId: '', companyLabel: '' })
   }, [opportunity?.id])
 
   // Auto-load existing WhatsApp conversation
