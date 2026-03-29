@@ -78,7 +78,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
     const { tenantId, id: userId } = request.user as { tenantId: string; id: string }
     const input = z.object({
       tagId: z.string().uuid(),
-      entityType: z.literal('opportunity'),
+      entityType: z.string(),
       entityId: z.string().uuid(),
     }).parse(request.body)
 
@@ -108,7 +108,7 @@ export default async function tagsRoutes(app: FastifyInstance) {
     const { tenantId } = request.user as { tenantId: string }
     const input = z.object({
       tagId: z.string().uuid(),
-      entityType: z.literal('opportunity'),
+      entityType: z.string(),
       entityId: z.string().uuid(),
     }).parse(request.body)
 
