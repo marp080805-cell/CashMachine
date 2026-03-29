@@ -305,6 +305,7 @@ export default function IntegracoesPage() {
                   <Select value={openaiModel} onValueChange={setOpenaiModel}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="gpt-5">GPT-5</SelectItem>
                       <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
                       <SelectItem value="gpt-4.1-mini">GPT-4.1 mini</SelectItem>
                       <SelectItem value="gpt-4.1-nano">GPT-4.1 nano</SelectItem>
