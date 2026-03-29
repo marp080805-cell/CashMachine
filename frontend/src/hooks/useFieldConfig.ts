@@ -2,12 +2,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
+export interface OptionDef { key: string; label: string }
+
 interface FieldConfigResponse {
   fieldRequired: Record<string, Record<string, boolean>>
   fieldLabels: Record<string, Record<string, string>>
   fieldPlaceholders: Record<string, Record<string, string>>
   fieldHidden: Record<string, Record<string, boolean>>
   fieldOptions: Record<string, Record<string, string[]>>
+  fieldOptionDefs: Record<string, Record<string, OptionDef[]>>
 }
 
 export function useFieldConfig() {
@@ -23,9 +26,10 @@ export function useFieldConfig() {
   const fieldPlaceholders = data?.fieldPlaceholders ?? {}
   const fieldHidden = data?.fieldHidden ?? {}
   const fieldOptions = data?.fieldOptions ?? {}
+  const fieldOptionDefs = data?.fieldOptionDefs ?? {}
 
   const mutation = useMutation({
-    mutationFn: (payload: { entityType: string; fieldSlug: string; required?: boolean; label?: string; placeholder?: string; hidden?: boolean; options?: string[] }) =>
+    mutationFn: (payload: { entityType: string; fieldSlug: string; required?: boolean; label?: string; placeholder?: string; hidden?: boolean; options?: string[]; optionDefs?: OptionDef[] }) =>
       api.patch('/settings/field-config', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['field-config'] }),
   })
@@ -70,5 +74,13 @@ export function useFieldConfig() {
     mutation.mutate({ entityType, fieldSlug, options })
   }
 
-  return { isRequired, getLabel, getPlaceholder, isHidden, getOptions, setRequired, setLabel, setPlaceholder, setHidden, setOptions, isUpdating: mutation.isPending }
+  function getOptionDefs(entityType: string, fieldSlug: string, defaultDefs: OptionDef[]): OptionDef[] {
+    return fieldOptionDefs[entityType]?.[fieldSlug] ?? defaultDefs
+  }
+
+  function setOptionDefs(entityType: string, fieldSlug: string, optionDefs: OptionDef[]) {
+    mutation.mutate({ entityType, fieldSlug, optionDefs })
+  }
+
+  return { isRequired, getLabel, getPlaceholder, isHidden, getOptions, getOptionDefs, setRequired, setLabel, setPlaceholder, setHidden, setOptions, setOptionDefs, isUpdating: mutation.isPending }
 }

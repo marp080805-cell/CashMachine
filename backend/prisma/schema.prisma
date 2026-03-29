@@ -736,7 +736,7 @@ model Task {
   isAutomated       Boolean       @default(false)
   automationId      String?
   priority          TaskPriority  @default(MEDIUM)
-  status            TaskStatus    @default(PENDING)
+  status            String        @default("PENDING")
   slaMinutes        Int?
   slaBreach         Boolean       @default(false)
   createdAt         DateTime      @default(now())

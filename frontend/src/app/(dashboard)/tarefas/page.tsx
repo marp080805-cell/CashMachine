@@ -254,7 +254,7 @@ interface TaskFormModalProps {
   onSuccess: () => void
 }
 
-const ALL_STATUS_KEYS = Object.keys(statusLabels)
+const DEFAULT_STATUS_DEFS = Object.entries(statusLabels).map(([key, label]) => ({ key, label }))
 
 function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultTaskForm, ...initialData })
@@ -264,7 +264,10 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const queryClient = useQueryClient()
-  const { getOptions, setOptions, isUpdating: fcUpdating } = useFieldConfig()
+  const { getOptionDefs, setOptionDefs, isUpdating: fcUpdating } = useFieldConfig()
+  const [newStatusLabel, setNewStatusLabel] = useState('')
+  const [editingStatusKey, setEditingStatusKey] = useState<string | null>(null)
+  const [editingStatusLabel, setEditingStatusLabel] = useState('')
 
   useEffect(() => {
     if (open) {
@@ -397,38 +400,91 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             slug="status"
             label="Status"
             adminMode={adminMode}
-            configContent={
-              <div className="space-y-1.5">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Opções disponíveis</span>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_STATUS_KEYS.map((key) => {
-                    const enabled = getOptions('task', 'status', ALL_STATUS_KEYS).includes(key)
-                    return (
-                      <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={enabled}
-                          disabled={fcUpdating}
-                          onChange={() => {
-                            const current = getOptions('task', 'status', ALL_STATUS_KEYS)
-                            const next = enabled ? current.filter((k) => k !== key) : [...current, key]
-                            if (next.length > 0) setOptions('task', 'status', next)
-                          }}
-                          className="h-3 w-3"
-                        />
-                        {statusLabels[key]}
-                      </label>
-                    )
-                  })}
+            configContent={(() => {
+              const defs = getOptionDefs('task', 'status', DEFAULT_STATUS_DEFS)
+              return (
+                <div className="space-y-2">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Opções de status</span>
+                  <div className="space-y-1">
+                    {defs.map((opt) => (
+                      <div key={opt.key} className="flex items-center gap-1.5">
+                        {editingStatusKey === opt.key ? (
+                          <>
+                            <input
+                              className="flex-1 h-6 text-xs rounded border px-2 bg-background"
+                              value={editingStatusLabel}
+                              onChange={(e) => setEditingStatusLabel(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && editingStatusLabel.trim()) {
+                                  setOptionDefs('task', 'status', defs.map((d) => d.key === opt.key ? { ...d, label: editingStatusLabel.trim() } : d))
+                                  setEditingStatusKey(null)
+                                }
+                                if (e.key === 'Escape') setEditingStatusKey(null)
+                              }}
+                              autoFocus
+                            />
+                            <button type="button" className="text-xs text-primary hover:underline" onClick={() => {
+                              if (editingStatusLabel.trim()) setOptionDefs('task', 'status', defs.map((d) => d.key === opt.key ? { ...d, label: editingStatusLabel.trim() } : d))
+                              setEditingStatusKey(null)
+                            }}>Ok</button>
+                            <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setEditingStatusKey(null)}>X</button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-xs">{opt.label}</span>
+                            <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground px-1" onClick={() => { setEditingStatusKey(opt.key); setEditingStatusLabel(opt.label) }}>
+                              <Pencil className="h-2.5 w-2.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={defs.length <= 1 || fcUpdating}
+                              className="text-[10px] text-muted-foreground hover:text-red-500 disabled:opacity-30 px-1"
+                              onClick={() => setOptionDefs('task', 'status', defs.filter((d) => d.key !== opt.key))}
+                            >
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-1 pt-1 border-t">
+                    <input
+                      className="flex-1 h-6 text-xs rounded border px-2 bg-background"
+                      placeholder="Nova opção..."
+                      value={newStatusLabel}
+                      onChange={(e) => setNewStatusLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newStatusLabel.trim()) {
+                          const key = `CUSTOM_${Date.now()}`
+                          setOptionDefs('task', 'status', [...defs, { key, label: newStatusLabel.trim() }])
+                          setNewStatusLabel('')
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={!newStatusLabel.trim() || fcUpdating}
+                      className="text-xs px-2 rounded border bg-primary text-primary-foreground disabled:opacity-40"
+                      onClick={() => {
+                        if (!newStatusLabel.trim()) return
+                        const key = `CUSTOM_${Date.now()}`
+                        setOptionDefs('task', 'status', [...defs, { key, label: newStatusLabel.trim() }])
+                        setNewStatusLabel('')
+                      }}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            }
+              )
+            })()}
           >
             <Select value={form.status || undefined} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
               <SelectTrigger><SelectValue placeholder="Selecionar status..." /></SelectTrigger>
               <SelectContent>
-                {getOptions('task', 'status', ALL_STATUS_KEYS).map((val) => (
-                  <SelectItem key={val} value={val}>{statusLabels[val]}</SelectItem>
+                {getOptionDefs('task', 'status', DEFAULT_STATUS_DEFS).map(({ key, label }) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

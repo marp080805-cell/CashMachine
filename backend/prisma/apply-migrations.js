@@ -35,6 +35,16 @@ async function main() {
     console.warn('[migration] pipelines.cardTaskStatuses warning:', e.message)
   }
 
+  // ── Task.status: convert from enum to TEXT to support custom status values ──
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "Task" ALTER COLUMN "status" TYPE TEXT USING "status"::text
+    `)
+    console.log('[migration] Task.status → TEXT ok')
+  } catch (e) {
+    console.warn('[migration] Task.status TEXT warning:', e.message)
+  }
+
   try {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE whatsapp_numbers
