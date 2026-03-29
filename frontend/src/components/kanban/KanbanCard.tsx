@@ -103,6 +103,41 @@ export function KanbanCard({ opportunity, onClick, cardFields }: KanbanCardProps
           <span>{formatDate(closeDate)}</span>
         </div>
       )}
+
+      {fields.includes('sdr') && (opportunity as any).sdr && (
+        <p className="text-xs text-muted-foreground truncate">SDR: {(opportunity as any).sdr.name}</p>
+      )}
+      {fields.includes('closer') && (opportunity as any).closer && (
+        <p className="text-xs text-muted-foreground truncate">Closer: {(opportunity as any).closer.name}</p>
+      )}
+      {fields.includes('origin') && (opportunity as any).origin && (
+        <p className="text-xs text-muted-foreground truncate">{(opportunity as any).origin.name}</p>
+      )}
+      {fields.includes('temperature') && (opportunity as any).temperature && (
+        <span className="text-xs text-muted-foreground">{(opportunity as any).temperature}</span>
+      )}
+      {fields.includes('qualificationScore') && (opportunity as any).qualificationScore != null && (
+        <span className="text-xs text-muted-foreground">Score: {(opportunity as any).qualificationScore}</span>
+      )}
+      {fields.includes('status') && (
+        <span className="text-xs text-muted-foreground">{opportunity.status}</span>
+      )}
+      {fields.includes('tags') && (opportunity as any).tagAssignments?.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {((opportunity as any).tagAssignments as { tag: { name: string; color: string } }[]).slice(0, 3).map((ta, i) => (
+            <span
+              key={i}
+              className="text-xs px-1.5 py-0.5 rounded-full text-white"
+              style={{ backgroundColor: ta.tag.color }}
+            >
+              {ta.tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {fields.includes('createdAt') && (
+        <p className="text-xs text-muted-foreground">{new Date(opportunity.createdAt).toLocaleDateString('pt-BR')}</p>
+      )}
     </div>
   )
 }

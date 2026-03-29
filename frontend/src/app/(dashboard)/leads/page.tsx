@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
+import { EntityTagsSection } from '@/components/shared/EntityTagsSection'
 import { useAuthStore } from '@/stores/authStore'
 
 // ── Origin search ──
@@ -837,6 +838,12 @@ export default function LeadsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tags</h3>
+                <EntityTagsSection entityType="lead" entityId={editLead.id} queryKey={['leads']} />
               </div>
 
               {/* Campos personalizados */}

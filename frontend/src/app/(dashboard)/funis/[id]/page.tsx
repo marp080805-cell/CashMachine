@@ -16,8 +16,21 @@ import { Badge } from '@/components/ui/badge'
 import {
   Settings, Plus, Loader2, Trash2, RotateCcw, Columns, List,
   ChevronDown, Search, GitBranch, Trophy, XCircle, Settings2,
+  GripVertical, Eye, EyeOff, User, Building2, CircleUser,
+  DollarSign, Calendar, Thermometer, Star,
+  Activity, Tag as TagIcon, Clock, Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { toast } from 'sonner'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
@@ -45,6 +58,60 @@ type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
 }
 
 type ViewMode = 'kanban' | 'list'
+
+const CARD_FIELD_DEFS: { key: string; label: string; Icon: React.ElementType }[] = [
+  { key: 'contact',            label: 'Contato',                Icon: User },
+  { key: 'company',            label: 'Empresa',                Icon: Building2 },
+  { key: 'assignedTo',         label: 'Responsável',            Icon: CircleUser },
+  { key: 'sdr',                label: 'SDR',                    Icon: Users },
+  { key: 'closer',             label: 'Closer',                 Icon: Users },
+  { key: 'value',              label: 'Valor',                  Icon: DollarSign },
+  { key: 'expectedCloseDate',  label: 'Previsão de fechamento', Icon: Calendar },
+  { key: 'origin',             label: 'Origem',                 Icon: GitBranch },
+  { key: 'temperature',        label: 'Temperatura',            Icon: Thermometer },
+  { key: 'qualificationScore', label: 'Score de qualificação',  Icon: Star },
+  { key: 'status',             label: 'Status',                 Icon: Activity },
+  { key: 'tags',               label: 'Tags',                   Icon: TagIcon },
+  { key: 'createdAt',          label: 'Data de criação',        Icon: Clock },
+]
+
+function SortableFieldRow({
+  field,
+  onToggle,
+}: {
+  field: { key: string; visible: boolean }
+  onToggle: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.key })
+  const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined }
+  const def = CARD_FIELD_DEFS.find((d) => d.key === field.key)!
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 p-2 rounded-md border bg-card select-none transition-opacity ${!field.visible ? 'opacity-40' : ''} ${isDragging ? 'shadow-lg' : ''}`}
+    >
+      <button
+        type="button"
+        className="cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0 touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <def.Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="flex-1 text-sm">{def.label}</span>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={field.visible ? 'text-primary hover:text-primary/80' : 'text-muted-foreground hover:text-foreground'}
+        title={field.visible ? 'Ocultar' : 'Mostrar'}
+      >
+        {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+      </button>
+    </div>
+  )
+}
 
 export default function PipelineKanbanPage() {
   const { id } = useParams<{ id: string }>()
@@ -75,6 +142,8 @@ export default function PipelineKanbanPage() {
   const [transferToStageId, setTransferToStageId] = useState('')
   const [newPipelineForm, setNewPipelineForm] = useState({ name: '', description: '', type: 'SALES', typeName: '' })
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [localFields, setLocalFields] = useState<{ key: string; visible: boolean }[]>([])
+  const [fieldsDirty, setFieldsDirty] = useState(false)
 
   const { data: allPipelines } = useQuery({
     queryKey: ['pipelines'],
@@ -161,12 +230,41 @@ export default function PipelineKanbanPage() {
     onError: () => toast.error('Erro ao renomear etapa'),
   })
 
+  useEffect(() => {
+    const DEFAULT_KEYS = ['contact', 'company', 'assignedTo', 'value', 'expectedCloseDate']
+    const saved: string[] = JSON.parse(pipeline?.cardFields ?? JSON.stringify(DEFAULT_KEYS))
+    const allKeys = CARD_FIELD_DEFS.map((f) => f.key)
+    const visible = saved.filter((k) => allKeys.includes(k)).map((k) => ({ key: k, visible: true }))
+    const hidden = allKeys.filter((k) => !saved.includes(k)).map((k) => ({ key: k, visible: false }))
+    setLocalFields([...visible, ...hidden])
+    setFieldsDirty(false)
+  }, [pipeline?.cardFields, pipeline?.id])
+
   const updateCardFieldsMutation = useMutation({
     mutationFn: (fields: string[]) =>
       api.patch(`/pipelines/${id}`, { cardFields: JSON.stringify(fields) }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['pipeline', id] }),
+    onSuccess: () => {
+      setFieldsDirty(false)
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
+    },
     onError: () => toast.error('Erro ao salvar configuração'),
   })
+
+  const fieldSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  function handleFieldDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setLocalFields((prev: { key: string; visible: boolean }[]) => {
+      const oldIdx = prev.findIndex((f: { key: string }) => f.key === active.id)
+      const newIdx = prev.findIndex((f: { key: string }) => f.key === over.id)
+      return arrayMove(prev, oldIdx, newIdx)
+    })
+    setFieldsDirty(true)
+  }
 
   const createOppMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
@@ -535,36 +633,45 @@ export default function PipelineKanbanPage() {
                 ))}
             </div>
 
-            {/* Configuração de campos do card */}
+            {/* Campos do card — Notion-style */}
             <div className="border-t pt-4 space-y-3">
-              <Label className="text-sm font-semibold">Campos exibidos no card</Label>
-              <div className="space-y-2">
-                {[
-                  { key: 'contact', label: 'Contato' },
-                  { key: 'company', label: 'Empresa' },
-                  { key: 'assignedTo', label: 'Responsável' },
-                  { key: 'value', label: 'Valor' },
-                  { key: 'expectedCloseDate', label: 'Data de fechamento' },
-                ].map(({ key, label }) => {
-                  const cardFields: string[] = JSON.parse(pipeline.cardFields ?? '["contact","company","assignedTo","value","expectedCloseDate"]')
-                  const checked = cardFields.includes(key)
-                  return (
-                    <div key={key} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`card-field-${key}`}
-                        checked={checked}
-                        onChange={() => {
-                          const next = checked ? cardFields.filter((f) => f !== key) : [...cardFields, key]
-                          updateCardFieldsMutation.mutate(next)
-                        }}
-                        className="h-4 w-4 rounded"
-                      />
-                      <label htmlFor={`card-field-${key}`} className="text-sm cursor-pointer">{label}</label>
-                    </div>
-                  )
-                })}
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Campos exibidos no card</Label>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const visibleFields = localFields.filter((f) => f.visible).map((f) => f.key)
+                    updateCardFieldsMutation.mutate(visibleFields)
+                  }}
+                  disabled={!fieldsDirty || updateCardFieldsMutation.isPending}
+                >
+                  {updateCardFieldsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Salvar
+                </Button>
               </div>
+              <p className="text-xs text-muted-foreground">Arraste para reordenar · clique no olho para mostrar/ocultar</p>
+              <DndContext
+                sensors={fieldSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleFieldDragEnd}
+              >
+                <SortableContext items={localFields.map((f) => f.key)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1">
+                    {localFields.map((field) => (
+                      <SortableFieldRow
+                        key={field.key}
+                        field={field}
+                        onToggle={() => {
+                          setLocalFields((prev: { key: string; visible: boolean }[]) =>
+                            prev.map((f) => (f.key === field.key ? { ...f, visible: !f.visible } : f))
+                          )
+                          setFieldsDirty(true)
+                        }}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
 
             <div className="border-t pt-4 space-y-3">

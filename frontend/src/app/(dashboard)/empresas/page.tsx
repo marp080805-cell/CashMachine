@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
+import { EntityTagsSection } from '@/components/shared/EntityTagsSection'
 import { useAuthStore } from '@/stores/authStore'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import {
@@ -631,6 +632,14 @@ export default function EmpresasPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Tags */}
+                {selectedCompany && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tags</h3>
+                    <EntityTagsSection entityType="company" entityId={selectedCompany.id} queryKey={['companies']} />
+                  </div>
+                )}
 
                 {/* Campos personalizados */}
                 <div>
