@@ -7,6 +7,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn, formatCurrency, formatDate, getInitials } from '@/lib/utils'
 import type { Opportunity } from '@/types'
 
+interface CardTask {
+  id: string
+  title: string
+  status: string
+  dueDate: string | null
+  priority: string
+}
+
+interface CardConversation {
+  id: string
+  messages: { id: string; direction: string; content: string | null; createdAt: string }[]
+}
+
 function formatRelativeDate(dateStr: string | null): string {
   if (!dateStr) return ''
   const d = new Date(dateStr)
@@ -19,7 +32,10 @@ function formatRelativeDate(dateStr: string | null): string {
 }
 
 interface KanbanCardProps {
-  opportunity: Opportunity
+  opportunity: Opportunity & {
+    tasks?: CardTask[]
+    conversations?: CardConversation[]
+  }
   onClick: (opportunity: Opportunity) => void
   cardFields?: string[]
 }
@@ -138,6 +154,47 @@ export function KanbanCard({ opportunity, onClick, cardFields }: KanbanCardProps
       {fields.includes('createdAt') && (
         <p className="text-xs text-muted-foreground">{new Date(opportunity.createdAt).toLocaleDateString('pt-BR')}</p>
       )}
+
+      {/* Tarefas */}
+      {fields.includes('tasks') && opportunity.tasks && opportunity.tasks.length > 0 && (
+        <div className="border-t pt-1.5 mt-0.5 space-y-1">
+          {opportunity.tasks.slice(0, 3).map((task) => {
+            const isTaskOverdue = task.dueDate && new Date(task.dueDate) < new Date()
+            return (
+              <div key={task.id} className="flex items-center gap-1.5">
+                <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+                  task.status === 'COMPLETED' ? 'bg-green-500' :
+                  task.status === 'IN_PROGRESS' ? 'bg-blue-500' :
+                  isTaskOverdue ? 'bg-red-500' : 'bg-muted-foreground'
+                }`} />
+                <span className={`text-xs truncate flex-1 ${isTaskOverdue ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  {task.title}
+                </span>
+              </div>
+            )
+          })}
+          {opportunity.tasks.length > 3 && (
+            <p className="text-xs text-muted-foreground">+{opportunity.tasks.length - 3} tarefas</p>
+          )}
+        </div>
+      )}
+
+      {/* Mensagem não respondida do WhatsApp */}
+      {fields.includes('unrespondedMessage') && (() => {
+        const conv = opportunity.conversations?.[0]
+        const lastMsg = conv?.messages?.[0]
+        if (!lastMsg || lastMsg.direction !== 'INBOUND') return null
+        return (
+          <div className="border-t pt-1.5 mt-0.5">
+            <div className="flex items-start gap-1.5 bg-green-500/10 rounded p-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-green-500 flex-shrink-0 mt-1" />
+              <p className="text-xs text-muted-foreground line-clamp-2 flex-1">
+                {lastMsg.content ?? '📎 Mídia'}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

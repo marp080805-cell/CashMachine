@@ -128,6 +128,7 @@ export interface Pipeline {
   sortOrder: number
   defaultCloseDays: number | null
   cardFields?: string | null
+  cardTaskStatuses?: string | null
   stages: Stage[]
   createdAt: string
   updatedAt: string

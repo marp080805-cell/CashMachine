@@ -18,7 +18,7 @@ import {
   ChevronDown, Search, GitBranch, Trophy, XCircle, Settings2,
   GripVertical, Eye, EyeOff, User, Building2, CircleUser,
   DollarSign, Calendar, Thermometer, Star,
-  Activity, Tag as TagIcon, Clock, Users,
+  Activity, Tag as TagIcon, Clock, Users, CheckCircle2, MessageSquare,
 } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import {
@@ -73,6 +73,8 @@ const CARD_FIELD_DEFS: { key: string; label: string; Icon: React.ElementType }[]
   { key: 'status',             label: 'Status',                 Icon: Activity },
   { key: 'tags',               label: 'Tags',                   Icon: TagIcon },
   { key: 'createdAt',          label: 'Data de criação',        Icon: Clock },
+  { key: 'tasks',               label: 'Tarefas',                      Icon: CheckCircle2 },
+  { key: 'unrespondedMessage',  label: 'Mensagem sem resposta (WhatsApp)', Icon: MessageSquare },
 ]
 
 function SortableFieldRow({
@@ -247,6 +249,13 @@ export default function PipelineKanbanPage() {
       setFieldsDirty(false)
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
+    onError: () => toast.error('Erro ao salvar configuração'),
+  })
+
+  const updateCardTaskStatusesMutation = useMutation({
+    mutationFn: (statuses: string[]) =>
+      api.patch(`/pipelines/${id}`, { cardTaskStatuses: JSON.stringify(statuses) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['pipeline', id] }),
     onError: () => toast.error('Erro ao salvar configuração'),
   })
 
@@ -582,7 +591,21 @@ export default function PipelineKanbanPage() {
                 .sort((a, b) => a.sortOrder - b.sortOrder)
                 .map((stage) => (
                   <div key={stage.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                    <div className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
+                    <input
+                      type="color"
+                      value={stage.color}
+                      className="h-6 w-6 rounded-full border cursor-pointer bg-transparent flex-shrink-0"
+                      style={{ padding: '1px' }}
+                      onChange={() => { /* atualização otimista não necessária — só chama ao soltar */ }}
+                      onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                        if (e.target.value !== stage.color) {
+                          void api.patch(`/pipelines/${id}/stages/${stage.id}`, { color: e.target.value })
+                            .then(() => queryClient.invalidateQueries({ queryKey: ['pipeline', id] }))
+                            .catch(() => toast.error('Erro ao salvar cor'))
+                        }
+                      }}
+                      title="Clique para alterar a cor"
+                    />
                     {editingStageId === stage.id ? (
                       <Input
                         className="flex-1 h-7 text-sm"
