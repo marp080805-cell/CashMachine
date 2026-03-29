@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, StageType, CustomFieldType, TaskType, TaskPriority, Prisma } from '@prisma/client'
+import { PrismaClient, UserRole, StageType, TaskType, TaskPriority } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -237,84 +237,6 @@ async function main() {
   } else {
     console.log('Pipeline já existe:', pipeline.name)
   }
-
-  // ─── DEFAULT CUSTOM FIELD GROUP + FIELDS ─────────────────────────
-  let group = await prisma.customFieldGroup.findFirst({
-    where: { tenantId, entityType: 'opportunity', name: 'Informações da Oportunidade' },
-  })
-
-  if (!group) {
-    group = await prisma.customFieldGroup.create({
-      data: {
-        tenantId,
-        entityType: 'opportunity',
-        name: 'Informações da Oportunidade',
-        sortOrder: 0,
-        isCollapsedByDefault: false,
-      },
-    })
-  }
-
-  const customFieldsData = [
-    {
-      name: 'Canal de Contato',
-      slug: 'canal_contato',
-      fieldType: CustomFieldType.SELECT,
-      options: ['WhatsApp', 'Telefone', 'Email', 'Presencial', 'Videoconferência'],
-      sortOrder: 0,
-    },
-    {
-      name: 'Como nos encontrou',
-      slug: 'como_encontrou',
-      fieldType: CustomFieldType.SELECT,
-      options: ['Google', 'Instagram', 'Facebook', 'LinkedIn', 'Indicação', 'Evento'],
-      sortOrder: 1,
-    },
-    {
-      name: 'Data prevista de fechamento',
-      slug: 'data_fechamento_prevista',
-      fieldType: CustomFieldType.DATE,
-      options: null,
-      sortOrder: 2,
-    },
-    {
-      name: 'Motivo do interesse',
-      slug: 'motivo_interesse',
-      fieldType: CustomFieldType.TEXT,
-      options: null,
-      sortOrder: 3,
-    },
-    {
-      name: 'Observações internas',
-      slug: 'observacoes_internas',
-      fieldType: CustomFieldType.TEXTAREA,
-      options: null,
-      sortOrder: 4,
-    },
-  ]
-
-  for (const cf of customFieldsData) {
-    const existing = await prisma.customField.findFirst({
-      where: { groupId: group.id, slug: cf.slug },
-    })
-    if (!existing) {
-      await prisma.customField.create({
-        data: {
-          groupId: group.id,
-          entityType: 'opportunity',
-          name: cf.name,
-          slug: cf.slug,
-          fieldType: cf.fieldType,
-          options: cf.options ? (cf.options as Prisma.InputJsonValue) : undefined,
-          sortOrder: cf.sortOrder,
-          isRequiredGlobal: false,
-          showInCard: false,
-          isActive: true,
-        },
-      })
-    }
-  }
-  console.log('Custom field group + fields created.')
 
   // ─── DEFAULT TASK TEMPLATES ───────────────────────────────────────
   const taskTemplatesData = [

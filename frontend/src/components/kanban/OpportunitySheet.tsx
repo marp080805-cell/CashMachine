@@ -1032,9 +1032,13 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                               <p className="text-xs text-muted-foreground mb-1">Criado em</p>
                               <p className="text-sm">{formatDate(opp.createdAt)}</p>
                             </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Dias na oportunidade</p>
+                              <p className="text-sm">{Math.floor((Date.now() - new Date(opp.createdAt).getTime()) / 86400000)} dias</p>
+                            </div>
                             {opp.sdr && (
                               <div>
-                                <p className="text-xs text-muted-foreground mb-1">SDR</p>
+                                <p className="text-xs text-muted-foreground mb-1">Criado por</p>
                                 <p className="text-sm">{opp.sdr.name}</p>
                               </div>
                             )}
