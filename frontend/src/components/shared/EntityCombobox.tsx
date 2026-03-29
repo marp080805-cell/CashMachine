@@ -18,12 +18,13 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type EntityType = 'contact' | 'company' | 'opportunity'
+type EntityType = 'contact' | 'company' | 'opportunity' | 'lead'
 
 interface SearchResult {
   id: string
   label: string
   sublabel?: string
+  meta?: Record<string, unknown>
 }
 
 export interface EntityComboboxProps {
@@ -31,6 +32,7 @@ export interface EntityComboboxProps {
   value: string        // id da entidade selecionada ('' se nenhuma)
   label: string        // nome exibido ('' se nenhuma)
   onChange: (id: string, label: string) => void
+  onRelated?: (meta: Record<string, unknown>) => void
   allowCreate?: boolean
   placeholder?: string
   disabled?: boolean
@@ -73,9 +75,25 @@ function getSearchConfig(entityType: EntityType) {
           label: item.title as string,
           sublabel: undefined,
         }),
-        createEndpoint: null, // opportunities não são criadas inline
+        createEndpoint: null,
         createBody: null,
         entityLabel: 'oportunidade',
+      }
+    case 'lead':
+      return {
+        endpoint: (q: string) => `/leads?search=${encodeURIComponent(q)}&limit=8`,
+        mapResult: (item: Record<string, unknown>): SearchResult => {
+          const contact = item.contact as { id?: string; name?: string } | null
+          return {
+            id: item.id as string,
+            label: contact?.name ?? (item.id as string),
+            sublabel: undefined,
+            meta: { contactId: contact?.id, contactName: contact?.name },
+          }
+        },
+        createEndpoint: null,
+        createBody: null,
+        entityLabel: 'lead',
       }
   }
 }
@@ -87,6 +105,7 @@ export function EntityCombobox({
   value,
   label,
   onChange,
+  onRelated,
   allowCreate = false,
   placeholder,
   disabled = false,
@@ -147,6 +166,7 @@ export function EntityCombobox({
 
   function handleSelect(result: SearchResult) {
     onChange(result.id, result.label)
+    if (result.meta && onRelated) onRelated(result.meta)
     setQ('')
     setOpen(false)
   }

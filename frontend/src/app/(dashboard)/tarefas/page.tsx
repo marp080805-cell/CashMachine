@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
@@ -125,86 +125,6 @@ function getDueDateDisplay(dueDate: string | null, status: string): { label: str
   if (due <= today) return { label: formatDateTime(dueDate), className: 'text-green-600 font-medium' }
 
   return { label: formatDateTime(dueDate), className: 'text-muted-foreground' }
-}
-
-// ── Autocomplete hook ──
-
-interface AutocompleteProps {
-  placeholder: string
-  searchFn: (term: string) => Promise<{ id: string; label: string; sub?: string }[]>
-  onSelect: (id: string, label: string) => void
-  selectedLabel?: string
-  onClear: () => void
-}
-
-function Autocomplete({ placeholder, searchFn, onSelect, selectedLabel, onClear }: AutocompleteProps) {
-  const [inputValue, setInputValue] = useState('')
-  const [results, setResults] = useState<{ id: string; label: string; sub?: string }[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const handleChange = useCallback((term: string) => {
-    setInputValue(term)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!term.trim()) { setResults([]); setOpen(false); return }
-    setLoading(true)
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const r = await searchFn(term)
-        setResults(r)
-        setOpen(true)
-      } catch {
-        setResults([])
-      } finally {
-        setLoading(false)
-      }
-    }, 300)
-  }, [searchFn])
-
-  if (selectedLabel) {
-    return (
-      <div className="flex items-center gap-2 rounded border px-3 py-2 bg-primary/5 text-sm">
-        <span className="flex-1 font-medium">{selectedLabel}</span>
-        <button type="button" onClick={() => { onClear(); setInputValue('') }}>
-          <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative">
-      <Input
-        placeholder={placeholder}
-        value={inputValue}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={() => results.length > 0 && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-      {open && results.length > 0 && (
-        <div className="absolute z-50 top-full mt-1 w-full rounded-md border bg-popover shadow-md divide-y max-h-40 overflow-y-auto">
-          {results.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-              onMouseDown={() => { onSelect(r.id, r.label); setInputValue(''); setOpen(false) }}
-            >
-              <span className="font-medium">{r.label}</span>
-              {r.sub && <span className="text-muted-foreground ml-2 text-xs">— {r.sub}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && results.length === 0 && !loading && inputValue.trim() && (
-        <div className="absolute z-50 top-full mt-1 w-full rounded-md border bg-popover shadow-md px-3 py-2 text-sm text-muted-foreground">
-          Nenhum resultado encontrado
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ── Task Form (shared by create/edit) ──
@@ -334,14 +254,6 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
       ...(form.companyId && { companyId: form.companyId }),
     })
   }
-
-  const searchLeads = useCallback(async (term: string) => {
-    const res = await api.get<{ data: Array<{ id: string; contact: { name: string } }> }>(
-      `/leads?search=${encodeURIComponent(term)}&limit=8`
-    )
-    return (res?.data ?? []).map((l) => ({ id: l.id, label: l.contact?.name ?? l.id }))
-  }, [])
-
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setAdminMode(false); onClose() } }}>
@@ -509,28 +421,17 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             />
           </FieldWrapper>
           <FieldWrapper entityType="task" slug="leadId" label="Vincular a lead" adminMode={adminMode}>
-            <Autocomplete
-              placeholder="Buscar lead..."
-              searchFn={searchLeads}
-              selectedLabel={form.leadLabel || undefined}
-              onSelect={(id, label) => {
-                api.get<{ id: string; contact: { id: string; name: string } }>(`/leads/${id}`)
-                  .then((lead) => {
-                    if (lead?.contact) {
-                      setForm((f) => ({
-                        ...f,
-                        leadId: id,
-                        leadLabel: label,
-                        contactId: lead.contact.id,
-                        contactLabel: lead.contact.name,
-                      }))
-                    } else {
-                      setForm((f) => ({ ...f, leadId: id, leadLabel: label }))
-                    }
-                  })
-                  .catch(() => setForm((f) => ({ ...f, leadId: id, leadLabel: label })))
+            <EntityCombobox
+              entityType="lead"
+              value={form.leadId}
+              label={form.leadLabel}
+              onChange={(id, lbl) => setForm((f) => ({ ...f, leadId: id, leadLabel: lbl }))}
+              onRelated={(meta) => {
+                if (meta.contactId) {
+                  setForm((f) => ({ ...f, contactId: meta.contactId as string, contactLabel: (meta.contactName as string) ?? '' }))
+                }
               }}
-              onClear={() => setForm((f) => ({ ...f, leadId: '', leadLabel: '' }))}
+              placeholder="Buscar lead..."
             />
             {form.leadId && form.contactId && (
               <p className="text-xs text-muted-foreground">Contato preenchido automaticamente do lead</p>
