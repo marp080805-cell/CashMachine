@@ -59,6 +59,14 @@ type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
 
 type ViewMode = 'kanban' | 'list'
 
+const TASK_STATUS_OPTIONS: { key: string; label: string }[] = [
+  { key: 'PENDING',     label: 'Pendente' },
+  { key: 'IN_PROGRESS', label: 'Em andamento' },
+  { key: 'COMPLETED',   label: 'Concluída' },
+  { key: 'OVERDUE',     label: 'Atrasada' },
+  { key: 'SKIPPED',     label: 'Ignorada' },
+]
+
 const CARD_FIELD_DEFS: { key: string; label: string; Icon: React.ElementType }[] = [
   { key: 'contact',            label: 'Contato',                Icon: User },
   { key: 'company',            label: 'Empresa',                Icon: Building2 },
@@ -111,6 +119,29 @@ function SortableFieldRow({
       >
         {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </button>
+    </div>
+  )
+}
+
+const TaskStatusConfig: React.FC<{ cardTaskStatuses: string; onToggle: (next: string[]) => void }> = ({ cardTaskStatuses, onToggle }) => {
+  const statuses: string[] = JSON.parse(cardTaskStatuses)
+  return (
+    <div className="space-y-2">
+      {TASK_STATUS_OPTIONS.map(({ key, label }) => {
+        const checked = statuses.includes(key)
+        return (
+          <div key={key} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id={`task-status-${key}`}
+              checked={checked}
+              onChange={() => onToggle(checked ? statuses.filter((s) => s !== key) : [...statuses, key])}
+              className="h-4 w-4 rounded"
+            />
+            <label htmlFor={`task-status-${key}`} className="text-sm cursor-pointer">{label}</label>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -695,6 +726,15 @@ export default function PipelineKanbanPage() {
                   </div>
                 </SortableContext>
               </DndContext>
+            </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <Label className="text-sm font-semibold">Tarefas exibidas no card</Label>
+              <p className="text-xs text-muted-foreground">Escolha quais status de tarefas aparecem no card</p>
+              <TaskStatusConfig
+                cardTaskStatuses={pipeline.cardTaskStatuses ?? '["PENDING","IN_PROGRESS"]'}
+                onToggle={(next: string[]) => updateCardTaskStatusesMutation.mutate(next)}
+              />
             </div>
 
             <div className="border-t pt-4 space-y-3">
