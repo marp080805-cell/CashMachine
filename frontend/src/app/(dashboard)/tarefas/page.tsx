@@ -407,6 +407,13 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               value={form.opportunityId}
               label={form.opportunityLabel}
               onChange={(id, lbl) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: lbl }))}
+              onRelated={(meta) => {
+                setForm((f) => ({
+                  ...f,
+                  ...(meta.contactId ? { contactId: meta.contactId as string, contactLabel: (meta.contactName as string) ?? '' } : {}),
+                  ...(meta.companyId ? { companyId: meta.companyId as string, companyLabel: (meta.companyName as string) ?? '' } : {}),
+                }))
+              }}
               placeholder="Buscar oportunidade..."
             />
           </FieldWrapper>
@@ -416,6 +423,11 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               value={form.contactId}
               label={form.contactLabel}
               onChange={(id, lbl) => setForm((f) => ({ ...f, contactId: id, contactLabel: lbl }))}
+              onRelated={(meta) => {
+                if (meta.companyId) {
+                  setForm((f) => ({ ...f, companyId: meta.companyId as string, companyLabel: (meta.companyName as string) ?? '' }))
+                }
+              }}
               allowCreate
               placeholder="Buscar contato..."
             />

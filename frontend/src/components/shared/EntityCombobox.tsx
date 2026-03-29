@@ -43,18 +43,23 @@ export interface EntityComboboxProps {
 
 function getSearchConfig(entityType: EntityType) {
   switch (entityType) {
-    case 'contact':
+    case 'contact': {
       return {
         endpoint: (q: string) => `/contacts?search=${encodeURIComponent(q)}&limit=8`,
-        mapResult: (item: Record<string, unknown>): SearchResult => ({
-          id: item.id as string,
-          label: item.name as string,
-          sublabel: (item.email as string | null) ?? undefined,
-        }),
+        mapResult: (item: Record<string, unknown>): SearchResult => {
+          const company = item.company as { id?: string; name?: string } | null
+          return {
+            id: item.id as string,
+            label: item.name as string,
+            sublabel: (item.email as string | null) ?? undefined,
+            meta: { companyId: company?.id, companyName: company?.name },
+          }
+        },
         createEndpoint: '/contacts',
         createBody: (name: string) => ({ name }),
         entityLabel: 'contato',
       }
+    }
     case 'company':
       return {
         endpoint: (q: string) => `/companies?search=${encodeURIComponent(q)}&limit=8`,
@@ -67,18 +72,24 @@ function getSearchConfig(entityType: EntityType) {
         createBody: (name: string) => ({ name }),
         entityLabel: 'empresa',
       }
-    case 'opportunity':
+    case 'opportunity': {
       return {
         endpoint: (q: string) => `/opportunities?search=${encodeURIComponent(q)}&limit=8`,
-        mapResult: (item: Record<string, unknown>): SearchResult => ({
-          id: item.id as string,
-          label: item.title as string,
-          sublabel: undefined,
-        }),
+        mapResult: (item: Record<string, unknown>): SearchResult => {
+          const contact = item.contact as { id?: string; name?: string } | null
+          const company = item.company as { id?: string; name?: string } | null
+          return {
+            id: item.id as string,
+            label: item.title as string,
+            sublabel: contact?.name ?? undefined,
+            meta: { contactId: contact?.id, contactName: contact?.name, companyId: company?.id, companyName: company?.name },
+          }
+        },
         createEndpoint: null,
         createBody: null,
         entityLabel: 'oportunidade',
       }
+    }
     case 'lead':
       return {
         endpoint: (q: string) => `/leads?search=${encodeURIComponent(q)}&limit=8`,
