@@ -305,19 +305,26 @@ export default function IntegracoesPage() {
                   <Select value={openaiModel} onValueChange={setOpenaiModel}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-5" className="font-medium">⭐ GPT-5</SelectItem>
+                      <SelectItem value="separator-openai" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide py-1">── OpenAI ──</SelectItem>
+                      <SelectItem value="gpt-5.4-pro">GPT-5.4 Pro</SelectItem>
+                      <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
+                      <SelectItem value="gpt-5">GPT-5</SelectItem>
                       <SelectItem value="gpt-5-mini">GPT-5 mini</SelectItem>
-                      <SelectItem value="gpt-4.5-preview">GPT-4.5 preview</SelectItem>
+                      <SelectItem value="gpt-5-nano">GPT-5 nano</SelectItem>
                       <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
                       <SelectItem value="gpt-4.1-mini">GPT-4.1 mini</SelectItem>
                       <SelectItem value="gpt-4.1-nano">GPT-4.1 nano</SelectItem>
                       <SelectItem value="gpt-4o">GPT-4o</SelectItem>
                       <SelectItem value="gpt-4o-mini">GPT-4o mini</SelectItem>
-                      <SelectItem value="o3">o3</SelectItem>
-                      <SelectItem value="o3-mini">o3 mini</SelectItem>
-                      <SelectItem value="o4-mini">o4 mini</SelectItem>
-                      <SelectItem value="o1">o1</SelectItem>
-                      <SelectItem value="o1-mini">o1 mini</SelectItem>
+                      <SelectItem value="separator-anthropic" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide py-1">── Anthropic ──</SelectItem>
+                      <SelectItem value="claude-opus-4-6">Claude Opus 4.6</SelectItem>
+                      <SelectItem value="claude-sonnet-4-6">Claude Sonnet 4.6</SelectItem>
+                      <SelectItem value="claude-haiku-4-5-20251001">Claude Haiku 4.5</SelectItem>
+                      <SelectItem value="claude-opus-4-5-20251101">Claude Opus 4.5</SelectItem>
+                      <SelectItem value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</SelectItem>
+                      <SelectItem value="claude-opus-4-1-20250805">Claude Opus 4.1</SelectItem>
+                      <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
+                      <SelectItem value="claude-opus-4-20250514">Claude Opus 4</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
