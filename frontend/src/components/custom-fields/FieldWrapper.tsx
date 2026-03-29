@@ -18,11 +18,12 @@ interface Props {
   adminMode: boolean
   children: React.ReactNode
   className?: string
+  configContent?: React.ReactNode  // extra admin config rendered inside the edit panel
 }
 
 export function FieldWrapper({
   entityType, slug, label: defaultLabel = '', placeholder: defaultPlaceholder = '',
-  defaultRequired = false, adminMode, children, className = '',
+  defaultRequired = false, adminMode, children, className = '', configContent,
 }: Props) {
   const { isRequired, getLabel, getPlaceholder, isHidden, setRequired, setLabel, setPlaceholder, setHidden, isUpdating } = useFieldConfig()
 
@@ -86,6 +87,11 @@ export function FieldWrapper({
               />
             </div>
           </div>
+          {configContent && (
+            <div className="border-t pt-2 mt-1">
+              {configContent}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Switch checked={req} onCheckedChange={(v) => setRequired(entityType, slug, v)} disabled={isUpdating} className="scale-75 h-4 w-7" />

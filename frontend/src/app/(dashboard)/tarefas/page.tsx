@@ -37,6 +37,7 @@ import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
+import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { EntityCombobox } from '@/components/shared/EntityCombobox'
 import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
@@ -253,6 +254,8 @@ interface TaskFormModalProps {
   onSuccess: () => void
 }
 
+const ALL_STATUS_KEYS = Object.keys(statusLabels)
+
 function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultTaskForm, ...initialData })
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
@@ -261,6 +264,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'MANAGER'
   const queryClient = useQueryClient()
+  const { getOptions, setOptions, isUpdating: fcUpdating } = useFieldConfig()
 
   useEffect(() => {
     if (open) {
@@ -378,8 +382,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
           <FieldWrapper entityType="task" slug="dueDate" label="Vencimento" adminMode={adminMode}>
             <Input type="datetime-local" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} />
           </FieldWrapper>
-          <div className="space-y-1.5">
-            <Label>Responsável</Label>
+          <FieldWrapper entityType="task" slug="assignedToId" label="Responsável" adminMode={adminMode}>
             <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, assignedToId: v }))}>
               <SelectTrigger><SelectValue placeholder="Selecionar responsável..." /></SelectTrigger>
               <SelectContent>
@@ -388,20 +391,49 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Status</Label>
+          </FieldWrapper>
+          <FieldWrapper
+            entityType="task"
+            slug="status"
+            label="Status"
+            adminMode={adminMode}
+            configContent={
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Opções disponíveis</span>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_STATUS_KEYS.map((key) => {
+                    const enabled = getOptions('task', 'status', ALL_STATUS_KEYS).includes(key)
+                    return (
+                      <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          disabled={fcUpdating}
+                          onChange={() => {
+                            const current = getOptions('task', 'status', ALL_STATUS_KEYS)
+                            const next = enabled ? current.filter((k) => k !== key) : [...current, key]
+                            if (next.length > 0) setOptions('task', 'status', next)
+                          }}
+                          className="h-3 w-3"
+                        />
+                        {statusLabels[key]}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            }
+          >
             <Select value={form.status || undefined} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
               <SelectTrigger><SelectValue placeholder="Selecionar status..." /></SelectTrigger>
               <SelectContent>
-                {Object.entries(statusLabels).map(([val, lbl]) => (
-                  <SelectItem key={val} value={val}>{lbl}</SelectItem>
+                {getOptions('task', 'status', ALL_STATUS_KEYS).map((val) => (
+                  <SelectItem key={val} value={val}>{statusLabels[val]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vincular a oportunidade</Label>
+          </FieldWrapper>
+          <FieldWrapper entityType="task" slug="opportunityId" label="Vincular a oportunidade" adminMode={adminMode}>
             <EntityCombobox
               entityType="opportunity"
               value={form.opportunityId}
@@ -409,9 +441,8 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               onChange={(id, lbl) => setForm((f) => ({ ...f, opportunityId: id, opportunityLabel: lbl }))}
               placeholder="Buscar oportunidade..."
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vincular a contato</Label>
+          </FieldWrapper>
+          <FieldWrapper entityType="task" slug="contactId" label="Vincular a contato" adminMode={adminMode}>
             <EntityCombobox
               entityType="contact"
               value={form.contactId}
@@ -420,9 +451,8 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               allowCreate
               placeholder="Buscar contato..."
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vincular a lead</Label>
+          </FieldWrapper>
+          <FieldWrapper entityType="task" slug="leadId" label="Vincular a lead" adminMode={adminMode}>
             <Autocomplete
               placeholder="Buscar lead..."
               searchFn={searchLeads}
@@ -449,9 +479,8 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             {form.leadId && form.contactId && (
               <p className="text-xs text-muted-foreground">Contato preenchido automaticamente do lead</p>
             )}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vincular a empresa</Label>
+          </FieldWrapper>
+          <FieldWrapper entityType="task" slug="companyId" label="Vincular a empresa" adminMode={adminMode}>
             <EntityCombobox
               entityType="company"
               value={form.companyId}
@@ -460,7 +489,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               allowCreate
               placeholder="Buscar empresa..."
             />
-          </div>
+          </FieldWrapper>
           <FieldWrapper entityType="task" slug="description" label="Descrição" placeholder="Descrição opcional..." adminMode={adminMode}>
             <Textarea
               rows={3}

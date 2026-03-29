@@ -9,7 +9,8 @@ const patchBodySchema = z.object({
   label: z.string().optional(),
   placeholder: z.string().optional(),
   hidden: z.boolean().optional(),
-}).refine((d) => d.required !== undefined || d.label !== undefined || d.placeholder !== undefined || d.hidden !== undefined, {
+  options: z.array(z.string()).optional(),
+}).refine((d) => d.required !== undefined || d.label !== undefined || d.placeholder !== undefined || d.hidden !== undefined || d.options !== undefined, {
   message: 'At least one field must be provided',
 })
 
@@ -29,13 +30,14 @@ export default async function fieldConfigRoutes(app: FastifyInstance) {
     const fieldLabels = (settings.fieldLabels ?? {}) as Record<string, Record<string, string>>
     const fieldPlaceholders = (settings.fieldPlaceholders ?? {}) as Record<string, Record<string, string>>
     const fieldHidden = (settings.fieldHidden ?? {}) as Record<string, Record<string, boolean>>
+    const fieldOptions = (settings.fieldOptions ?? {}) as Record<string, Record<string, string[]>>
 
-    return reply.send({ fieldRequired, fieldLabels, fieldPlaceholders, fieldHidden })
+    return reply.send({ fieldRequired, fieldLabels, fieldPlaceholders, fieldHidden, fieldOptions })
   })
 
   app.patch('/settings/field-config', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { tenantId } = request.user as { tenantId: string }
-    const { entityType, fieldSlug, required, label, placeholder, hidden } = patchBodySchema.parse(request.body)
+    const { entityType, fieldSlug, required, label, placeholder, hidden, options } = patchBodySchema.parse(request.body)
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -49,6 +51,7 @@ export default async function fieldConfigRoutes(app: FastifyInstance) {
     const fieldLabels = (settings.fieldLabels ?? {}) as Record<string, Record<string, string>>
     const fieldPlaceholders = (settings.fieldPlaceholders ?? {}) as Record<string, Record<string, string>>
     const fieldHidden = (settings.fieldHidden ?? {}) as Record<string, Record<string, boolean>>
+    const fieldOptions = (settings.fieldOptions ?? {}) as Record<string, Record<string, string[]>>
 
     if (required !== undefined) {
       if (!fieldRequired[entityType]) {
@@ -74,6 +77,11 @@ export default async function fieldConfigRoutes(app: FastifyInstance) {
       fieldHidden[entityType][fieldSlug] = hidden
     }
 
+    if (options !== undefined) {
+      if (!fieldOptions[entityType]) fieldOptions[entityType] = {}
+      fieldOptions[entityType][fieldSlug] = options
+    }
+
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -83,10 +91,11 @@ export default async function fieldConfigRoutes(app: FastifyInstance) {
           fieldLabels,
           fieldPlaceholders,
           fieldHidden,
+          fieldOptions,
         },
       },
     })
 
-    return reply.send({ fieldRequired, fieldLabels, fieldPlaceholders, fieldHidden })
+    return reply.send({ fieldRequired, fieldLabels, fieldPlaceholders, fieldHidden, fieldOptions })
   })
 }

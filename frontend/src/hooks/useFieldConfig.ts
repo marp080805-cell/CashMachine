@@ -7,6 +7,7 @@ interface FieldConfigResponse {
   fieldLabels: Record<string, Record<string, string>>
   fieldPlaceholders: Record<string, Record<string, string>>
   fieldHidden: Record<string, Record<string, boolean>>
+  fieldOptions: Record<string, Record<string, string[]>>
 }
 
 export function useFieldConfig() {
@@ -21,9 +22,10 @@ export function useFieldConfig() {
   const fieldLabels = data?.fieldLabels ?? {}
   const fieldPlaceholders = data?.fieldPlaceholders ?? {}
   const fieldHidden = data?.fieldHidden ?? {}
+  const fieldOptions = data?.fieldOptions ?? {}
 
   const mutation = useMutation({
-    mutationFn: (payload: { entityType: string; fieldSlug: string; required?: boolean; label?: string; placeholder?: string; hidden?: boolean }) =>
+    mutationFn: (payload: { entityType: string; fieldSlug: string; required?: boolean; label?: string; placeholder?: string; hidden?: boolean; options?: string[] }) =>
       api.patch('/settings/field-config', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['field-config'] }),
   })
@@ -60,5 +62,13 @@ export function useFieldConfig() {
     mutation.mutate({ entityType, fieldSlug, hidden })
   }
 
-  return { isRequired, getLabel, getPlaceholder, isHidden, setRequired, setLabel, setPlaceholder, setHidden, isUpdating: mutation.isPending }
+  function getOptions(entityType: string, fieldSlug: string, defaultOptions: string[]): string[] {
+    return fieldOptions[entityType]?.[fieldSlug] ?? defaultOptions
+  }
+
+  function setOptions(entityType: string, fieldSlug: string, options: string[]) {
+    mutation.mutate({ entityType, fieldSlug, options })
+  }
+
+  return { isRequired, getLabel, getPlaceholder, isHidden, getOptions, setRequired, setLabel, setPlaceholder, setHidden, setOptions, isUpdating: mutation.isPending }
 }

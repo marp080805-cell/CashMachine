@@ -136,11 +136,16 @@ function SortableFieldRow({
   )
 }
 
+const ALL_TASK_STATUS_KEYS = TASK_STATUS_OPTIONS.map((o) => o.key)
+
 const TaskStatusConfig: React.FC<{ cardTaskStatuses: string; onToggle: (next: string[]) => void }> = ({ cardTaskStatuses, onToggle }) => {
+  const { getOptions } = useFieldConfig()
+  const enabledGlobally = getOptions('task', 'status', ALL_TASK_STATUS_KEYS)
   const statuses: string[] = JSON.parse(cardTaskStatuses)
+  const available = TASK_STATUS_OPTIONS.filter(({ key }) => enabledGlobally.includes(key))
   return (
     <div className="space-y-2">
-      {TASK_STATUS_OPTIONS.map(({ key, label }) => {
+      {available.map(({ key, label }) => {
         const checked = statuses.includes(key)
         return (
           <div key={key} className="flex items-center gap-2">
