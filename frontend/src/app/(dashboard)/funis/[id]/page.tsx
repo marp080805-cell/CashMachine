@@ -60,10 +60,9 @@ type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
 type ViewMode = 'kanban' | 'list'
 
 const TASK_STATUS_OPTIONS: { key: string; label: string }[] = [
-  { key: 'PENDING',     label: 'Pendente' },
-  { key: 'IN_PROGRESS', label: 'Em andamento' },
+  { key: 'PENDING',     label: 'A Fazer' },
+  { key: 'IN_PROGRESS', label: 'Em Andamento' },
   { key: 'COMPLETED',   label: 'Concluída' },
-  { key: 'OVERDUE',     label: 'Atrasada' },
   { key: 'SKIPPED',     label: 'Ignorada' },
 ]
 
@@ -88,9 +87,13 @@ const CARD_FIELD_DEFS: { key: string; label: string; Icon: React.ElementType }[]
 function SortableFieldRow({
   field,
   onToggle,
+  onSettings,
+  settingsExpanded,
 }: {
   field: { key: string; visible: boolean }
   onToggle: () => void
+  onSettings?: () => void
+  settingsExpanded?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.key })
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined }
@@ -111,6 +114,16 @@ function SortableFieldRow({
       </button>
       <def.Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
       <span className="flex-1 text-sm">{def.label}</span>
+      {onSettings && (
+        <button
+          type="button"
+          onClick={onSettings}
+          className={settingsExpanded ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}
+          title="Configurar"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${settingsExpanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
       <button
         type="button"
         onClick={onToggle}
@@ -177,6 +190,7 @@ export default function PipelineKanbanPage() {
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [localFields, setLocalFields] = useState<{ key: string; visible: boolean }[]>([])
   const [fieldsDirty, setFieldsDirty] = useState(false)
+  const [expandedTasksConfig, setExpandedTasksConfig] = useState(false)
 
   const { data: allPipelines } = useQuery({
     queryKey: ['pipelines'],
@@ -712,29 +726,32 @@ export default function PipelineKanbanPage() {
                 <SortableContext items={localFields.map((f) => f.key)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-1">
                     {localFields.map((field) => (
-                      <SortableFieldRow
-                        key={field.key}
-                        field={field}
-                        onToggle={() => {
-                          setLocalFields((prev: { key: string; visible: boolean }[]) =>
-                            prev.map((f) => (f.key === field.key ? { ...f, visible: !f.visible } : f))
-                          )
-                          setFieldsDirty(true)
-                        }}
-                      />
+                      <div key={field.key}>
+                        <SortableFieldRow
+                          field={field}
+                          onToggle={() => {
+                            setLocalFields((prev: { key: string; visible: boolean }[]) =>
+                              prev.map((f) => (f.key === field.key ? { ...f, visible: !f.visible } : f))
+                            )
+                            setFieldsDirty(true)
+                          }}
+                          onSettings={field.key === 'tasks' ? () => setExpandedTasksConfig((v: boolean) => !v) : undefined}
+                          settingsExpanded={field.key === 'tasks' && expandedTasksConfig}
+                        />
+                        {field.key === 'tasks' && expandedTasksConfig && (
+                          <div className="ml-8 mt-1 mb-1 p-2 rounded-md border bg-muted/30 space-y-1.5">
+                            <p className="text-xs text-muted-foreground font-medium">Status visíveis no card</p>
+                            <TaskStatusConfig
+                              cardTaskStatuses={pipeline.cardTaskStatuses ?? '["PENDING","IN_PROGRESS"]'}
+                              onToggle={(next: string[]) => updateCardTaskStatusesMutation.mutate(next)}
+                            />
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </SortableContext>
               </DndContext>
-            </div>
-
-            <div className="border-t pt-4 space-y-3">
-              <Label className="text-sm font-semibold">Tarefas exibidas no card</Label>
-              <p className="text-xs text-muted-foreground">Escolha quais status de tarefas aparecem no card</p>
-              <TaskStatusConfig
-                cardTaskStatuses={pipeline.cardTaskStatuses ?? '["PENDING","IN_PROGRESS"]'}
-                onToggle={(next: string[]) => updateCardTaskStatusesMutation.mutate(next)}
-              />
             </div>
 
             <div className="border-t pt-4 space-y-3">
