@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Users, Radio, MessageSquare, LayoutDashboard,
-  GitBranch, Tag, XCircle, Zap, FileText, Link2, Camera, MessageCircle, Columns,
+  GitBranch, Tag, XCircle, Zap, FileText, Link2, Camera, Columns,
 } from 'lucide-react'
 
 const tabs = [
@@ -19,7 +19,6 @@ const tabs = [
   { href: '/configuracoes/templates-mensagem', label: 'Templates', icon: MessageSquare },
   { href: '/configuracoes/formularios', label: 'Formulários', icon: FileText },
   { href: '/configuracoes/integracoes', label: 'Integrações', icon: Link2 },
-  { href: '/configuracoes/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { href: '/configuracoes/snapshots', label: 'Snapshots', icon: Camera },
   { href: '/configuracoes/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ]
