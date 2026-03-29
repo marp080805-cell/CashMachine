@@ -255,6 +255,7 @@ model Pipeline {
   autoAssignCloser      AutoAssignMode @default(MANUAL)
   fixedCloserId         String?
   roundRobinUserIds     Json?          // array de user_ids
+  cardFields            String?        @default("[]")
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 

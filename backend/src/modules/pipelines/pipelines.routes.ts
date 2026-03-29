@@ -17,6 +17,11 @@ const createPipelineSchema = z.object({
   autoAssignCloser: z.enum(['MANUAL', 'ROUND_ROBIN', 'BY_SPECIALTY', 'FIXED']).optional(),
   fixedCloserId: z.string().uuid().optional().nullable(),
   roundRobinUserIds: z.array(z.string()).optional(),
+  cardFields: z.string().optional(), // JSON array como string: '["contact","value"]'
+})
+
+const deleteStageBodySchema = z.object({
+  transferToStageId: z.string().uuid().optional(),
 })
 
 const createStageSchema = z.object({
@@ -187,6 +192,7 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { id, stageId } = request.params as { id: string; stageId: string }
       const { tenantId } = request.user as { tenantId: string }
+      const { transferToStageId } = deleteStageBodySchema.parse(request.body ?? {})
 
       await prisma.pipeline.findFirstOrThrow({ where: { id, tenantId } })
 
@@ -196,7 +202,13 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
       })
 
       if (stage._count.opportunities > 0) {
-        return reply.status(409).send({ error: 'Etapa possui oportunidades vinculadas' })
+        if (!transferToStageId) {
+          return reply.status(409).send({ error: 'Etapa possui oportunidades. Forneça transferToStageId.' })
+        }
+        await prisma.opportunity.updateMany({
+          where: { stageId, tenantId },
+          data: { stageId: transferToStageId },
+        })
       }
 
       await prisma.stage.delete({ where: { id: stageId } })

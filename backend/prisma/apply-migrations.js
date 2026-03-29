@@ -15,6 +15,16 @@ async function main() {
     console.warn('[migration] pipelines.typeName warning:', e.message)
   }
 
+  // ── pipelines: cardFields (JSON array of card field slugs) ────────
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS "cardFields" TEXT DEFAULT '[]'
+    `)
+    console.log('[migration] pipelines.cardFields ok')
+  } catch (e) {
+    console.warn('[migration] pipelines.cardFields warning:', e.message)
+  }
+
   try {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE whatsapp_numbers
