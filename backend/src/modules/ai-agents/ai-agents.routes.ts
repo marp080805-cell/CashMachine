@@ -28,10 +28,10 @@ export default async function aiAgentsRoutes(app: FastifyInstance) {
     const { tenantId } = request.user as { tenantId: string }
     const { type } = request.query as { type?: string }
 
-    // Garante que existe sempre um agente CONVERSATION_ASSISTANT para o tenant
+    // Garante que existe sempre o agente padrão "Assistente de Conversa"
     if (!type || type === 'CONVERSATION_ASSISTANT') {
       const hasConvAgent = await prisma.aIAgent.findFirst({
-        where: { tenantId, type: 'CONVERSATION_ASSISTANT' },
+        where: { tenantId, name: 'Assistente de Conversa' },
         select: { id: true },
       })
       if (!hasConvAgent) {
