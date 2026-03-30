@@ -28,12 +28,34 @@ export default async function aiAgentsRoutes(app: FastifyInstance) {
     const { tenantId } = request.user as { tenantId: string }
     const { type } = request.query as { type?: string }
 
+    // Garante que existe sempre um agente CONVERSATION_ASSISTANT para o tenant
+    if (!type || type === 'CONVERSATION_ASSISTANT') {
+      const hasConvAgent = await prisma.aIAgent.findFirst({
+        where: { tenantId, type: 'CONVERSATION_ASSISTANT' },
+        select: { id: true },
+      })
+      if (!hasConvAgent) {
+        await prisma.aIAgent.create({
+          data: {
+            tenantId,
+            name: 'Assistente de Conversa',
+            type: 'CONVERSATION_ASSISTANT',
+            model: 'gpt-4o-mini',
+            systemPrompt: `Você é um assistente de vendas profissional e consultivo. Com base no contexto fornecido — informações do contato, oportunidade ativa, atividades recentes e histórico da conversa — sugira UMA resposta natural, direta e empática para a última mensagem recebida.\n\nRegras:\n- Máximo de 3 linhas\n- Tom humano, não robótico\n- Alinhado ao momento da venda e ao perfil do contato\n- Responda APENAS com o texto da mensagem, sem prefixos ou explicações`,
+            temperature: 0.7,
+            maxTokens: 300,
+            isActive: true,
+          },
+        })
+      }
+    }
+
     const agents = await prisma.aIAgent.findMany({
       where: {
         tenantId,
         ...(type && { type: type as any }),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
     })
 
     return reply.send(agents)
