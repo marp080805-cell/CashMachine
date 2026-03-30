@@ -68,10 +68,10 @@ async function buildRichContext(params: {
         pipeline: { select: { name: true } },
         stage: { select: { name: true } },
         assignedTo: { select: { name: true } },
-        tags: { select: { tag: { select: { name: true } } } },
+        tagAssignments: { select: { tag: { select: { name: true } } } },
         activities: {
           orderBy: { createdAt: 'desc' }, take: 5,
-          select: { type: true, description: true, createdAt: true },
+          select: { type: true, description: true },
         },
       },
     })
@@ -81,13 +81,13 @@ async function buildRichContext(params: {
       let oppSection = `=== OPORTUNIDADE ATIVA ===\nTítulo: ${opp.title}\nFunil: ${opp.pipeline?.name ?? 'N/A'}\nEtapa: ${opp.stage?.name ?? 'N/A'}\nTemperatura: ${tempLabel}`
       if (opp.value) oppSection += `\nValor: R$ ${Number(opp.value).toLocaleString('pt-BR')}`
       if (opp.assignedTo) oppSection += `\nResponsável: ${opp.assignedTo.name}`
-      if (opp.tags?.length) oppSection += `\nTags: ${opp.tags.map((t) => t.tag.name).join(', ')}`
+      if (opp.tagAssignments?.length) oppSection += `\nTags: ${opp.tagAssignments.map((t: { tag: { name: string } }) => t.tag.name).join(', ')}`
       if (opp.notes) oppSection += `\nNotas: ${opp.notes}`
       parts.push(oppSection)
 
       if (opp.activities.length > 0) {
         const acts = opp.activities
-          .map((a) => `- [${a.type}] ${a.description ?? ''}`.trimEnd())
+          .map((a: { type: string; description: string | null }) => `- [${a.type}] ${a.description ?? ''}`.trimEnd())
           .join('\n')
         parts.push(`=== ATIVIDADES RECENTES ===\n${acts}`)
       }
