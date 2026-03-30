@@ -134,7 +134,9 @@ export default function FormBuilderPage() {
         : (usersResponse as { users: User[] }).users ?? []
 
       setForm(formData)
-      setFields(Array.isArray(formData.fields) ? (formData.fields as FormField[]) : [])
+      const loadedFields = Array.isArray(formData.fields) ? (formData.fields as FormField[]) : []
+      // Ensure every field has an id (guard against old data saved without id)
+      setFields(loadedFields.map((f) => ({ ...f, id: f.id ?? generateId() })))
       setPipelines(Array.isArray(pipelinesData) ? pipelinesData : [])
       setUsers(usersArray)
       setSettings({

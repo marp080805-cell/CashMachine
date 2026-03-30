@@ -1,8 +1,14 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
 import { prisma } from '../../lib/prisma'
 
+function ensureFieldIds(fields: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return fields.map((f) => ({ ...f, id: f.id ?? randomUUID() }))
+}
+
 const formFieldSchema = z.object({
+  id: z.string().optional(),
   name: z.string().optional().default(''),
   label: z.string(),
   type: z.string(),
@@ -51,7 +57,7 @@ export default async function formsRoutes(app: FastifyInstance) {
       data: {
         ...input,
         tenantId,
-        fields: input.fields as any,
+        fields: ensureFieldIds(input.fields as any) as any,
         styling: input.styling as any,
       },
     })
@@ -87,7 +93,7 @@ export default async function formsRoutes(app: FastifyInstance) {
       where: { id },
       data: {
         ...input,
-        ...(input.fields !== undefined && { fields: input.fields as any }),
+        ...(input.fields !== undefined && { fields: ensureFieldIds(input.fields as any) as any }),
         ...(input.styling !== undefined && { styling: input.styling as any }),
       },
     })
@@ -107,7 +113,7 @@ export default async function formsRoutes(app: FastifyInstance) {
       where: { id },
       data: {
         ...input,
-        ...(input.fields !== undefined && { fields: input.fields as any }),
+        ...(input.fields !== undefined && { fields: ensureFieldIds(input.fields as any) as any }),
         ...(input.styling !== undefined && { styling: input.styling as any }),
       },
     })

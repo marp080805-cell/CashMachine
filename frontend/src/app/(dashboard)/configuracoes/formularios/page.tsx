@@ -8,21 +8,36 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Settings, Copy, FileText } from 'lucide-react'
+import { Plus, Trash2, Settings, Copy, FileText, Eye } from 'lucide-react'
 import { api } from '@/lib/api'
+
+interface FormField {
+  id: string
+  type: string
+  label: string
+}
 
 interface Form {
   id: string
   name: string
   slug: string
-  pipelineId: string
-  stageId?: string
-  submissionCount?: number
+  pipelineId?: string | null
+  fields?: FormField[]
+  _count?: { submissions: number }
 }
 
 interface Pipeline {
   id: string
   name: string
+}
+
+interface Submission {
+  id: string
+  data: Record<string, string>
+  createdAt: string
+  utmSource?: string | null
+  utmMedium?: string | null
+  utmCampaign?: string | null
 }
 
 function slugify(str: string) {
@@ -46,14 +61,20 @@ export default function FormulariosPage() {
   const [saving, setSaving] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  // Submissions viewer
+  const [viewForm, setViewForm] = useState<Form | null>(null)
+  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [submissionsTotal, setSubmissionsTotal] = useState(0)
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false)
+
   async function load() {
     try {
       const [formsData, pipelinesData] = await Promise.all([
         api.get<Form[]>('/forms'),
         api.get<Pipeline[]>('/pipelines'),
       ])
-      setForms(formsData)
-      setPipelines(pipelinesData)
+      setForms(Array.isArray(formsData) ? formsData : [])
+      setPipelines(Array.isArray(pipelinesData) ? pipelinesData : [])
     } finally {
       setLoading(false)
     }
@@ -78,7 +99,7 @@ export default function FormulariosPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir este formulário?')) return
+    if (!confirm('Excluir este formulário? Os envios também serão perdidos.')) return
     await api.delete(`/forms/${id}`)
     setForms((prev) => prev.filter((f) => f.id !== id))
   }
@@ -90,7 +111,20 @@ export default function FormulariosPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const getPipelineName = (id: string) => pipelines.find((p) => p.id === id)?.name ?? id
+  async function openSubmissions(form: Form) {
+    setViewForm(form)
+    setLoadingSubmissions(true)
+    try {
+      const res = await api.get<{ submissions: Submission[]; total: number }>(`/forms/${form.id}/submissions`)
+      setSubmissions(res.submissions ?? [])
+      setSubmissionsTotal(res.total ?? 0)
+    } finally {
+      setLoadingSubmissions(false)
+    }
+  }
+
+  const getPipelineName = (id?: string | null) =>
+    id ? (pipelines.find((p) => p.id === id)?.name ?? id) : '—'
 
   if (loading) return <div className="text-muted-foreground text-sm">Carregando...</div>
 
@@ -117,9 +151,11 @@ export default function FormulariosPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm">{form.name}</span>
                 <Badge variant="outline" className="text-xs font-mono">{form.slug}</Badge>
-                <Badge variant="secondary" className="text-xs">{getPipelineName(form.pipelineId)}</Badge>
-                {typeof form.submissionCount === 'number' && (
-                  <span className="text-xs text-muted-foreground">{form.submissionCount} envios</span>
+                {form.pipelineId && (
+                  <Badge variant="secondary" className="text-xs">{getPipelineName(form.pipelineId)}</Badge>
+                )}
+                {typeof form._count?.submissions === 'number' && (
+                  <span className="text-xs text-muted-foreground">{form._count.submissions} envio{form._count.submissions !== 1 ? 's' : ''}</span>
                 )}
               </div>
             </div>
@@ -132,6 +168,16 @@ export default function FormulariosPage() {
               >
                 <Copy className="h-3.5 w-3.5" />
                 {copiedId === form.id ? 'Copiado!' : 'Copiar link'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={() => void openSubmissions(form)}
+                title="Ver respostas"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Respostas
               </Button>
               <Button
                 variant="ghost"
@@ -156,6 +202,7 @@ export default function FormulariosPage() {
         ))}
       </div>
 
+      {/* Create dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -203,13 +250,120 @@ export default function FormulariosPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button
               onClick={() => void handleCreate()}
-              disabled={!formData.name || !formData.slug || !formData.pipelineId || saving}
+              disabled={!formData.name || !formData.slug || saving}
             >
               {saving ? 'Criando...' : 'Criar'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Submissions viewer */}
+      <Dialog open={!!viewForm} onOpenChange={(o) => { if (!o) setViewForm(null) }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Respostas — {viewForm?.name}
+              {submissionsTotal > 0 && (
+                <Badge variant="secondary">{submissionsTotal}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto">
+            {loadingSubmissions ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Carregando respostas...</p>
+            ) : submissions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma resposta recebida ainda.</p>
+            ) : (
+              <SubmissionsTable
+                submissions={submissions}
+                fields={viewForm?.fields ?? []}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function SubmissionsTable({ submissions, fields }: { submissions: Submission[]; fields: FormField[] }) {
+  // Build columns from fields that have actual data
+  const columns = fields.length > 0 ? fields : []
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+  }
+
+  function getCellValue(submission: Submission, field: FormField): string {
+    // Try by field id first, then by field label key (legacy), then by type
+    const byId = submission.data[field.id]
+    if (byId !== undefined && byId !== '') return byId
+
+    const byLabel = submission.data[field.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')]
+    if (byLabel !== undefined && byLabel !== '') return byLabel
+
+    // Legacy: direct name/email/phone keys
+    if (field.type === 'email') return submission.data.email ?? ''
+    if (field.type === 'phone') return submission.data.phone ?? ''
+
+    return ''
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">Data/Hora</th>
+            {columns.map((f) => (
+              <th key={f.id} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                {f.label}
+              </th>
+            ))}
+            {/* Show raw keys if no configured fields */}
+            {columns.length === 0 && submissions[0] && Object.keys(submissions[0].data)
+              .filter(k => !['name', 'email', 'phone'].includes(k) || true)
+              .slice(0, 8)
+              .map((k) => (
+                <th key={k} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                  {k}
+                </th>
+              ))
+            }
+            <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">UTM</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {submissions.map((sub) => (
+            <tr key={sub.id} className="hover:bg-muted/30">
+              <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                {formatDate(sub.createdAt)}
+              </td>
+              {columns.length > 0
+                ? columns.map((f) => (
+                    <td key={f.id} className="px-3 py-2 text-xs max-w-[200px] truncate" title={getCellValue(sub, f)}>
+                      {getCellValue(sub, f) || <span className="text-muted-foreground">—</span>}
+                    </td>
+                  ))
+                : Object.entries(sub.data).slice(0, 8).map(([k, v]) => (
+                    <td key={k} className="px-3 py-2 text-xs max-w-[200px] truncate" title={String(v)}>
+                      {String(v) || <span className="text-muted-foreground">—</span>}
+                    </td>
+                  ))
+              }
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {[sub.utmSource, sub.utmMedium, sub.utmCampaign].filter(Boolean).join(' / ') || '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
