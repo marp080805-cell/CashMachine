@@ -2,10 +2,107 @@ import { Worker } from 'bullmq'
 import { env } from '../config/env'
 import { prisma } from '../lib/prisma'
 import { decryptIfNeeded } from '../lib/encryption'
-import { generateWhatsappSuggestion } from '../modules/ai/ai.service'
 import { AIAgentService } from '../modules/ai-agents/ai-agent.service'
 
 const connection = { url: env.REDIS_URL }
+
+const DEFAULT_AGENT_PROMPT = `Você é um assistente de vendas profissional e consultivo. Com base no contexto fornecido — informações do contato, oportunidade ativa, atividades recentes e histórico da conversa — sugira UMA resposta natural, direta e empática para a última mensagem recebida.
+
+Regras:
+- Máximo de 3 linhas
+- Tom humano, não robótico
+- Alinhado ao momento da venda e ao perfil do contato
+- Responda APENAS com o texto da mensagem, sem prefixos ou explicações`
+
+async function getOrCreateDefaultAgent(tenantId: string) {
+  // Prioridade: agente CONVERSATION_ASSISTANT ativo mais antigo
+  let agent = await prisma.aIAgent.findFirst({
+    where: { tenantId, type: 'CONVERSATION_ASSISTANT', isActive: true },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  if (!agent) {
+    agent = await prisma.aIAgent.create({
+      data: {
+        tenantId,
+        name: 'Assistente de Conversa',
+        type: 'CONVERSATION_ASSISTANT',
+        model: 'gpt-4o-mini',
+        systemPrompt: DEFAULT_AGENT_PROMPT,
+        temperature: 0.7,
+        maxTokens: 300,
+        isActive: true,
+      },
+    })
+    console.log(`[ai-suggestion] Agente padrão criado para tenant ${tenantId}: ${agent.id}`)
+  }
+
+  return agent
+}
+
+async function buildRichContext(params: {
+  contact: { id: string; name: string; email: string | null; phone: string | null; notes: string | null; company: { name: string } | null } | null
+  contactId: string | undefined
+  tenantId: string
+  history: { content: string; fromMe: boolean }[]
+  incomingMessage: string
+}): Promise<string> {
+  const { contact, contactId, tenantId, history, incomingMessage } = params
+  const parts: string[] = []
+
+  if (contact) {
+    let contactSection = `=== CONTATO ===\nNome: ${contact.name}`
+    if (contact.email) contactSection += `\nEmail: ${contact.email}`
+    if (contact.phone) contactSection += `\nTelefone: ${contact.phone}`
+    if (contact.company) contactSection += `\nEmpresa: ${contact.company.name}`
+    if (contact.notes) contactSection += `\nObservações: ${contact.notes}`
+    parts.push(contactSection)
+  }
+
+  if (contactId) {
+    const opp = await prisma.opportunity.findFirst({
+      where: { contactId, tenantId, status: 'OPEN' },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        title: true, value: true, temperature: true, notes: true,
+        pipeline: { select: { name: true } },
+        stage: { select: { name: true } },
+        assignedTo: { select: { name: true } },
+        tags: { select: { tag: { select: { name: true } } } },
+        activities: {
+          orderBy: { createdAt: 'desc' }, take: 5,
+          select: { type: true, description: true, createdAt: true },
+        },
+      },
+    })
+
+    if (opp) {
+      const tempLabel = opp.temperature === 'HOT' ? 'Quente' : opp.temperature === 'WARM' ? 'Morno' : opp.temperature ? 'Frio' : 'N/A'
+      let oppSection = `=== OPORTUNIDADE ATIVA ===\nTítulo: ${opp.title}\nFunil: ${opp.pipeline?.name ?? 'N/A'}\nEtapa: ${opp.stage?.name ?? 'N/A'}\nTemperatura: ${tempLabel}`
+      if (opp.value) oppSection += `\nValor: R$ ${Number(opp.value).toLocaleString('pt-BR')}`
+      if (opp.assignedTo) oppSection += `\nResponsável: ${opp.assignedTo.name}`
+      if (opp.tags?.length) oppSection += `\nTags: ${opp.tags.map((t) => t.tag.name).join(', ')}`
+      if (opp.notes) oppSection += `\nNotas: ${opp.notes}`
+      parts.push(oppSection)
+
+      if (opp.activities.length > 0) {
+        const acts = opp.activities
+          .map((a) => `- [${a.type}] ${a.description ?? ''}`.trimEnd())
+          .join('\n')
+        parts.push(`=== ATIVIDADES RECENTES ===\n${acts}`)
+      }
+    }
+  }
+
+  const historyText = history
+    .slice(-15)
+    .map((m) => `${m.fromMe ? 'Você' : 'Lead'}: ${m.content}`)
+    .join('\n')
+  parts.push(`=== HISTÓRICO DA CONVERSA ===\n${historyText || 'Sem histórico anterior'}`)
+  parts.push(`=== NOVA MENSAGEM RECEBIDA ===\n"${incomingMessage}"`)
+
+  return parts.join('\n\n')
+}
 
 export function startAiSuggestionWorker(io: { to: (room: string) => { emit: (event: string, data: unknown) => void } }) {
   const worker = new Worker(
@@ -24,8 +121,8 @@ export function startAiSuggestionWorker(io: { to: (room: string) => { emit: (eve
           number: { select: { tenantId: true } },
           contact: {
             select: {
-              id: true, name: true, email: true, phone: true, whatsapp: true, notes: true,
-              company: { select: { id: true, name: true } },
+              id: true, name: true, email: true, phone: true, notes: true,
+              company: { select: { name: true } },
             },
           },
         },
@@ -33,143 +130,93 @@ export function startAiSuggestionWorker(io: { to: (room: string) => { emit: (eve
 
       if (!conversation) return
 
-      // Verificar se IA está habilitada para esta conversa
-      if (conversation.aiEnabled === false) {
-        console.log(`[ai-suggestion] IA desabilitada para conversa ${conversationId}`)
-        return
-      }
+      // IA desabilitada nesta conversa?
+      if (conversation.aiEnabled === false) return
 
       const tenantId = conversation.number?.tenantId
       if (!tenantId) return
 
-      // Buscar API key do tenant
+      // Verificar que há API key configurada
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: { openaiApiKey: true },
       })
       const tenantApiKey = decryptIfNeeded(tenant?.openaiApiKey)
-
       if (!tenantApiKey && !env.OPENAI_API_KEY) {
         console.warn(`[ai-suggestion] Nenhuma OpenAI API key configurada para o tenant ${tenantId}`)
         return
       }
 
-      // Determinar qual agente usar: conversa > pipeline > nenhum (método legado)
+      // Hierarquia de agente: conversa > pipeline > qualquer CONVERSATION_ASSISTANT > auto-criar
       let agentId: string | null = conversation.aiAgentId ?? null
 
-      // Se não há agente na conversa, buscar oportunidade para pegar agente do pipeline
       if (!agentId && contactId) {
-        const opportunity = await prisma.opportunity.findFirst({
+        const opp = await prisma.opportunity.findFirst({
           where: { contactId, tenantId, status: 'OPEN' },
           orderBy: { createdAt: 'desc' },
-          select: {
-            id: true, title: true, value: true, temperature: true, status: true, notes: true,
-            pipeline: { select: { id: true, name: true, aiEnabled: true, aiAgentId: true } },
-            stage: { select: { name: true } },
-            assignedTo: { select: { name: true } },
-          },
+          select: { pipeline: { select: { aiEnabled: true, aiAgentId: true } } },
         })
 
-        if (opportunity?.pipeline?.aiEnabled === false) {
-          console.log(`[ai-suggestion] IA desabilitada no funil ${opportunity.pipeline.id}`)
+        if (opp?.pipeline?.aiEnabled === false) {
+          console.log(`[ai-suggestion] IA desabilitada no funil`)
           return
         }
 
-        agentId = opportunity?.pipeline?.aiAgentId ?? null
+        agentId = opp?.pipeline?.aiAgentId ?? null
       }
 
+      // Se ainda sem agente: usar o padrão CONVERSATION_ASSISTANT (ou criar)
+      let agent
+      if (agentId) {
+        agent = await prisma.aIAgent.findUnique({
+          where: { id: agentId, tenantId, isActive: true },
+        })
+        if (!agent) agentId = null
+      }
+
+      if (!agent) {
+        agent = await getOrCreateDefaultAgent(tenantId)
+      }
+
+      // Construir histórico e contexto rico
       const history = [...conversation.messages].reverse().map((m) => ({
         content: m.content ?? '',
         fromMe: m.fromMe,
-        timestamp: m.timestamp.toISOString(),
       }))
 
-      let suggestion: string
+      const richInput = await buildRichContext({
+        contact: conversation.contact,
+        contactId,
+        tenantId,
+        history,
+        incomingMessage,
+      })
 
-      if (agentId) {
-        // Usar agente configurado com contexto rico
-        const agent = await prisma.aIAgent.findUnique({
-          where: { id: agentId, tenantId, isActive: true },
-        })
+      // Chamar agente
+      const result = await AIAgentService.callAgent(
+        {
+          id: agent.id,
+          systemPrompt: agent.systemPrompt,
+          model: agent.model,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+          tenantId,
+        },
+        { input: richInput, conversationId },
+      )
 
-        if (!agent) {
-          console.warn(`[ai-suggestion] Agente ${agentId} não encontrado ou inativo`)
-          agentId = null
-        } else {
-          // Montar contexto rico: contato + oportunidade + histórico
-          const contact = conversation.contact
-          const opportunity = contactId ? await prisma.opportunity.findFirst({
-            where: { contactId, tenantId, status: 'OPEN' },
-            orderBy: { createdAt: 'desc' },
-            select: {
-              title: true, value: true, temperature: true, notes: true,
-              pipeline: { select: { name: true } },
-              stage: { select: { name: true } },
-              assignedTo: { select: { name: true } },
-              activities: {
-                orderBy: { createdAt: 'desc' }, take: 3,
-                select: { type: true, description: true, createdAt: true },
-              },
-            },
-          }) : null
-
-          const contextParts: string[] = []
-
-          if (contact) {
-            contextParts.push(`=== CONTATO ===\nNome: ${contact.name}${contact.email ? `\nEmail: ${contact.email}` : ''}${contact.phone ? `\nTelefone: ${contact.phone}` : ''}${contact.company ? `\nEmpresa: ${contact.company.name}` : ''}${contact.notes ? `\nObservações: ${contact.notes}` : ''}`)
-          }
-
-          if (opportunity) {
-            const temp = opportunity.temperature === 'HOT' ? '🔥 Quente' : opportunity.temperature === 'WARM' ? '🌤 Morno' : '❄️ Frio'
-            contextParts.push(`=== OPORTUNIDADE ===\nTítulo: ${opportunity.title}\nFunil: ${opportunity.pipeline?.name ?? 'N/A'}\nEtapa: ${opportunity.stage?.name ?? 'N/A'}\nTemperatura: ${temp}${opportunity.value ? `\nValor: R$ ${Number(opportunity.value).toLocaleString('pt-BR')}` : ''}${opportunity.notes ? `\nNotas: ${opportunity.notes}` : ''}`)
-
-            if (opportunity.activities.length > 0) {
-              const acts = opportunity.activities.map((a) => `- [${a.type}] ${a.description ?? ''}`.trim()).join('\n')
-              contextParts.push(`=== ATIVIDADES RECENTES ===\n${acts}`)
-            }
-          }
-
-          const historyText = history.slice(-15).map((m) => `${m.fromMe ? 'Você' : 'Lead'}: ${m.content}`).join('\n')
-          contextParts.push(`=== HISTÓRICO DA CONVERSA ===\n${historyText || 'Sem histórico anterior'}`)
-          contextParts.push(`=== NOVA MENSAGEM RECEBIDA ===\n"${incomingMessage}"`)
-
-          const richInput = contextParts.join('\n\n')
-
-          const result = await AIAgentService.callAgent(
-            { id: agent.id, systemPrompt: agent.systemPrompt, model: agent.model, tenantId },
-            { input: richInput, conversationId },
-          )
-          suggestion = result.suggestionText
-        }
-      }
-
-      // Fallback para método legado se não houver agente configurado
-      if (!agentId) {
-        let leadContext: string | null = null
-        if (contactId) {
-          const lead = await prisma.lead.findFirst({
-            where: { contactId },
-            select: { status: true, score: true, contact: { select: { name: true } } },
-          })
-          if (lead) {
-            leadContext = `Nome: ${lead.contact?.name ?? 'N/A'}, Status: ${lead.status}, Score: ${lead.score}`
-          }
-        }
-        suggestion = await generateWhatsappSuggestion(history, leadContext, incomingMessage, tenantApiKey)
-      }
-
-      // Salvar sugestão na última mensagem e emitir via socket
-      const lastMessage = conversation.messages[0] // já em ordem desc
+      // Salvar na mensagem e emitir via socket
+      const lastMessage = conversation.messages[0]
       if (lastMessage) {
         await prisma.whatsappMessage.update({
           where: { id: lastMessage.id },
-          data: { aiSuggestion: suggestion! },
+          data: { aiSuggestion: result.suggestionText },
         })
       }
 
       io.to(`conversation:${conversationId}`).emit('ai:suggestion', {
         conversationId,
-        suggestion: suggestion!,
+        suggestion: result.suggestionText,
       })
     },
     { connection }

@@ -8,6 +8,8 @@ export class AIAgentService {
       id: string
       systemPrompt: string
       model: string
+      temperature?: number
+      maxTokens?: number
       tenantId: string
     },
     context: {
@@ -43,8 +45,8 @@ export class AIAgentService {
         { role: 'system', content: agent.systemPrompt },
         { role: 'user', content: context.input },
       ],
-      max_tokens: 500,
-      temperature: 0.3,
+      max_tokens: agent.maxTokens ?? 500,
+      temperature: agent.temperature ?? 0.3,
     })
 
     const suggestionText = response.choices[0]?.message?.content?.trim() ?? ''
