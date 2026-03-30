@@ -238,34 +238,46 @@ export default async function formsRoutes(app: FastifyInstance) {
       })
     }
 
-    // Create Opportunity if pipeline configured
+    // Resolve assignedToId
+    const assignedToId = form.autoAssignToId
+      ?? (await prisma.user.findFirst({
+        where: { tenantId: form.tenantId, role: 'ADMIN', isActive: true },
+        select: { id: true },
+      }))?.id
+
+    // Create Lead (status NEW, source = form name)
+    const lead = await prisma.lead.create({
+      data: {
+        tenantId: form.tenantId,
+        contactId: contact.id,
+        source: form.name,
+        sourceDetail: utm_source ?? null,
+        status: 'NEW',
+      },
+    })
+
+    // Create Opportunity if pipeline configured and link to lead
     let opportunityId: string | undefined
 
-    if (form.pipelineId && form.initialStageId) {
-      const pipeline = await prisma.pipeline.findUnique({
-        where: { id: form.pipelineId },
+    if (form.pipelineId && form.initialStageId && assignedToId) {
+      const opportunity = await prisma.opportunity.create({
+        data: {
+          tenantId: form.tenantId,
+          contactId: contact.id,
+          pipelineId: form.pipelineId,
+          stageId: form.initialStageId,
+          assignedToId,
+          title: `${name} — ${form.name}`,
+          status: 'OPEN',
+        },
       })
+      opportunityId = opportunity.id
 
-      const assignedToId = form.autoAssignToId
-        ?? (await prisma.user.findFirst({
-          where: { tenantId: form.tenantId, role: 'ADMIN', isActive: true },
-          select: { id: true },
-        }))?.id
-
-      if (pipeline && assignedToId) {
-        const opportunity = await prisma.opportunity.create({
-          data: {
-            tenantId: form.tenantId,
-            contactId: contact.id,
-            pipelineId: form.pipelineId,
-            stageId: form.initialStageId,
-            assignedToId,
-            title: `${name} — ${form.name}`,
-            status: 'OPEN',
-          },
-        })
-        opportunityId = opportunity.id
-      }
+      // Mark lead as converted to this opportunity
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { convertedToOpportunityId: opportunity.id },
+      })
     }
 
     // Create FormSubmission
