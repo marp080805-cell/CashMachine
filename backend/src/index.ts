@@ -125,10 +125,9 @@ async function bootstrap() {
 
   const workers: import('bullmq').Worker[] = []
 
-  if (env.OPENAI_API_KEY) {
-    workers.push(startAiSuggestionWorker(app.io))
-    workers.push(startTranscriptionWorker())
-  }
+  // Workers de AI sempre iniciados — chave buscada por tenant no banco
+  workers.push(startAiSuggestionWorker(app.io))
+  workers.push(startTranscriptionWorker())
 
   workers.push(startNotificationWorker())
   workers.push(startEmailWorker())

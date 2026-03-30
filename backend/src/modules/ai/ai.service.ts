@@ -1,9 +1,11 @@
 import OpenAI from 'openai'
 import { env } from '../../config/env'
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
-
 const WHATSAPP_SUGGESTION_PROMPT = `Você é um SDR profissional e consultivo. Analise o histórico da conversa e a última mensagem recebida e sugira UMA resposta natural, direta e sem parecer robótico. A resposta deve ter no máximo 3 linhas. Contexto do lead: {lead_context}. Histórico: {history}. Última mensagem: {message}. Responda apenas com o texto da mensagem, sem explicações.`
+
+function getOpenAI(apiKey?: string | null) {
+  return new OpenAI({ apiKey: apiKey || env.OPENAI_API_KEY || 'no-key' })
+}
 
 const CALL_ANALYSIS_PROMPT = `Analise a transcrição desta reunião de vendas e retorne um JSON com: pontos_positivos (array de strings), objecoes (array de strings), oportunidades_perdidas (array de strings), proximo_passo (string), score (number 0-10), justificativa_score (string). Seja específico com exemplos da conversa.`
 
@@ -25,7 +27,8 @@ export interface MessageContext {
 export async function generateWhatsappSuggestion(
   conversationHistory: MessageContext[],
   leadContext: string | null,
-  incomingMessage: string
+  incomingMessage: string,
+  apiKey?: string | null,
 ): Promise<string> {
   const historyText = conversationHistory
     .slice(-10)
@@ -37,6 +40,7 @@ export async function generateWhatsappSuggestion(
     .replace('{history}', historyText || 'Sem histórico anterior')
     .replace('{message}', incomingMessage)
 
+  const openai = getOpenAI(apiKey)
   const response = await openai.chat.completions.create({
     model: env.OPENAI_MODEL,
     messages: [{ role: 'user', content: prompt }],
@@ -49,10 +53,12 @@ export async function generateWhatsappSuggestion(
 
 export async function analyzeCallTranscription(
   transcript: string,
-  dealContext: string | null
+  dealContext: string | null,
+  apiKey?: string | null,
 ): Promise<CallAnalysis> {
   const prompt = `${CALL_ANALYSIS_PROMPT}\n\n${dealContext ? `Contexto do deal: ${dealContext}\n\n` : ''}Transcrição:\n${transcript}`
 
+  const openai = getOpenAI(apiKey)
   const response = await openai.chat.completions.create({
     model: env.OPENAI_MODEL,
     messages: [{ role: 'user', content: prompt }],
