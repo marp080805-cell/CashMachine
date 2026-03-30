@@ -12,12 +12,19 @@ interface FormField {
   options?: string[]
 }
 
+interface FormStyling {
+  backgroundColor?: string
+  buttonColor?: string
+  textColor?: string
+}
+
 interface PublicForm {
   id: string
   name: string
   slug: string
   fields: FormField[]
-  redirectUrl?: string
+  redirectUrl?: string | null
+  styling?: FormStyling | null
 }
 
 export default function PublicFormPage() {
@@ -61,21 +68,45 @@ export default function PublicFormPage() {
     setSubmitting(true)
     try {
       const apiUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3011'
+
+      // Build payload: values keyed by field.id for storage
+      // Plus extract name/email/phone for contact creation
+      const payload: Record<string, string> = {}
+      let firstTextFieldId: string | undefined
+
+      for (const field of form.fields) {
+        const value = values[field.id] ?? ''
+        // Store by field id
+        payload[field.id] = value
+        // Map standard types to contact fields
+        if (field.type === 'email') payload.email = value
+        else if (field.type === 'phone') payload.phone = value
+        else if (field.type === 'text' && !firstTextFieldId) firstTextFieldId = field.id
+      }
+
+      // First text field is treated as name
+      if (firstTextFieldId) payload.name = values[firstTextFieldId] ?? ''
+
       const res = await fetch(`${apiUrl}/forms/${slug}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values }),
+        body: JSON.stringify(payload),
       })
 
-      if (!res.ok) throw new Error('Erro ao enviar formulário')
+      if (!res.ok) {
+        const err = await res.json() as { error?: string }
+        throw new Error(err.error ?? 'Erro ao enviar formulário')
+      }
 
-      if (form.redirectUrl) {
-        window.location.href = form.redirectUrl
+      const result = await res.json() as { redirectUrl?: string | null }
+
+      if (result.redirectUrl ?? form.redirectUrl) {
+        window.location.href = (result.redirectUrl ?? form.redirectUrl) as string
       } else {
         setSubmitted(true)
       }
-    } catch {
-      alert('Ocorreu um erro ao enviar o formulário. Tente novamente.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ocorreu um erro ao enviar o formulário. Tente novamente.')
     } finally {
       setSubmitting(false)
     }
@@ -85,10 +116,14 @@ export default function PublicFormPage() {
     setValues((prev) => ({ ...prev, [fieldId]: value }))
   }
 
+  const bg = form?.styling?.backgroundColor ?? '#f9fafb'
+  const btnColor = form?.styling?.buttonColor ?? '#2563eb'
+  const textColor = form?.styling?.textColor ?? '#111827'
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500 text-sm">Carregando formulário...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bg }}>
+        <p className="text-sm" style={{ color: textColor }}>Carregando formulário...</p>
       </div>
     )
   }
@@ -106,26 +141,28 @@ export default function PublicFormPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bg }}>
         <div className="text-center max-w-sm p-8">
           <div className="text-4xl mb-4">✅</div>
-          <p className="text-gray-800 font-semibold text-lg">Obrigado!</p>
-          <p className="text-gray-500 text-sm mt-2">Entraremos em contato em breve.</p>
+          <p className="font-semibold text-lg" style={{ color: textColor }}>Obrigado!</p>
+          <p className="text-sm mt-2" style={{ color: textColor, opacity: 0.7 }}>Entraremos em contato em breve.</p>
         </div>
       </div>
     )
   }
 
+  const inputClass = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent bg-white'
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4" style={{ backgroundColor: bg }}>
       <div className="w-full max-w-lg">
         <div className="bg-white rounded-xl shadow-sm border p-8">
-          <h1 className="text-xl font-semibold text-gray-900 mb-6">{form.name}</h1>
+          <h1 className="text-xl font-semibold mb-6" style={{ color: textColor }}>{form.name}</h1>
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             {form.fields.map((field) => (
               <div key={field.id} className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium" style={{ color: textColor }}>
                   {field.label}
                   {field.required && <span className="text-red-500 ml-0.5">*</span>}
                 </label>
@@ -137,14 +174,15 @@ export default function PublicFormPage() {
                     value={values[field.id] ?? ''}
                     onChange={(e) => handleChange(field.id, e.target.value)}
                     rows={4}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className={`${inputClass} resize-none`}
+                    style={{ '--tw-ring-color': btnColor } as React.CSSProperties}
                   />
                 ) : field.type === 'select' ? (
                   <select
                     required={field.required}
                     value={values[field.id] ?? ''}
                     onChange={(e) => handleChange(field.id, e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    className={inputClass}
                   >
                     <option value="">{field.placeholder ?? 'Selecione uma opção'}</option>
                     {(field.options ?? []).map((opt) => (
@@ -164,7 +202,7 @@ export default function PublicFormPage() {
                     placeholder={field.placeholder}
                     value={values[field.id] ?? ''}
                     onChange={(e) => handleChange(field.id, e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={inputClass}
                   />
                 )}
               </div>
@@ -174,7 +212,8 @@ export default function PublicFormPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors"
+                className="w-full text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: btnColor }}
               >
                 {submitting ? 'Enviando...' : 'Enviar'}
               </button>

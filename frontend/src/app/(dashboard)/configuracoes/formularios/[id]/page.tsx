@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Save, Copy } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Save, Copy, Palette } from 'lucide-react'
 import { api } from '@/lib/api'
+import { toast } from 'sonner'
 
 interface FormField {
   id: string
@@ -20,15 +21,22 @@ interface FormField {
   options?: string[]
 }
 
+interface FormStyling {
+  backgroundColor?: string
+  buttonColor?: string
+  textColor?: string
+}
+
 interface Form {
   id: string
   name: string
   slug: string
-  pipelineId: string
-  stageId?: string
-  defaultAssignedToId?: string
-  redirectUrl?: string
-  fields?: FormField[]
+  pipelineId?: string | null
+  initialStageId?: string | null
+  autoAssignToId?: string | null
+  redirectUrl?: string | null
+  fields?: unknown
+  styling?: unknown
 }
 
 interface Pipeline {
@@ -61,26 +69,27 @@ function generateId() {
   return Math.random().toString(36).slice(2, 9)
 }
 
-function FieldPreview({ field }: { field: FormField }) {
+function FieldPreview({ field, styling }: { field: FormField; styling: FormStyling }) {
+  const inputClass = 'w-full border rounded px-2 py-1.5 text-sm bg-white/60 resize-none'
   switch (field.type) {
     case 'textarea':
-      return <textarea disabled placeholder={field.placeholder} className="w-full border rounded px-2 py-1.5 text-sm bg-muted/30 resize-none" rows={3} />
+      return <textarea disabled placeholder={field.placeholder} className={inputClass} rows={3} />
     case 'select':
       return (
-        <select disabled className="w-full border rounded px-2 py-1.5 text-sm bg-muted/30">
+        <select disabled className={inputClass}>
           <option value="">{field.placeholder ?? 'Selecione...'}</option>
           {(field.options ?? []).map((opt) => <option key={opt}>{opt}</option>)}
         </select>
       )
     case 'date':
-      return <input disabled type="date" className="w-full border rounded px-2 py-1.5 text-sm bg-muted/30" />
+      return <input disabled type="date" className={inputClass} />
     default:
       return (
         <input
           disabled
           type={field.type === 'email' ? 'email' : field.type === 'number' ? 'number' : 'text'}
           placeholder={field.placeholder}
-          className="w-full border rounded px-2 py-1.5 text-sm bg-muted/30"
+          className={inputClass}
         />
       )
   }
@@ -97,9 +106,14 @@ export default function FormBuilderPage() {
   const [users, setUsers] = useState<User[]>([])
   const [settings, setSettings] = useState({
     pipelineId: '',
-    stageId: '',
-    defaultAssignedToId: '',
+    initialStageId: '',
+    autoAssignToId: '',
     redirectUrl: '',
+  })
+  const [styling, setStyling] = useState<FormStyling>({
+    backgroundColor: '#ffffff',
+    buttonColor: '#2563eb',
+    textColor: '#111827',
   })
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -108,23 +122,42 @@ export default function FormBuilderPage() {
 
   async function load() {
     try {
-      const [formData, pipelinesData, usersData] = await Promise.all([
+      const [formData, pipelinesData, usersResponse] = await Promise.all([
         api.get<Form>(`/forms/${id}`),
         api.get<Pipeline[]>('/pipelines'),
-        api.get<User[]>('/users'),
+        api.get<{ users: User[] } | User[]>('/users'),
       ])
+
+      // Users endpoint returns { users: [] }
+      const usersArray = Array.isArray(usersResponse)
+        ? usersResponse
+        : (usersResponse as { users: User[] }).users ?? []
+
       setForm(formData)
-      setFields(formData.fields ?? [])
-      setPipelines(pipelinesData)
-      setUsers(usersData)
+      setFields(Array.isArray(formData.fields) ? (formData.fields as FormField[]) : [])
+      setPipelines(Array.isArray(pipelinesData) ? pipelinesData : [])
+      setUsers(usersArray)
       setSettings({
         pipelineId: formData.pipelineId ?? '',
-        stageId: formData.stageId ?? '',
-        defaultAssignedToId: formData.defaultAssignedToId ?? '',
+        initialStageId: formData.initialStageId ?? '',
+        autoAssignToId: formData.autoAssignToId ?? '',
         redirectUrl: formData.redirectUrl ?? '',
       })
-      const pipeline = pipelinesData.find((p) => p.id === formData.pipelineId)
+
+      const saved = formData.styling as FormStyling | undefined
+      if (saved) {
+        setStyling({
+          backgroundColor: saved.backgroundColor ?? '#ffffff',
+          buttonColor: saved.buttonColor ?? '#2563eb',
+          textColor: saved.textColor ?? '#111827',
+        })
+      }
+
+      const safeP = Array.isArray(pipelinesData) ? pipelinesData : []
+      const pipeline = safeP.find((p) => p.id === formData.pipelineId)
       setStages(pipeline?.stages ?? [])
+    } catch {
+      toast.error('Erro ao carregar formulário')
     } finally {
       setLoading(false)
     }
@@ -133,7 +166,7 @@ export default function FormBuilderPage() {
   useEffect(() => { void load() }, [id])
 
   function handlePipelineChange(pipelineId: string) {
-    setSettings((s) => ({ ...s, pipelineId, stageId: '' }))
+    setSettings((s) => ({ ...s, pipelineId, initialStageId: '' }))
     const pipeline = pipelines.find((p) => p.id === pipelineId)
     setStages(pipeline?.stages ?? [])
   }
@@ -176,7 +209,23 @@ export default function FormBuilderPage() {
   async function handleSave() {
     setSaving(true)
     try {
-      await api.patch<Form>(`/forms/${id}`, { fields, ...settings })
+      // Backend requires `name` on each field — derive from label
+      const fieldsWithName = fields.map((f) => ({
+        ...f,
+        name: f.label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || f.type,
+        sortOrder: fields.indexOf(f),
+      }))
+      await api.put<Form>(`/forms/${id}`, {
+        fields: fieldsWithName,
+        pipelineId: settings.pipelineId || undefined,
+        initialStageId: settings.initialStageId || undefined,
+        autoAssignToId: settings.autoAssignToId || undefined,
+        redirectUrl: settings.redirectUrl || undefined,
+        styling,
+      })
+      toast.success('Formulário salvo com sucesso')
+    } catch {
+      toast.error('Erro ao salvar formulário')
     } finally {
       setSaving(false)
     }
@@ -191,8 +240,6 @@ export default function FormBuilderPage() {
 
   if (loading) return <div className="text-muted-foreground text-sm p-6">Carregando...</div>
   if (!form) return <div className="text-muted-foreground text-sm p-6">Formulário não encontrado.</div>
-
-  const selectedField = fields.find((f) => f.id === selectedFieldId) ?? null
 
   return (
     <div className="flex flex-col h-full">
@@ -214,8 +261,8 @@ export default function FormBuilderPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left — field types + settings */}
-        <div className="w-52 border-r bg-muted/30 p-3 overflow-y-auto flex-shrink-0 space-y-4">
+        {/* Left — field types + settings + colors */}
+        <div className="w-56 border-r bg-muted/30 p-3 overflow-y-auto flex-shrink-0 space-y-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Campos</p>
             <div className="space-y-1">
@@ -236,11 +283,12 @@ export default function FormBuilderPage() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Configurações</p>
             <div className="space-y-1">
               <Label className="text-xs">Pipeline</Label>
-              <Select value={settings.pipelineId} onValueChange={handlePipelineChange}>
+              <Select value={settings.pipelineId || '__none__'} onValueChange={(v) => { if (v === '__none__') { setSettings((s) => ({ ...s, pipelineId: '', initialStageId: '' })); setStages([]) } else { handlePipelineChange(v) } }}>
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__" className="text-xs">Nenhum</SelectItem>
                   {pipelines.map((p) => (
                     <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
                   ))}
@@ -249,12 +297,13 @@ export default function FormBuilderPage() {
             </div>
             {stages.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-xs">Etapa</Label>
-                <Select value={settings.stageId} onValueChange={(v) => setSettings((s) => ({ ...s, stageId: v }))}>
+                <Label className="text-xs">Etapa inicial</Label>
+                <Select value={settings.initialStageId || '__none__'} onValueChange={(v) => setSettings((s) => ({ ...s, initialStageId: v === '__none__' ? '' : v }))}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__" className="text-xs">Nenhuma</SelectItem>
                     {stages.map((st) => (
                       <SelectItem key={st.id} value={st.id} className="text-xs">{st.name}</SelectItem>
                     ))}
@@ -265,13 +314,14 @@ export default function FormBuilderPage() {
             <div className="space-y-1">
               <Label className="text-xs">Responsável padrão</Label>
               <Select
-                value={settings.defaultAssignedToId}
-                onValueChange={(v) => setSettings((s) => ({ ...s, defaultAssignedToId: v }))}
+                value={settings.autoAssignToId || '__none__'}
+                onValueChange={(v) => setSettings((s) => ({ ...s, autoAssignToId: v === '__none__' ? '' : v }))}
               >
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__" className="text-xs">Admin padrão</SelectItem>
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id} className="text-xs">{u.name}</SelectItem>
                   ))}
@@ -288,9 +338,54 @@ export default function FormBuilderPage() {
               />
             </div>
           </div>
+
+          {/* Colors */}
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+              <Palette className="h-3 w-3" /> Cores
+            </p>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Fundo</Label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={styling.backgroundColor ?? '#ffffff'}
+                    onChange={(e) => setStyling((s) => ({ ...s, backgroundColor: e.target.value }))}
+                    className="h-6 w-8 rounded border cursor-pointer p-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground font-mono">{styling.backgroundColor}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Botão</Label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={styling.buttonColor ?? '#2563eb'}
+                    onChange={(e) => setStyling((s) => ({ ...s, buttonColor: e.target.value }))}
+                    className="h-6 w-8 rounded border cursor-pointer p-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground font-mono">{styling.buttonColor}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Texto</Label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={styling.textColor ?? '#111827'}
+                    onChange={(e) => setStyling((s) => ({ ...s, textColor: e.target.value }))}
+                    className="h-6 w-8 rounded border cursor-pointer p-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground font-mono">{styling.textColor}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Center — fields list + field config */}
+        {/* Center — fields list */}
         <div className="flex-1 p-4 overflow-y-auto">
           {fields.length === 0 && (
             <div className="border-2 border-dashed rounded-lg p-8 text-center text-sm text-muted-foreground">
@@ -321,27 +416,21 @@ export default function FormBuilderPage() {
                   <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}</span>
                   <div className="flex gap-0.5">
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
+                      variant="ghost" size="icon" className="h-6 w-6"
                       onClick={(e) => { e.stopPropagation(); moveField(field.id, 'up') }}
                       disabled={idx === 0}
                     >
                       <ChevronUp className="h-3 w-3" />
                     </Button>
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
+                      variant="ghost" size="icon" className="h-6 w-6"
                       onClick={(e) => { e.stopPropagation(); moveField(field.id, 'down') }}
                       disabled={idx === fields.length - 1}
                     >
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
                       onClick={(e) => { e.stopPropagation(); removeField(field.id) }}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -351,10 +440,7 @@ export default function FormBuilderPage() {
 
                 {/* Inline config when selected */}
                 {selectedFieldId === field.id && (
-                  <div
-                    className="mt-3 space-y-2 border-t pt-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className="mt-3 space-y-2 border-t pt-3" onClick={(e) => e.stopPropagation()}>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-xs">Label</Label>
@@ -380,9 +466,7 @@ export default function FormBuilderPage() {
                           className="w-full border rounded px-2 py-1.5 text-xs resize-none h-16"
                           value={(field.options ?? []).join('\n')}
                           onChange={(e) =>
-                            updateField(field.id, {
-                              options: e.target.value.split('\n').filter(Boolean),
-                            })
+                            updateField(field.id, { options: e.target.value.split('\n').filter(Boolean) })
                           }
                         />
                       </div>
@@ -407,20 +491,24 @@ export default function FormBuilderPage() {
           {fields.length === 0 ? (
             <p className="text-xs text-muted-foreground">Adicione campos para ver o preview.</p>
           ) : (
-            <div className="border rounded-lg p-4 bg-background space-y-3">
-              <p className="font-semibold text-sm">{form.name}</p>
+            <div
+              className="border rounded-xl p-5 space-y-3 shadow-sm"
+              style={{ backgroundColor: styling.backgroundColor, color: styling.textColor }}
+            >
+              <p className="font-semibold text-sm" style={{ color: styling.textColor }}>{form.name}</p>
               {fields.map((field) => (
                 <div key={field.id} className="space-y-1">
-                  <label className="text-xs font-medium">
+                  <label className="text-xs font-medium block" style={{ color: styling.textColor }}>
                     {field.label}
-                    {field.required && <span className="text-destructive ml-0.5">*</span>}
+                    {field.required && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
-                  <FieldPreview field={field} />
+                  <FieldPreview field={field} styling={styling} />
                 </div>
               ))}
               <button
                 disabled
-                className="w-full bg-primary text-primary-foreground text-sm py-2 rounded font-medium opacity-70"
+                className="w-full text-white text-sm py-2 rounded-lg font-medium mt-1"
+                style={{ backgroundColor: styling.buttonColor }}
               >
                 Enviar
               </button>

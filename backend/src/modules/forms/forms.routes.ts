@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 
 const formFieldSchema = z.object({
-  name: z.string(),
+  name: z.string().optional().default(''),
   label: z.string(),
   type: z.string(),
   required: z.boolean().optional().default(false),
@@ -95,6 +95,26 @@ export default async function formsRoutes(app: FastifyInstance) {
     return reply.send(form)
   })
 
+  // PATCH /forms/:id (alias for PUT — for backward compat)
+  app.patch('/forms/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { tenantId } = request.user as { tenantId: string }
+    const input = createFormSchema.partial().parse(request.body)
+
+    await prisma.form.findFirstOrThrow({ where: { id, tenantId } })
+
+    const form = await prisma.form.update({
+      where: { id },
+      data: {
+        ...input,
+        ...(input.fields !== undefined && { fields: input.fields as any }),
+        ...(input.styling !== undefined && { styling: input.styling as any }),
+      },
+    })
+
+    return reply.send(form)
+  })
+
   // DELETE /forms/:id (auth)
   app.delete('/forms/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
@@ -155,10 +175,25 @@ export default async function formsRoutes(app: FastifyInstance) {
       [key: string]: unknown
     }
 
-    // Extract contact fields from form data
-    const name = formData.name as string | undefined
-    const email = formData.email as string | undefined
-    const phone = formData.phone as string | undefined
+    // Extract contact fields — support both field-id-keyed (new) and direct name/email/phone (legacy)
+    const formFields = Array.isArray(form.fields)
+      ? (form.fields as Array<{ id: string; type: string; label: string }>)
+      : []
+
+    let name = formData.name as string | undefined
+    let email = formData.email as string | undefined
+    let phone = formData.phone as string | undefined
+
+    // Scan form fields to extract by field type from id-keyed values
+    let firstTextFieldId: string | undefined
+    for (const field of formFields) {
+      const value = formData[field.id] as string | undefined
+      if (!value) continue
+      if (field.type === 'email' && !email) email = value
+      else if (field.type === 'phone' && !phone) phone = value
+      else if (field.type === 'text' && !firstTextFieldId) firstTextFieldId = field.id
+    }
+    if (!name && firstTextFieldId) name = formData[firstTextFieldId] as string | undefined
 
     if (!name) {
       return reply.status(400).send({ error: 'name field is required' })
