@@ -376,6 +376,8 @@ export interface WhatsappConversation {
   lastMessageAt: string | null
   unreadCount: number
   isArchived: boolean
+  aiEnabled: boolean
+  aiAgentId: string | null
   createdAt: string
   updatedAt: string
 }

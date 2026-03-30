@@ -235,6 +235,25 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     return reply.send({ success: true })
   })
 
+  // Configuração de IA por conversa (ativar/desativar + selecionar agente)
+  app.patch('/whatsapp/conversations/:id/ai-config', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const body = z.object({
+      aiEnabled: z.boolean().optional(),
+      aiAgentId: z.string().nullable().optional(),
+    }).parse(request.body)
+
+    const conversation = await prisma.whatsappConversation.update({
+      where: { id },
+      data: {
+        ...(body.aiEnabled !== undefined && { aiEnabled: body.aiEnabled }),
+        ...(body.aiAgentId !== undefined && { aiAgentId: body.aiAgentId }),
+      },
+    })
+
+    return reply.send({ aiEnabled: conversation.aiEnabled, aiAgentId: conversation.aiAgentId })
+  })
+
   // Merge de conversas duplicadas (mesmo telefone, variantes 9/8-dígito BR)
   app.post('/whatsapp/conversations/merge-duplicates', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { tenantId } = request.user as { tenantId: string }

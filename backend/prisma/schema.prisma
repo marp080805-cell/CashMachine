@@ -257,6 +257,8 @@ model Pipeline {
   roundRobinUserIds     Json?          // array de user_ids
   cardFields            String?        @default("[]")
   cardTaskStatuses      String?        @default("[\"PENDING\",\"IN_PROGRESS\"]")
+  aiEnabled             Boolean        @default(true)
+  aiAgentId             String?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
@@ -1519,6 +1521,8 @@ model WhatsappConversation {
   lastMessageAt DateTime?
   unreadCount   Int                @default(0)
   isArchived    Boolean            @default(false)
+  aiEnabled     Boolean            @default(true)
+  aiAgentId     String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 

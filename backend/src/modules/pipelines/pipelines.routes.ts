@@ -19,6 +19,8 @@ const createPipelineSchema = z.object({
   roundRobinUserIds: z.array(z.string()).optional(),
   cardFields: z.string().optional(), // JSON array como string: '["contact","value"]'
   cardTaskStatuses: z.string().optional(), // JSON array string
+  aiEnabled: z.boolean().optional(),
+  aiAgentId: z.string().nullable().optional(),
 })
 
 const deleteStageBodySchema = z.object({

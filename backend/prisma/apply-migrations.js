@@ -110,6 +110,30 @@ async function main() {
     console.log('[migration] customization tables ok')
   } catch (e) {
     console.warn('[migration] customization warning:', e.message)
+  }
+
+  // ── pipelines: aiEnabled + aiAgentId (controle de IA por funil) ──
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE pipelines
+        ADD COLUMN IF NOT EXISTS "aiEnabled" BOOLEAN DEFAULT true,
+        ADD COLUMN IF NOT EXISTS "aiAgentId" TEXT
+    `)
+    console.log('[migration] pipelines.ai columns ok')
+  } catch (e) {
+    console.warn('[migration] pipelines.ai warning:', e.message)
+  }
+
+  // ── whatsapp_conversations: aiEnabled + aiAgentId (controle por conversa) ──
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE whatsapp_conversations
+        ADD COLUMN IF NOT EXISTS "aiEnabled" BOOLEAN DEFAULT true,
+        ADD COLUMN IF NOT EXISTS "aiAgentId" TEXT
+    `)
+    console.log('[migration] whatsapp_conversations.ai columns ok')
+  } catch (e) {
+    console.warn('[migration] whatsapp_conversations.ai warning:', e.message)
   } finally {
     await prisma.$disconnect()
   }
