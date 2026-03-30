@@ -49,6 +49,8 @@ export default async function contactsRoutes(app: FastifyInstance) {
 
     const where = {
       tenantId,
+      // Exclude contacts created automatically from form submissions (they appear as Leads)
+      NOT: { category: '__form_lead__' },
       ...(originId && { originId }),
       ...(companyId && { companyId }),
       ...(search && {

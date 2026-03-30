@@ -225,6 +225,8 @@ export default async function formsRoutes(app: FastifyInstance) {
           name,
           email: email ?? null,
           phone: normalizedPhone ?? null,
+          // Mark as form lead so it doesn't appear in the Contacts list
+          category: '__form_lead__',
         },
       })
     } else {
