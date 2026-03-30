@@ -24,7 +24,13 @@ import {
   Pencil, Check, Trash2, CheckCircle2, Circle, Plus,
   Calendar, Mail, FileText, Users, Clock, Activity,
   Video, Handshake, Tag as TagIcon, AlertTriangle, Settings2, GitBranch,
+  Sparkles, Bot, ChevronDown,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import Link from 'next/link'
 import type { Opportunity, WhatsappNumber, User, Task, Activity as ActivityType, Tag } from '@/types'
 import { api } from '@/lib/api'
@@ -291,10 +297,21 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
   const [adminMode, setAdminMode] = useState(false)
 
+  // IA por conversa
+  const [convAiEnabled, setConvAiEnabled] = useState(true)
+  const [convAiAgentId, setConvAiAgentId] = useState<string | null>(null)
+
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const queryClient = useQueryClient()
+
+  // Agentes IA disponíveis
+  const { data: aiAgents = [] } = useQuery({
+    queryKey: ['ai-agents'],
+    queryFn: () => api.get<Array<{ id: string; name: string; isActive: boolean }>>('/ai-agents'),
+    select: (data) => data.filter((a) => a.isActive),
+  })
 
   // Main opportunity detail
   const { data: oppDetail } = useQuery({
@@ -314,7 +331,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
   const { data: existingConvsData } = useQuery({
     queryKey: ['whatsapp-conversations-contact', opportunity?.contactId],
     queryFn: () =>
-      api.get<{ conversations: Array<{ id: string }> }>(
+      api.get<{ conversations: Array<{ id: string; aiEnabled: boolean; aiAgentId: string | null }> }>(
         `/whatsapp/conversations?contactId=${opportunity!.contactId}&limit=1`
       ),
     enabled: !!opportunity?.contactId,
@@ -392,15 +409,33 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
     setEditData({ title: '', value: '', expectedCloseDate: '', notes: '', stageId: '', assignedToId: '', originId: '', originLabel: '', contactId: '', contactLabel: '', companyId: '', companyLabel: '' })
   }, [opportunity?.id])
 
-  // Auto-load existing WhatsApp conversation
+  // Auto-load existing WhatsApp conversation + sync AI config
   useEffect(() => {
-    const convId = existingConvsData?.conversations?.[0]?.id
-    if (convId) {
-      setActiveConversationId(convId)
+    const conv = existingConvsData?.conversations?.[0]
+    if (conv) {
+      setActiveConversationId(conv.id)
+      setConvAiEnabled(conv.aiEnabled ?? true)
+      setConvAiAgentId(conv.aiAgentId ?? null)
     }
   }, [existingConvsData])
 
   // — Mutations —
+
+  const convAiConfigMutation = useMutation({
+    mutationFn: (body: { aiEnabled?: boolean; aiAgentId?: string | null }) =>
+      api.patch(`/whatsapp/conversations/${activeConversationId}/ai-config`, body),
+    onError: () => toast.error('Erro ao salvar configuração de IA'),
+  })
+
+  function handleConvAiToggle(enabled: boolean) {
+    setConvAiEnabled(enabled)
+    convAiConfigMutation.mutate({ aiEnabled: enabled })
+  }
+
+  function handleConvAgentSelect(agentId: string | null) {
+    setConvAiAgentId(agentId)
+    convAiConfigMutation.mutate({ aiAgentId: agentId })
+  }
 
   const deleteOppMutation = useMutation({
     mutationFn: () => api.delete<void>(`/opportunities/${opportunity!.id}`),
@@ -1469,24 +1504,63 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                 </div>
               ) : activeConversationId ? (
                 <>
-                  <div className="flex items-center gap-3 px-4 py-3 border-b bg-card flex-shrink-0">
-                    <Avatar className="h-8 w-8">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b bg-card flex-shrink-0">
+                    <Avatar className="h-7 w-7 shrink-0">
                       <AvatarFallback className="text-xs bg-green-100 text-green-700">
                         {getInitials(contact.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{contact.name}</p>
-                      {contactPhone && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {contactPhone}
-                        </p>
-                      )}
+                    </div>
+                    {/* Controles IA */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn('h-7 gap-1 text-xs px-2', !convAiEnabled && 'opacity-50')}
+                          disabled={!convAiEnabled}
+                        >
+                          <Bot className="h-3 w-3" />
+                          <span className="max-w-[70px] truncate hidden sm:inline">
+                            {aiAgents.find((a) => a.id === convAiAgentId)?.name ?? 'Padrão'}
+                          </span>
+                          <ChevronDown className="h-3 w-3 opacity-60" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">Agente de IA</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleConvAgentSelect(null)}
+                          className={cn('text-xs', !convAiAgentId && 'font-medium text-primary')}
+                        >
+                          Agente padrão
+                        </DropdownMenuItem>
+                        {aiAgents.length > 0 && <DropdownMenuSeparator />}
+                        {aiAgents.map((a) => (
+                          <DropdownMenuItem
+                            key={a.id}
+                            onClick={() => handleConvAgentSelect(a.id)}
+                            className={cn('text-xs', convAiAgentId === a.id && 'font-medium text-primary')}
+                          >
+                            {a.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <div className="flex items-center gap-1">
+                      <Sparkles className={cn('h-3.5 w-3.5', convAiEnabled ? 'text-violet-500' : 'text-muted-foreground')} />
+                      <Switch
+                        checked={convAiEnabled}
+                        onCheckedChange={handleConvAiToggle}
+                        disabled={convAiConfigMutation.isPending}
+                      />
                     </div>
                     <Link href="/whatsapp" target="_blank">
-                      <Button size="sm" variant="ghost" title="Abrir no WhatsApp">
-                        <ExternalLink className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Abrir no WhatsApp">
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
                     </Link>
                   </div>

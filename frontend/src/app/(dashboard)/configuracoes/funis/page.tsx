@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Pencil, Trash2, Plus, Settings } from 'lucide-react'
+import { Pencil, Trash2, Plus, Settings, Sparkles, Bot } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -30,6 +30,14 @@ interface Pipeline {
   typeName?: string | null
   description?: string
   stages?: Stage[]
+  aiEnabled?: boolean
+  aiAgentId?: string | null
+}
+
+interface AIAgent {
+  id: string
+  name: string
+  isActive: boolean
 }
 
 
@@ -40,7 +48,7 @@ const typeBadgeVariant: Record<string, string> = {
   RELATIONSHIP: 'bg-purple-100 text-purple-700',
 }
 
-const emptyForm = { name: '', type: 'SALES', typeName: '', description: '' }
+const emptyForm = { name: '', type: 'SALES', typeName: '', description: '', aiEnabled: true, aiAgentId: '' }
 
 export default function FunisConfigPage() {
   const queryClient = useQueryClient()
@@ -52,6 +60,12 @@ export default function FunisConfigPage() {
   const { data: pipelines = [], isLoading: loadingPipelines } = useQuery({
     queryKey: ['pipelines'],
     queryFn: () => api.get<Pipeline[]>('/pipelines'),
+  })
+
+  const { data: aiAgents = [] } = useQuery({
+    queryKey: ['ai-agents'],
+    queryFn: () => api.get<AIAgent[]>('/ai-agents'),
+    select: (data) => data.filter((a) => a.isActive),
   })
 
   const { data: tenantData } = useQuery({
@@ -99,6 +113,8 @@ export default function FunisConfigPage() {
       type: pipeline.type,
       typeName: pipeline.typeName ?? '',
       description: pipeline.description ?? '',
+      aiEnabled: pipeline.aiEnabled ?? true,
+      aiAgentId: pipeline.aiAgentId ?? '',
     })
     setOpen(true)
   }
@@ -111,6 +127,8 @@ export default function FunisConfigPage() {
         type: form.type,
         ...(form.typeName ? { typeName: form.typeName } : { typeName: null }),
         description: form.description || undefined,
+        aiEnabled: form.aiEnabled,
+        aiAgentId: form.aiAgentId || null,
       }
       if (editing) {
         await api.patch<Pipeline>(`/pipelines/${editing.id}`, payload)
@@ -263,6 +281,48 @@ export default function FunisConfigPage() {
                 placeholder="Descreva o objetivo deste funil"
                 rows={2}
               />
+            </div>
+
+            {/* IA config */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-violet-500" />
+                <p className="text-sm font-medium">Assistente de IA</p>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm">Sugestões automáticas</p>
+                  <p className="text-xs text-muted-foreground">Gerar sugestão quando um contato responder</p>
+                </div>
+                <Switch
+                  checked={form.aiEnabled}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, aiEnabled: v }))}
+                />
+              </div>
+              {form.aiEnabled && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    <Bot className="h-3.5 w-3.5" /> Agente padrão do funil
+                  </Label>
+                  <Select
+                    value={form.aiAgentId || '__default__'}
+                    onValueChange={(v) => setForm((f) => ({ ...f, aiAgentId: v === '__default__' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default__" className="text-xs">Agente padrão do sistema</SelectItem>
+                      {aiAgents.map((a) => (
+                        <SelectItem key={a.id} value={a.id} className="text-xs">{a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {aiAgents.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Crie agentes em <strong>IA / Agentes</strong> para selecionar</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
