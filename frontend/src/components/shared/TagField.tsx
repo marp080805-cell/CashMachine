@@ -14,6 +14,7 @@ interface TagFieldProps {
   // Edit mode: pass entityId to connect to API directly
   entityId?: string
   queryKey?: string[]
+  queryKeys?: string[][]  // extra query keys to invalidate (e.g. pipeline cache)
   // Create mode: pass value + onChange for controlled behavior
   value?: string[]
   onChange?: (ids: string[]) => void
@@ -24,6 +25,7 @@ export function TagField({
   label = 'Tags',
   entityId,
   queryKey = [],
+  queryKeys = [],
   value,
   onChange,
 }: TagFieldProps) {
@@ -51,23 +53,23 @@ export function TagField({
     queryFn: () => api.get<Tag[]>(`/tags?entityType=${entityType}`),
   })
 
+  function invalidateAll() {
+    void queryClient.invalidateQueries({ queryKey: ['entity-tags', entityType, entityId] })
+    if (queryKey.length) void queryClient.invalidateQueries({ queryKey })
+    queryKeys.forEach((qk) => void queryClient.invalidateQueries({ queryKey: qk }))
+  }
+
   const addMutation = useMutation({
     mutationFn: (tagId: string) =>
       api.post('/tags/assign', { tagId, entityType, entityId }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['entity-tags', entityType, entityId] })
-      if (queryKey.length) void queryClient.invalidateQueries({ queryKey })
-    },
+    onSuccess: invalidateAll,
     onError: () => toast.error('Erro ao adicionar tag'),
   })
 
   const removeMutation = useMutation({
     mutationFn: (tagId: string) =>
       api.post('/tags/unassign', { tagId, entityType, entityId }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['entity-tags', entityType, entityId] })
-      if (queryKey.length) void queryClient.invalidateQueries({ queryKey })
-    },
+    onSuccess: invalidateAll,
     onError: () => toast.error('Erro ao remover tag'),
   })
 

@@ -1019,6 +1019,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         entityType="opportunity"
                         entityId={opportunity!.id}
                         queryKey={['opportunity', opportunity!.id]}
+                        queryKeys={[['pipeline', pipelineId]]}
                       />
                     </div>
                   ) : (
@@ -1120,6 +1121,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         entityType="opportunity"
                         entityId={opportunity!.id}
                         queryKey={['opportunity', opportunity!.id]}
+                        queryKeys={[['pipeline', pipelineId]]}
                       />
 
                       {/* Registrar atividade */}
