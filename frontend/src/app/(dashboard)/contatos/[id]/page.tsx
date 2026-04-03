@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
-import { EntityTagsSection } from '@/components/shared/EntityTagsSection'
+import { TagField } from '@/components/shared/TagField'
 import type { Contact, Task, Activity as ActivityType } from '@/types'
 import { formatDate, formatDateTime, formatCurrency, getInitials, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -1189,10 +1189,7 @@ export default function ContactProfilePage() {
             </div>
 
             {/* Tags */}
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tags</h3>
-              <EntityTagsSection entityType="contact" entityId={contactId} queryKey={['contact', contactId]} />
-            </div>
+            <TagField entityType="contact" entityId={contactId} queryKey={['contact', contactId]} />
 
             {/* Campos Personalizados */}
             <div>

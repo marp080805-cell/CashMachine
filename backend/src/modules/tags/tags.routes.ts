@@ -96,6 +96,8 @@ export default async function tagsRoutes(app: FastifyInstance) {
         entityType: input.entityType,
         entityId: input.entityId,
         assignedById: userId,
+        // Backward compat: set opportunityId so opportunity.tagAssignments relation works
+        ...(input.entityType === 'opportunity' && { opportunityId: input.entityId }),
       },
       include: { tag: true },
     })

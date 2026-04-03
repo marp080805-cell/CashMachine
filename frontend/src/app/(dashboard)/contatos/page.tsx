@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/authStore'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { TagField } from '@/components/shared/TagField'
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
 
@@ -124,6 +125,7 @@ export default function ContatosPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<ContactForm>(defaultForm)
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
+  const [contactTagIds, setContactTagIds] = useState<string[]>([])
   const [adminModeCreate, setAdminModeCreate] = useState(false)
   const queryClient = useQueryClient()
   const authUser = useAuthStore((s) => s.user)
@@ -161,6 +163,13 @@ export default function ContatosPage() {
           )
         )
       }
+      if (contactTagIds.length > 0) {
+        await Promise.allSettled(
+          contactTagIds.map((tagId) =>
+            api.post('/tags/assign', { tagId, entityType: 'contact', entityId: contact.id })
+          )
+        )
+      }
       return contact
     },
     onSuccess: () => {
@@ -168,6 +177,7 @@ export default function ContatosPage() {
       setModalOpen(false)
       setForm(defaultForm)
       setCfValues({})
+      setContactTagIds([])
       void queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
     onError: (err: unknown) => {
@@ -273,7 +283,7 @@ export default function ContatosPage() {
         emptyMessage="Nenhum contato encontrado"
       />
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfValues({}); setAdminModeCreate(false) } }}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setForm(defaultForm); setCfValues({}); setContactTagIds([]); setAdminModeCreate(false) } }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="flex flex-row items-center justify-between pr-8">
             <DialogTitle>Novo Contato</DialogTitle>
@@ -450,6 +460,11 @@ export default function ContatosPage() {
               </div>
             </div>
 
+            <TagField
+              entityType="contact"
+              value={contactTagIds}
+              onChange={setContactTagIds}
+            />
             {/* Campos personalizados */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>

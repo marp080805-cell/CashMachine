@@ -42,6 +42,7 @@ import { CustomFieldsPanel } from '@/components/custom-fields/CustomFieldsPanel'
 import { FieldWrapper } from '@/components/custom-fields/FieldWrapper'
 import { useAuthStore } from '@/stores/authStore'
 import { EntityCombobox } from '@/components/shared/EntityCombobox'
+import { TagField } from '@/components/shared/TagField'
 
 
 interface FlatOrigin { id: string; name: string; path: string; depth: number; parentId: string | null }
@@ -878,7 +879,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                <TabsList className="w-full rounded-none border-b grid grid-cols-6 h-auto px-0">
+                <TabsList className="w-full rounded-none border-b grid grid-cols-5 h-auto px-0">
                   <TabsTrigger value="details" className="text-xs py-2">Detalhes</TabsTrigger>
                   <TabsTrigger value="tasks" className="text-xs py-2">
                     Tarefas {tasks.length > 0 ? `(${tasks.length})` : ''}
@@ -886,7 +887,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   <TabsTrigger value="meetings" className="text-xs py-2">Reuniões</TabsTrigger>
                   <TabsTrigger value="conversations" className="text-xs py-2">Conversas</TabsTrigger>
                   <TabsTrigger value="timeline" className="text-xs py-2">Histórico</TabsTrigger>
-                  <TabsTrigger value="tags" className="text-xs py-2">Tags</TabsTrigger>
                 </TabsList>
 
                 {/* ── Tab: Detalhes ── */}
@@ -1014,6 +1014,12 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                           onAdminModeChange={setAdminMode}
                         />
                       </div>
+                      {/* Tags */}
+                      <TagField
+                        entityType="opportunity"
+                        entityId={opportunity!.id}
+                        queryKey={['opportunity', opportunity!.id]}
+                      />
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1107,6 +1113,13 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         entityId={opportunity?.id}
                         adminMode={false}
                         onAdminModeChange={() => {}}
+                      />
+
+                      {/* Tags */}
+                      <TagField
+                        entityType="opportunity"
+                        entityId={opportunity!.id}
+                        queryKey={['opportunity', opportunity!.id]}
                       />
 
                       {/* Registrar atividade */}
@@ -1355,8 +1368,8 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                   )}
                 </TabsContent>
 
-                {/* ── Tab: Tags ── */}
-                <TabsContent value="tags" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
+                {/* Tags tab removed — tags are now a native field in the Details tab */}
+                {(false) && <TabsContent value="__tags_removed__" className="flex-1 overflow-y-auto p-4 space-y-3 mt-0">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-muted-foreground">
                       {(oppDetail?.tagAssignments ?? []).length} tag(s) vinculada(s)
@@ -1488,7 +1501,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                       ))
                     )}
                   </div>
-                </TabsContent>
+                </TabsContent>}
               </Tabs>
             </div>
 

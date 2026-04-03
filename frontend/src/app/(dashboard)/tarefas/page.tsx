@@ -41,6 +41,7 @@ import { useFieldConfig } from '@/hooks/useFieldConfig'
 import { EntityCombobox } from '@/components/shared/EntityCombobox'
 import { useAuthStore } from '@/stores/authStore'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
+import { TagField } from '@/components/shared/TagField'
 
 // ── Task type maps ──
 
@@ -179,6 +180,7 @@ const DEFAULT_STATUS_DEFS = Object.entries(statusLabels).map(([key, label]) => (
 function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultTaskForm, ...initialData })
   const [cfValues, setCfValues] = useState<Record<string, unknown>>({})
+  const [taskTagIds, setTaskTagIds] = useState<string[]>([])
   const [adminMode, setAdminMode] = useState(false)
   const { user } = useAuth()
   const authUser = useAuthStore((s) => s.user)
@@ -197,7 +199,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
         base.assignedToId = user.id
       }
       setForm(base)
-      if (!taskId) { setCfValues({}) }
+      if (!taskId) { setCfValues({}); setTaskTagIds([]) }
     }
   }, [open, initialData, taskId, user])
 
@@ -208,7 +210,7 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
       const task = isEdit
         ? await api.put<Task>(`/tasks/${taskId}`, body)
         : await api.post<Task>('/tasks', body)
-      // Save custom field values for new tasks
+      // Save custom field values and tags for new tasks
       if (!isEdit) {
         const cfEntries = Object.entries(cfValues).filter(([, v]) => v !== '' && v !== null && v !== undefined)
         if (cfEntries.length > 0) {
@@ -218,11 +220,19 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
             )
           )
         }
+        if (taskTagIds.length > 0) {
+          await Promise.allSettled(
+            taskTagIds.map((tagId) =>
+              api.post('/tags/assign', { tagId, entityType: 'task', entityId: task.id })
+            )
+          )
+        }
       }
       return task
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Tarefa atualizada!' : 'Tarefa criada!')
+      setTaskTagIds([])
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
       onSuccess()
       onClose()
@@ -467,6 +477,11 @@ function TaskFormModal({ open, onClose, initialData, taskId, users, onSuccess }:
               className="resize-none"
             />
           </FieldWrapper>
+          {/* Tags */}
+          {isEdit && taskId
+            ? <TagField entityType="task" entityId={taskId} queryKey={['tasks']} />
+            : <TagField entityType="task" value={taskTagIds} onChange={setTaskTagIds} />
+          }
           {/* Campos personalizados */}
           <div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>

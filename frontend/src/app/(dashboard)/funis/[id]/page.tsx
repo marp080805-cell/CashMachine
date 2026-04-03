@@ -52,6 +52,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { PipelineTypeCombobox, PREDEFINED_PIPELINE_TYPES } from '@/components/shared/PipelineTypeCombobox'
 import { EntityCombobox } from '@/components/shared/EntityCombobox'
+import { TagField } from '@/components/shared/TagField'
 
 type PipelineWithOpportunities = Omit<Pipeline, 'stages'> & {
   stages: Array<Stage & { opportunities: Opportunity[] }>
@@ -178,6 +179,7 @@ export default function PipelineKanbanPage() {
     companyId: '', companyLabel: '',
   })
   const [cfOppValues, setCfOppValues] = useState<Record<string, unknown>>({})
+  const [oppTagIds, setOppTagIds] = useState<string[]>([])
   const [adminModeOpp, setAdminModeOpp] = useState(false)
   const fieldConfig = useFieldConfig()
   const authUser = useAuthStore((s) => s.user)
@@ -334,6 +336,13 @@ export default function PipelineKanbanPage() {
           )
         )
       }
+      if (oppTagIds.length > 0) {
+        await Promise.allSettled(
+          oppTagIds.map((tagId) =>
+            api.post('/tags/assign', { tagId, entityType: 'opportunity', entityId: opp.id })
+          )
+        )
+      }
       return opp
     },
     onSuccess: () => {
@@ -341,6 +350,7 @@ export default function PipelineKanbanPage() {
       setOppModalOpen(false)
       setOppForm({ title: '', value: '', stageId: '', contactId: '', contactLabel: '', notes: '', expectedCloseDate: '', companyId: '', companyLabel: '' })
       setCfOppValues({})
+      setOppTagIds([])
       void queryClient.invalidateQueries({ queryKey: ['pipeline', id] })
     },
     onError: (err: unknown) => {
@@ -910,6 +920,11 @@ export default function PipelineKanbanPage() {
                 />
               </div>
             </FieldWrapper>
+            <TagField
+              entityType="opportunity"
+              value={oppTagIds}
+              onChange={setOppTagIds}
+            />
             {/* Campos personalizados */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Campos Personalizados</h3>
