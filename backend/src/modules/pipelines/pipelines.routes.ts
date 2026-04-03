@@ -75,10 +75,15 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
               include: {
                 contact: { select: { id: true, name: true, phone: true, email: true } },
                 assignedTo: { select: { id: true, name: true, avatarUrl: true } },
+                company: { select: { id: true, name: true } },
                 sdr: { select: { id: true, name: true } },
                 closer: { select: { id: true, name: true } },
                 origin: { select: { id: true, name: true } },
                 subOrigin: { select: { id: true, name: true } },
+                tagAssignments: {
+                  where: { removedAt: null },
+                  include: { tag: { select: { id: true, name: true, color: true } } },
+                },
               },
             },
           },
