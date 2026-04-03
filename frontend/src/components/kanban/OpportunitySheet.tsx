@@ -1029,7 +1029,7 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                         return (
                           <div className="grid grid-cols-2 gap-3">
                             {contact && (
-                              <div className="col-span-2">
+                              <div className={opp.company ? undefined : 'col-span-2'}>
                                 <p className="text-xs text-muted-foreground mb-1">Contato</p>
                                 <Link
                                   href={`/contatos/${opp.contactId}`}
@@ -1039,6 +1039,14 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                                 </Link>
                                 {contact.email && <p className="text-xs text-muted-foreground">{contact.email}</p>}
                                 {contact.phone && <p className="text-xs text-muted-foreground">{contact.phone}</p>}
+                              </div>
+                            )}
+                            {opp.company && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Empresa</p>
+                                <Link href={`/empresas/${opp.companyId}`} className="text-sm font-medium hover:underline text-primary">
+                                  {opp.company.name}
+                                </Link>
                               </div>
                             )}
                             <div>
@@ -1088,14 +1096,6 @@ export function OpportunitySheet({ opportunity, onClose, pipelineId }: Opportuni
                               <div>
                                 <p className="text-xs text-muted-foreground mb-1">Closer</p>
                                 <p className="text-sm">{opp.closer.name}</p>
-                              </div>
-                            )}
-                            {opp.company && (
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">Empresa</p>
-                                <Link href={`/empresas/${opp.companyId}`} className="text-sm hover:underline text-primary">
-                                  {opp.company.name}
-                                </Link>
                               </div>
                             )}
                             {opp.notes && (

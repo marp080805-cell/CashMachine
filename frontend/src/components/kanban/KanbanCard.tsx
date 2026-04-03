@@ -139,7 +139,7 @@ export function KanbanCard({ opportunity, onClick, cardFields }: KanbanCardProps
         <span className="text-xs text-muted-foreground">{opportunity.status}</span>
       )}
       {fields.includes('tags') && (opportunity as any).tagAssignments?.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 mt-2">
           {((opportunity as any).tagAssignments as { tag: { name: string; color: string } }[]).slice(0, 3).map((ta, i) => (
             <span
               key={i}
