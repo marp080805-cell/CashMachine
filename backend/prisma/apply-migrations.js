@@ -124,6 +124,16 @@ async function main() {
     console.warn('[migration] pipelines.ai warning:', e.message)
   }
 
+  // ── contacts: assignedToId (responsável pelo contato) ────────────
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS "assignedToId" TEXT REFERENCES users(id)
+    `)
+    console.log('[migration] contacts.assignedToId ok')
+  } catch (e) {
+    console.warn('[migration] contacts.assignedToId warning:', e.message)
+  }
+
   // ── whatsapp_conversations: aiEnabled + aiAgentId (controle por conversa) ──
   try {
     await prisma.$executeRawUnsafe(`

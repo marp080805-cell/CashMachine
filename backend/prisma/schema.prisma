@@ -103,6 +103,7 @@ model User {
   goals                      Goal[]                  @relation("UserGoals")
   formAssignments            Form[]                  @relation("FormAssignees")
   createdTemplates           AccountTemplate[]       @relation("CreatedTemplates")
+  assignedContacts           Contact[]               @relation("AssignedContacts")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -149,6 +150,8 @@ model Contact {
   firstContactDate DateTime?
   notes            String?
   isBlacklisted    Boolean    @default(false)
+  assignedToId     String?
+  assignedTo       User?      @relation("AssignedContacts", fields: [assignedToId], references: [id])
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 

@@ -50,16 +50,19 @@ export default async function contactsRoutes(app: FastifyInstance) {
     const where = {
       tenantId,
       // Exclude contacts created automatically from form submissions (they appear as Leads)
-      NOT: { category: '__form_lead__' },
+      // Use AND to properly handle NULL: contacts with no category must also appear
+      AND: [
+        { OR: [{ category: null }, { NOT: { category: '__form_lead__' } }] },
+        ...(search ? [{
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { email: { contains: search, mode: 'insensitive' as const } },
+            { phone: { contains: search } },
+          ],
+        }] : []),
+      ],
       ...(originId && { originId }),
       ...(companyId && { companyId }),
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' as const } },
-          { email: { contains: search, mode: 'insensitive' as const } },
-          { phone: { contains: search } },
-        ],
-      }),
     }
 
     const [data, total] = await Promise.all([
@@ -72,6 +75,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
           origin: { select: { id: true, name: true } },
           subOrigin: { select: { id: true, name: true } },
           company: { select: { id: true, name: true } },
+          assignedTo: { select: { id: true, name: true } },
         },
       }),
       prisma.contact.count({ where }),
