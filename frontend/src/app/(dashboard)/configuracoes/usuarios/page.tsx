@@ -41,14 +41,14 @@ const ROLE_COLORS: Record<string, string> = {
   VIEWER: 'bg-gray-100 text-gray-700',
 }
 
-const emptyForm = { name: '', email: '', password: '', role: 'SDR' }
+const emptyForm = { name: '', email: '', password: '', confirmPassword: '', role: 'SDR' }
 
 export default function UsuariosPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserItem | null>(null)
   const [form, setForm] = useState(emptyForm)
-  const [editForm, setEditForm] = useState({ name: '', role: '', password: '', isActive: true })
+  const [editForm, setEditForm] = useState({ name: '', email: '', role: '', password: '', confirmPassword: '', isActive: true })
   const [saving, setSaving] = useState(false)
   const queryClient = useQueryClient()
 
@@ -63,9 +63,13 @@ export default function UsuariosPage() {
       toast.error('Preencha todos os campos')
       return
     }
+    if (form.password !== form.confirmPassword) {
+      toast.error('As senhas não coincidem')
+      return
+    }
     setSaving(true)
     try {
-      await api.post('/users', form)
+      await api.post('/users', { name: form.name, email: form.email, password: form.password, role: form.role })
       toast.success('Usuário criado com sucesso!')
       setCreateOpen(false)
       setForm(emptyForm)
@@ -79,16 +83,21 @@ export default function UsuariosPage() {
 
   function openEdit(user: UserItem) {
     setEditingUser(user)
-    setEditForm({ name: user.name, role: user.role, password: '', isActive: user.isActive })
+    setEditForm({ name: user.name, email: user.email, role: user.role, password: '', confirmPassword: '', isActive: user.isActive })
     setEditOpen(true)
   }
 
   async function handleEdit() {
     if (!editingUser || !editForm.name) { toast.error('Nome é obrigatório'); return }
+    if (editForm.password && editForm.password !== editForm.confirmPassword) {
+      toast.error('As senhas não coincidem')
+      return
+    }
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
         name: editForm.name,
+        email: editForm.email,
         role: editForm.role,
         isActive: editForm.isActive,
       }
@@ -213,6 +222,10 @@ export default function UsuariosPage() {
               <Input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Mínimo 6 caracteres" />
             </div>
             <div className="space-y-1.5">
+              <Label>Confirmar senha</Label>
+              <Input type="password" value={form.confirmPassword} onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))} placeholder="Repita a senha" />
+            </div>
+            <div className="space-y-1.5">
               <Label>Perfil</Label>
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -244,6 +257,10 @@ export default function UsuariosPage() {
               <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
+              <Label>E-mail</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
               <Label>Perfil</Label>
               <Select value={editForm.role} onValueChange={(v) => setEditForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -255,6 +272,10 @@ export default function UsuariosPage() {
             <div className="space-y-1.5">
               <Label>Nova senha <span className="text-muted-foreground text-xs">(deixe em branco para não alterar)</span></Label>
               <Input type="password" value={editForm.password} onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))} placeholder="Nova senha..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Confirmar nova senha</Label>
+              <Input type="password" value={editForm.confirmPassword} onChange={(e) => setEditForm((f) => ({ ...f, confirmPassword: e.target.value }))} placeholder="Repita a nova senha..." />
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>

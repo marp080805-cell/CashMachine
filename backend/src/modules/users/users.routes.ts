@@ -67,6 +67,7 @@ export default async function usersRoutes(app: FastifyInstance) {
 
     const input = z.object({
       name: z.string().min(2).optional(),
+      email: z.string().email().optional(),
       avatarUrl: z.string().url().optional(),
       role: z.enum(['ADMIN', 'MANAGER', 'SDR', 'CLOSER', 'VIEWER']).optional(),
       isActive: z.boolean().optional(),
@@ -83,8 +84,14 @@ export default async function usersRoutes(app: FastifyInstance) {
 
     await prisma.user.findFirstOrThrow({ where: { id, tenantId } })
 
+    if (input.email) {
+      const conflict = await prisma.user.findFirst({ where: { email: input.email, tenantId, NOT: { id } } })
+      if (conflict) return reply.status(409).send({ error: 'E-mail já está em uso por outro usuário' })
+    }
+
     const updateData: Record<string, unknown> = {}
     if (input.name) updateData.name = input.name
+    if (input.email) updateData.email = input.email
     if (input.avatarUrl) updateData.avatarUrl = input.avatarUrl
     if (input.role) updateData.role = input.role
     if (input.isActive !== undefined) updateData.isActive = input.isActive
