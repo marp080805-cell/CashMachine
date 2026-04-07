@@ -133,6 +133,8 @@ export default async function whatsappRoutes(app: FastifyInstance) {
     } catch {
       // Instance may not exist on evolution API
     }
+    // Delete conversations (messages cascade via onDelete: Cascade)
+    await prisma.whatsappConversation.deleteMany({ where: { numberId: id } })
     await prisma.whatsappNumber.delete({ where: { id } })
     return reply.send({ success: true })
   })
