@@ -144,6 +144,16 @@ async function main() {
     console.log('[migration] whatsapp_conversations.ai columns ok')
   } catch (e) {
     console.warn('[migration] whatsapp_conversations.ai warning:', e.message)
+  }
+
+  // ── opportunities.contactId: tornar nullable para suportar exclusão de contato ──
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE opportunities ALTER COLUMN "contactId" DROP NOT NULL
+    `)
+    console.log('[migration] opportunities.contactId nullable ok')
+  } catch (e) {
+    console.warn('[migration] opportunities.contactId warning:', e.message)
   } finally {
     await prisma.$disconnect()
   }

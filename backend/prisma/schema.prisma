@@ -347,8 +347,8 @@ model Opportunity {
   id                 String            @id @default(uuid())
   tenantId           String
   tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contactId          String
-  contact            Contact           @relation(fields: [contactId], references: [id])
+  contactId          String?
+  contact            Contact?          @relation(fields: [contactId], references: [id])
   companyId          String?
   company            Company?          @relation(fields: [companyId], references: [id])
   pipelineId         String

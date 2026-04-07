@@ -213,6 +213,19 @@ export default async function contactsRoutes(app: FastifyInstance) {
     const { tenantId } = request.user as { tenantId: string }
 
     await prisma.contact.findFirstOrThrow({ where: { id, tenantId } })
+
+    // Nullify nullable foreign keys
+    await prisma.activity.updateMany({ where: { contactId: id }, data: { contactId: null } })
+    await prisma.task.updateMany({ where: { contactId: id }, data: { contactId: null } })
+    await prisma.whatsappConversation.updateMany({ where: { contactId: id }, data: { contactId: null } })
+    // opportunities.contactId is nullable (after migration) — SET NULL to keep opportunity data
+    await prisma.opportunity.updateMany({ where: { contactId: id }, data: { contactId: null } })
+
+    // Delete records that can't exist without a contact
+    await prisma.meeting.deleteMany({ where: { contactId: id } })
+    await prisma.conversation.deleteMany({ where: { contactId: id } })
+    await prisma.salesBotExecution.deleteMany({ where: { contactId: id } })
+
     await prisma.contact.delete({ where: { id } })
 
     return reply.send({ success: true })
