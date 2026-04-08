@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/hooks/useAuth'
 import { getInitials } from '@/lib/utils'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Notification } from '@/types'
 import { useRouter } from 'next/navigation'
@@ -27,11 +27,17 @@ interface NavbarProps {
 export function Navbar({ title, onMenuClick }: NavbarProps) {
   const { user, logout } = useAuth()
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get<{ notifications: Notification[]; unreadCount: number }>('/notifications?limit=5'),
     refetchInterval: 30000,
+  })
+
+  const readAllMutation = useMutation({
+    mutationFn: () => api.patch('/notifications/read-all', {}),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
   const unreadCount = notifData?.unreadCount ?? 0
@@ -53,7 +59,7 @@ export function Navbar({ title, onMenuClick }: NavbarProps) {
       <div className="flex items-center gap-1">
         <ThemeToggle />
 
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(open) => { if (open && unreadCount > 0) readAllMutation.mutate() }}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
