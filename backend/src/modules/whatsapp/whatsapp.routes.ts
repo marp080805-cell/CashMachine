@@ -226,6 +226,20 @@ export default async function whatsappRoutes(app: FastifyInstance) {
       data: { lastMessage: text, lastMessageAt: new Date() },
     })
 
+    // Sync outbound message to new Conversation model (so kanban card clears)
+    if (conversation.contactId) {
+      const newConv = await prisma.conversation.findFirst({
+        where: { contactId: conversation.contactId, channel: 'WHATSAPP', status: 'OPEN' },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (newConv) {
+        await prisma.message.create({
+          data: { conversationId: newConv.id, direction: 'OUTBOUND', content: text, sentBy: 'AGENT', status: 'SENT', externalId: remoteId },
+        })
+        await prisma.conversation.update({ where: { id: newConv.id }, data: { lastMessageAt: new Date() } })
+      }
+    }
+
     app.io.to(`conversation:${id}`).emit('message:new', { conversationId: id, message })
 
     return reply.status(201).send(message)

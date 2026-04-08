@@ -59,7 +59,7 @@ export function Navbar({ title, onMenuClick }: NavbarProps) {
       <div className="flex items-center gap-1">
         <ThemeToggle />
 
-        <DropdownMenu onOpenChange={(open) => { if (open && unreadCount > 0) readAllMutation.mutate() }}>
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
@@ -82,7 +82,14 @@ export function Navbar({ title, onMenuClick }: NavbarProps) {
               <DropdownMenuItem
                 key={n.id}
                 className={`flex-col items-start gap-1 ${!n.isRead ? 'bg-primary/5' : ''}`}
-                onClick={() => n.link && router.push(n.link)}
+                onClick={() => {
+                  if (!n.isRead) {
+                    void api.patch(`/notifications/${n.id}/read`, {}).then(() =>
+                      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                    )
+                  }
+                  if (n.link) router.push(n.link)
+                }}
               >
                 <span className="font-medium text-xs">{n.title}</span>
                 <span className="text-xs text-muted-foreground line-clamp-2">{n.body}</span>

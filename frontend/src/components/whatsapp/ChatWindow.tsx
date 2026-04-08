@@ -72,6 +72,8 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [storeMessages.get(conversationId)?.length])
 
+  const queryClient = useQueryClient()
+
   const sendMutation = useMutation({
     mutationFn: (msgText: string) =>
       api.post<WhatsappMessage>(`/whatsapp/conversations/${conversationId}/send`, { text: msgText }),
@@ -79,6 +81,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       const current = storeMessages.get(conversationId) ?? []
       setMessages(conversationId, [...current, msg])
       setText('')
+      void queryClient.invalidateQueries({ queryKey: ['pipeline'] })
     },
     onError: () => toast.error('Erro ao enviar mensagem'),
   })
