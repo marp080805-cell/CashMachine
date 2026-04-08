@@ -84,6 +84,19 @@ export default async function pipelinesRoutes(app: FastifyInstance) {
                   where: { removedAt: null },
                   include: { tag: { select: { id: true, name: true, color: true } } },
                 },
+                conversations: {
+                  where: { status: { not: 'CLOSED' } },
+                  orderBy: { lastMessageAt: 'desc' },
+                  take: 1,
+                  select: {
+                    id: true,
+                    messages: {
+                      orderBy: { createdAt: 'desc' },
+                      take: 1,
+                      select: { id: true, direction: true, content: true, createdAt: true },
+                    },
+                  },
+                },
               },
             },
           },
